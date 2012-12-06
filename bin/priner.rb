@@ -43,11 +43,15 @@ if __FILE__ == $0 #needs to be removed if this script is distributed as part of 
       raise Exception, "--max-distance-from-contig-ends has to be greater than 0, found #{arg}" unless options[:max_distance] > 0
     end    
     opts.on("--optimum-melting-temperature TEMPERATURE", "Primers aim for this melting temperature [required]") do |arg|
-      options[:optimum_melting_temperature] = arg.to_i
-      raise Exception, " has to be greater than 0, found #{arg}" unless options[:melting_temperature] > 0
+      options[:melting_temperature_optimum] = arg.to_i
+      raise Exception, " has to be greater than 0, found #{arg}" unless options[:melting_temperature_optimum] > 0
     end    
     opts.on("--contig-universe FASTA_FILE", "All contigs in the mixture [default: unspecified (don't test this)]") do |arg|
       options[:contig_universe] = arg
+    end
+    
+    opts.on("--persevere", "Don't automatically exit when a primer pair doesn't validate, though continue warning on ERROR log level [default: #{options[:persevere]}]") do
+      options[:persevere] = true
     end
 
     # logger options
@@ -204,7 +208,7 @@ if __FILE__ == $0 #needs to be removed if this script is distributed as part of 
           log.debug "Testing #{primer_to_test.inspect} against #{prev.inspect}"
           if Bio::Primer3.test_primer_compatibility(primer_to_test, prev, extra_primer3_options) == false
             log.debug "Incompatible, unfortunately"
-            log.error "This route through the code has never been tested, so you'll have to take a look at the code. Exiting."
+            log.error "This route through the code has never been tested, so you'll have to take a look at the code to ensure there is no bugs. Exiting."
             exit 1
             failed_against_prev = true
             break
@@ -230,6 +234,7 @@ if __FILE__ == $0 #needs to be removed if this script is distributed as part of 
   else
     
     # First just make sure that everything is ok here
+    log.info "Double checking to make sure there is no incompatibilities between primer pairs"
     num_compared = 0
     (0...primer_sets.length).to_a.combination(2) do |array|
       primer1 = primer_sets[array[0]][current_path[array[0]]]
@@ -239,7 +244,7 @@ if __FILE__ == $0 #needs to be removed if this script is distributed as part of 
       
       if result == false
         log.error "Programming error!! There was supposed to be an OK path, but that path wasn't OK in the validation (#{primer1} and #{primer2}) were the problem"
-        exit 1
+        exit 1 unless options[:persevere]
       end
     end
     log.info "Validated #{num_compared} different pairs of primers, they don't seem to conflict with each other at all, according to primer3's check primers thing"
@@ -247,7 +252,7 @@ if __FILE__ == $0 #needs to be removed if this script is distributed as part of 
     # Check using in-silico PCR that all is ok
     # First, running ipcress on the contigs not joined together shouldn't yield any products
     log.debug "in-silico PCR: making sure there are no spurious primer pairings within the contigs themselves"
-    ipcress_options = {:min_distance => 10, :max_distance => options[:max_distance]*2}
+    ipcress_options = {:min_distance => 1, :max_distance => 10000, :mismatches => 1}
     num_compared = 0
     (0...primer_sets.length).to_a.combination(2) do |array|
       primer1 = primer_sets[array[0]][current_path[array[0]]]
@@ -260,8 +265,11 @@ if __FILE__ == $0 #needs to be removed if this script is distributed as part of 
       log.debug result.inspect
       
       unless result.length == 0
-        log.error "Unanticipated products generated from primer pair #{primer_set}. Sorry, fail."
-        exit 1
+        set1 = primer3_results[array[0]]
+        set2 = primer3_results[array[1]]
+        
+        log.error "Unanticipated products generated from primer pair #{set1.contig_name}/#{set1.contig_side}/#{primer1} and #{set2.contig_name}/#{set2.contig_side}/#{primer2}. Sorry, fail."
+        exit 1 unless options[:persevere]
       end
     end
     log.info "Validated #{num_compared} different pairs of primers so that unanticipated products are not formed according to iPCRess, and there doesn't seem to be any of those. Yey."
@@ -314,8 +322,17 @@ if __FILE__ == $0 #needs to be removed if this script is distributed as part of 
         results = Bio::Ipcress.run primer_set, tempfile.path, ipcress_options
         num_compared += 1
         unless results.length == 1
-          log.error "Anticipated products not generated in the hypothetical scenario of #{primer1} and #{primer2}, from #{set1.contig_name} and #{set2.contig_name}, respectively"
-          exit 1
+          if results.length == 0
+            log.error "Anticipated products not generated in the hypothetical scenario of #{primer1} and #{primer2}, from #{set1.contig_name} and #{set2.contig_name}, respectively"
+            exit 1 unless options[:persevere]
+          else
+            log.error "Too many PCR products generated in the hypothetical scenario of #{primer1} and #{primer2}, from #{set1.contig_name} and #{set2.contig_name}, respectively"
+            log.error "Specifically, these PCR products were generated:"
+            results.each do |res|
+              log.error res.inspect
+            end
+            exit 1 unless options[:persevere]
+          end
         end
       end
       num_compared += 1
@@ -338,6 +355,7 @@ if __FILE__ == $0 #needs to be removed if this script is distributed as part of 
         
         if results.length > 0
           log.warn "Found #{results.length} matches between #{primer1} and #{primer2} in the contig universe, expected none."
+          exit 1 unless options[:persevere]
         end
         print '.' if log.info?
       end
