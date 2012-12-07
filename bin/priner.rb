@@ -17,7 +17,7 @@ if __FILE__ == $0 #needs to be removed if this script is distributed as part of 
   options = {
     :logger => 'stderr',
     :logger_trace_level => 'info',
-    :melting_temperature_optimum => 48,
+    :melting_temperature_optimum => nil,
     :melting_temperature_tolerance => 2,
     :min_primer_size => 15,
   }
@@ -42,10 +42,10 @@ if __FILE__ == $0 #needs to be removed if this script is distributed as part of 
       options[:max_distance] = arg.to_i
       raise Exception, "--max-distance-from-contig-ends has to be greater than 0, found #{arg}" unless options[:max_distance] > 0
     end    
-    opts.on("--optimum-melting-temperature TEMPERATURE", "Primers aim for this melting temperature [required]") do |arg|
+    opts.on("--optimum-melting-temperature TEMPERATURE", "Primers aim for this melting temperature [default: default in primer3 (currently 60C)]") do |arg|
       options[:melting_temperature_optimum] = arg.to_i
       raise Exception, " has to be greater than 0, found #{arg}" unless options[:melting_temperature_optimum] > 0
-    end    
+    end
     opts.on("--contig-universe FASTA_FILE", "All contigs in the mixture [default: unspecified (don't test this)]") do |arg|
       options[:contig_universe] = arg
     end
@@ -95,10 +95,14 @@ if __FILE__ == $0 #needs to be removed if this script is distributed as part of 
   
   extra_primer3_options = {
     'PRIMER_MIN_SIZE' => options[:min_primer_size],
-    'PRIMER_OPT_TM' => options[:melting_temperature_optimum],
-    'PRIMER_MIN_TM' => options[:melting_temperature_optimum]-options[:melting_temperature_tolerance],
-    'PRIMER_MAX_TM' => options[:melting_temperature_optimum]+options[:melting_temperature_tolerance],
   }
+  unless options[:melting_temperature_optimum].nil?
+    extra_primer3_options.merge!({
+      'PRIMER_OPT_TM' => options[:melting_temperature_optimum],
+      'PRIMER_MIN_TM' => options[:melting_temperature_optimum]-options[:melting_temperature_tolerance],
+      'PRIMER_MAX_TM' => options[:melting_temperature_optimum]+options[:melting_temperature_tolerance],
+    })
+  end
   
   # Predict a bunch of different primers for each end of each contig. Predict the start and end of each contig as the pair to pass to primer3
   primer3_results = []
