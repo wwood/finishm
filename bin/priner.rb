@@ -20,16 +20,21 @@ if __FILE__ == $0 #needs to be removed if this script is distributed as part of 
     :melting_temperature_optimum => nil,
     :melting_temperature_tolerance => 2,
     :min_primer_size => 15,
+    :extra_global_primer3_options => {
+      'PRIMER_MAX_POLY_X' => 4,
+    },
+    :persevere => false,
   }
   o = OptionParser.new do |opts|
     opts.banner = "
-      Usage: #{SCRIPT_NAME} -c <contigs_fasta_file> [options]
+      Usage: #{SCRIPT_NAME} [options]
       
       Takes a collection of contigs that are assumed to be a single circular genome.
       
       Design primers off the ends of them so that one big PCR might work.
       \n\n"
       
+    opts.separator "Required arguments:\n\n"
     opts.on("-c", "--contigs FASTA_FILE", "A fasta file of contigs to be worked with [required]") do |arg|
       options[:contigs_file] = arg
     end
@@ -41,7 +46,9 @@ if __FILE__ == $0 #needs to be removed if this script is distributed as part of 
     opts.on("--max-distance-from-contig-ends DISTANCE", "Primers must be at most this far from the ends of the contigs [required]") do |arg|
       options[:max_distance] = arg.to_i
       raise Exception, "--max-distance-from-contig-ends has to be greater than 0, found #{arg}" unless options[:max_distance] > 0
-    end    
+    end
+    
+    opts.separator "\nOptional arguments:\n\n"
     opts.on("--optimum-melting-temperature TEMPERATURE", "Primers aim for this melting temperature [default: default in primer3 (currently 60C)]") do |arg|
       options[:melting_temperature_optimum] = arg.to_i
       raise Exception, " has to be greater than 0, found #{arg}" unless options[:melting_temperature_optimum] > 0
@@ -52,6 +59,17 @@ if __FILE__ == $0 #needs to be removed if this script is distributed as part of 
     
     opts.on("--persevere", "Don't automatically exit when a primer pair doesn't validate, though continue warning on ERROR log level [default: #{options[:persevere]}]") do
       options[:persevere] = true
+    end
+    
+    opts.on("--primer3-options OPTION_LIST", "Give extra instructions to Primer3 [default <none>]. Acceptable values can be found in the primer3 manual e.g. 'PRIMER_MAX_POLY_X=4;PRIMER_MAX_SIZE=22' will specify those 2 parameters to primer3. Argument names are auto-capitalised so 'primer_max_poly_X=4;primer_max_size=22'is equivalent.") do |arg|
+      options[:extra_global_primer3_options] = {}
+      arg.split(';').each do |a2|
+        splits = a2.split('=')
+        unless splits.length == 2
+          raise "Unexpected format of the --primer3-options flag, specifically couldn't parse this part: '#{a2}'"
+        end
+        options[:extra_global_primer3_options][splits[0].upcase]=splits[1]
+      end
     end
 
     # logger options
@@ -93,15 +111,25 @@ if __FILE__ == $0 #needs to be removed if this script is distributed as part of 
     attr_accessor :contig_side, :primers, :contig_name
   end
   
-  extra_primer3_options = {
-    'PRIMER_MIN_SIZE' => options[:min_primer_size],
-  }
+  extra_primer3_options = {}
+  unless options[:min_primer_size].nil?
+    extra_primer3_options.merge!({
+     'PRIMER_MIN_SIZE' => options[:min_primer_size],
+    })
+  end
   unless options[:melting_temperature_optimum].nil?
     extra_primer3_options.merge!({
       'PRIMER_OPT_TM' => options[:melting_temperature_optimum],
       'PRIMER_MIN_TM' => options[:melting_temperature_optimum]-options[:melting_temperature_tolerance],
       'PRIMER_MAX_TM' => options[:melting_temperature_optimum]+options[:melting_temperature_tolerance],
     })
+  end
+  unless options[:extra_global_primer3_options].nil?
+    extra_primer3_options.merge! options[:extra_global_primer3_options]
+  end
+  if log.debug?
+    # Get "debug-mode" from primer3 as well.
+    extra_primer3_options.merge! 'PRIMER_EXPLAIN_FLAG' => '1'
   end
   
   # Predict a bunch of different primers for each end of each contig. Predict the start and end of each contig as the pair to pass to primer3
