@@ -284,7 +284,7 @@ if __FILE__ == $0 #needs to be removed if this script is distributed as part of 
     # Check using in-silico PCR that all is ok
     # First, running ipcress on the contigs not joined together shouldn't yield any products
     log.debug "in-silico PCR: making sure there are no spurious primer pairings within the contigs themselves"
-    ipcress_options = {:min_distance => 1, :max_distance => 10000, :mismatches => 1}
+    ipcress_options = {:min_distance => 1, :max_distance => 10000, :mismatches => 0}
     num_compared = 0
     (0...primer_sets.length).to_a.combination(2) do |array|
       primer1 = primer_sets[array[0]][current_path[array[0]]]
