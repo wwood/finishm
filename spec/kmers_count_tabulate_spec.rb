@@ -51,4 +51,70 @@ describe script_under_test do
       end
     end
   end
+
+
+  it 'should two file test as percentage' do
+    Tempfile.open('spec') do |temp1|
+      temp1.puts 'AAA 1'
+      temp1.puts 'AAT 3'
+      temp1.close
+
+      Tempfile.open('spec') do |temp2|
+        temp2.puts 'AAA 1'
+        temp2.puts 'ATA 4'
+        temp2.close
+
+        status, stdout, stderr = systemu "#{path_to_script} --percentage --trace error #{temp1.path} #{temp2.path}"
+        stderr.should eq("")
+        status.exitstatus.should eq(0)
+        stdout.should eq(["\t#{File.basename temp1.path}\t#{File.basename temp2.path}",
+        "AAA\t0.25\t0.2",
+        "AAT\t0.75\t0",
+        "ATA\t0\t0.8"].join("\n")+"\n")
+      end
+    end
+  end
+
+  it 'should cutoff kmers with overly low abundances' do
+    Tempfile.open('spec') do |temp1|
+      temp1.puts 'AAA 1'
+      temp1.puts 'AAT 2'
+      temp1.close
+
+      Tempfile.open('spec') do |temp2|
+        temp2.puts 'AAT 1'
+        temp2.puts 'ATA 3'
+        temp2.close
+
+        status, stdout, stderr = systemu "#{path_to_script} --trace error --min-count 2 #{temp1.path} #{temp2.path}"
+        raise stderr unless stderr.nil? or stderr==''
+        status.exitstatus.should eq(0)
+        stdout.should eq(["\t#{File.basename temp1.path}\t#{File.basename temp2.path}",
+        "AAT\t2\t1",
+        "ATA\t0\t3"].join("\n")+"\n")
+      end
+    end
+  end
+
+  it 'should two file test as percentage with min count' do
+    Tempfile.open('spec') do |temp1|
+      temp1.puts 'AAA 1'
+      temp1.puts 'AAT 3'
+      temp1.close
+
+      Tempfile.open('spec') do |temp2|
+        temp2.puts 'AAT 1'
+        temp2.puts 'ATA 4'
+        temp2.close
+
+        status, stdout, stderr = systemu "#{path_to_script} --percentage --min-count 2 --trace error #{temp1.path} #{temp2.path}"
+        stderr.should eq("")
+        status.exitstatus.should eq(0)
+        stdout.should eq(["\t#{File.basename temp1.path}\t#{File.basename temp2.path}",
+        "AAT\t0.75\t0.2",
+        "ATA\t0\t0.8"].join("\n")+"\n")
+      end
+    end
+  end
 end
+
