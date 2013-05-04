@@ -2,7 +2,7 @@
 
 require 'optparse'
 require 'bio-logger'
-reqiure 'csv'
+require 'csv'
 
 SCRIPT_NAME = File.basename(__FILE__); LOG_NAME = SCRIPT_NAME.gsub('.rb','')
 
@@ -17,10 +17,10 @@ o = OptionParser.new do |opts|
 
     Takes a list of PCR primers that were put in several lanes (not all primers in all lanes), and a list of bands that were found, and decipher which bands are the result of which primer pairs, as best as possible\n\n"
 
-  opts.on("--bands-file", "tsv file, with the band names as the first column, and the lane numbers that they appear in as the second column (comma separated) [required]") do |arg|
+  opts.on("--bands-file FILE", "tsv file, with the band names as the first column, and the lane numbers that they appear in as the second column (comma separated) [required]") do |arg|
     options[:bands_file] = arg
   end
-  opts.on("--primers-file", "tsv file, with the lane names as the first column, and the set of primers numbers that are in each lane as the second column (comma separated) [required]") do |arg|
+  opts.on("--primers-file FILE", "tsv file, with the lane names as the first column, and the set of primers numbers that are in each lane as the second column (comma separated) [required]") do |arg|
     options[:primers_file] = arg
   end
 
@@ -49,6 +49,7 @@ CSV.foreach(options[:bands_file], :col_sep => "\t") do |row|
   lanes_of_this_band = row[1].split(/[,\s]/).collect{|c| c.strip}
   bands_to_lanes[band_name] = lanes_of_this_band
 end
+log.info "Parsed in #{bands_to_lanes.length} bands, found #{bands_to_lanes.collect{|k,v| v.length}.join(',')} lanes each, respectively"
 
 # Read in the primer sets
 lanes_to_primers = {}
@@ -61,33 +62,40 @@ CSV.foreach(options[:primers_file], :col_sep => "\t") do |row|
   primers_of_this_band = row[1].split(/[,\s]/).collect{|c| c.strip}
   lanes_to_primers[lane_name] = primers_of_this_band
 end
+log.info "Parsed in #{lanes_to_primers.length} lanes, with #{lanes_to_primers.collect{|k,v| v.length}.join(',')} primers each, respectively"
 
 
 # Go through each pairing of primers. Which primer sets explain each band?
-all_primers = lanes_to_primers.keys.flatten.sort
+all_primers = lanes_to_primers.values.flatten.sort.uniq
 lanes = lanes_to_primers.keys
 bands = bands_to_lanes.keys
 
 bands_to_explaining_primer_pairs = {}
 
 bands.each do |band|
-  all_primers.combination(2).each do |array|
+  log.debug "Going after band #{band}"
+  all_primers.combination(2) do |array|
+
     primer1 = array.sort[0]
     primer2 = array.sort[1]
+    log.debug "Testing primers #{primer1}/#{primer2} agreement with band #{band}"
 
-    band_agreeswith_this_primer_pair = true
+    band_agrees_with_this_primer_pair = true
     lanes.each do |lane|
       band_is_in_this_lane = bands_to_lanes[band].include?(lane)
       primers_here = lanes_to_primers[lane]
-      if band and (!primers_here.include?(primer1) or !primers_here.include?(primer2))
-        band_agreeswith_this_primer_pair = false
+      if band_is_in_this_lane and (!primers_here.include?(primer1) or !primers_here.include?(primer2))
+        log.debug "primer pair #{primer1}/#{primer2} fails for band #{band} because band was present but at least one primer wasn't, in lane #{lane}"
+        band_agrees_with_this_primer_pair = false
       end
-      if !band and (primers_here.include?(primer1) and primers_here.include?(primer2))
-        band_agreeswith_this_primer_pair = false
+      if !band_is_in_this_lane and (primers_here.include?(primer1) and primers_here.include?(primer2))
+        log.debug "primer pair #{primer1}/#{primer2} fails for band #{band} because band was not present but both primers were, in lane #{lane}"
+        band_agrees_with_this_primer_pair = false
       end
     end
 
-    if band_agreeswith_this_primer_pair
+    if band_agrees_with_this_primer_pair
+      log.debug "Found a suitable pair of primers for band #{band}: #{primer1}/#{primer2}"
       bands_to_explaining_primer_pairs[band] ||= []
       bands_to_explaining_primer_pairs[band].push array
     end
@@ -95,6 +103,6 @@ bands.each do |band|
 
   puts [
     band,
-    bands_to_explaining_primer_pairs[band].collect{|a| "(#{a.join(',')})"}
+    bands_to_explaining_primer_pairs[band].nil? ? 'none' : bands_to_explaining_primer_pairs[band].collect{|a| "(#{a.join(',')})"}.join(', ')
   ].join("\t")
 end
