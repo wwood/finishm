@@ -21,22 +21,26 @@ void main(string[] args){
   int[] totalCounts = new int[filenames.length];
   int kmerLength = 0;
 
-  {
   foreach(i, file; filenames){
     int count = 0;
     auto f = File(file);
-    foreach(line; f.byLine()){
+    char[] line;
+    while (f.readln(line)){
+    //foreach(line; f.byLine()){
       if (kmerLength==0){
-        kmerLength = indexOf(line, " ");
-        //stderr.writeln("Detected kmer length of ",kmerLength);
+        kmerLength = 101;//to!int(indexOf(line, " "));
+        stderr.writeln("Detected kmer length of ",kmerLength);
       }
-      int thisCount = to!int(line[kmerLength+1 .. $]);
+      int thisCount = to!int(line[kmerLength+1 .. $-1]);
+      //int thisCount = to!int(line[kmerLength+1 .. $]);
       count += thisCount;
+      //if (count > 4000002){break;}
     }
     totalCounts[i] = count;
   }
-  }
+  stderr.writeln("Finished ccounting total kmers, totals were: ",totalCounts);
 
+  if(false){
   bool allFinished = false;
   bool[] finished = new bool[filenames.length];
   foreach (f; finished){f=false;}
@@ -47,13 +51,15 @@ void main(string[] args){
   }
 
   struct KmerCount {
-    string kmer;
+    char[101] kmer;
     int count;
   }
   KmerCount[] currentRows = new KmerCount[files.length];
+  char[] lineBuffer;
   foreach (i; 0..currentRows.length){
-    auto line = chomp(files[i].readln);
-    currentRows[i].kmer = line[0..kmerLength];
+    //read in the line to teh buffer, so memory is not reallocated
+    files[i].readln(lineBuffer);
+    currentRows[i].kmer = chomp(files[i].readln(currentRows[i].kmer))[0..kmerLength];
     currentRows[i].count = to!int(line[kmerLength+1..$]);
   }
 
@@ -65,7 +71,10 @@ void main(string[] args){
   writeln();
 
   string[] toPrint = new string[filenames.length+1];
+  int kmersCounted = 0;
   while (!allFinished){
+    kmersCounted += 1;
+    if (kmersCounted % (1024*1024) == 0){stderr.writeln("Processed ",kmersCounted," kmers.");}
     //Find the lowest kmer
     string lowestKmer = null;
     foreach (kc; currentRows){
@@ -111,4 +120,4 @@ void main(string[] args){
       writeln(join(toPrint, "\t"));
     }
   }
-}
+}}
