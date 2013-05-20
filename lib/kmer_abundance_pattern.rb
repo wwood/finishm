@@ -19,7 +19,7 @@ class KmerAbundancePattern < Array
 
   # Parse a 100001011 type representation
   def parse_from_human(boolean_pattern)
-    boolean_pattern.each do |char|
+    boolean_pattern.each_char do |char|
       if char == '1'
         push true
       elsif char == '0'
@@ -31,7 +31,9 @@ class KmerAbundancePattern < Array
   end
 
   def consistent_with(another_pattern)
-    raise unless length == another_pattern.length
+    unless length == another_pattern.length
+      raise "Unexpected comparison of this pattern #{inspect} with another: #{another_pattern.inspect}"
+    end
     each_with_index do |bool, i|
       return false if bool != another_pattern[i]
     end
