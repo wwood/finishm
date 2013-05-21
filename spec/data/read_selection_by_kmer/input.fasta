@@ -1,4 +1,6 @@
 >whitelist_me
-ATGC
+ATGCCCC
 >blacklist_me
 ATGCATGG
+>ignore_me
+AAAAAAAA
