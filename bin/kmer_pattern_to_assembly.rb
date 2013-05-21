@@ -81,6 +81,7 @@ end
 csv = CSV.new(input_file, :col_sep => ' ')
 
 whitelist_kmers = []
+blacklist_kmers = []
 csv.each do |row|
   max_i = row.length - 2 if max_i.nil?
 
@@ -103,11 +104,14 @@ csv.each do |row|
   next unless this_pattern.length == desired_pattern.length
 
   # Reached here means this kmer never fell in no man's land
-  if desired_pattern.consistent_with this_pattern
+  if desired_pattern.same_as? this_pattern
     whitelist_kmers.push row[0]
+  elsif !(desired_patter.consistent_with? this_pattern)
+    # kmer is not present when it should be
+    blacklist_kmers.push row[0]
   end
 end
-log.info "After parsing the kmer multiple abundance file, found #{whitelist_kmers.length} kmers that matched the pattern"
+log.info "After parsing the kmer multiple abundance file, found #{whitelist_kmers.length} kmers that matched the pattern, and #{blacklist_kmers.length} that didn't"
 unless whitelist_kmers.length > 0
   log.error "No kmers found that satisfy the given pattern, exiting.."
   exit 1
@@ -118,50 +122,49 @@ end
 #Dir.mkdir outdir unless Dir.exist?(outdir)
 
 # grep the pattern out from the raw reads, subsampling so as to not overwhelm the assembler
-Tempfile.open('grep_f_input') do |tempfile|
-  tempfile.puts whitelist_kmers.join("\n")
-  tempfile.close
+Tempfile.open('whitelist') do |white|
+  white.puts whitelist_kmers.join("\n")
+  white.close
 
-  threadpool = []
-  sampled_read_files = []
-  options[:reads_files].each_with_index do |file, i|
-    next unless desired_pattern[i] #Don't extract reads from reads where those reads should not have been amplified
+  Tempfile.open('blacklist') do |black|
+    black.puts blacklist_kmers.join("\n")
+    black.close
 
-    sampled = File.basename(file)+'.sampled_reads.fasta'
-    sampled_read_files.push sampled
 
-    thr = Thread.new do
-      grep_cmd = "zcat #{file} | fgrep -f #{tempfile.path} -A2 -B1 | grep -v ^--$ | fastq_sample -n #{options[:samples_per_lane]} - | awk '{print \">\" substr($0,2);getline;print;getline;getline}' > #{sampled}"
-      log.debug "Running cmd: #{grep_cmd}"
-      status, stdout, stderr = systemu grep_cmd
-      raise stderr if stderr != ''
-      raise unless status.exitstatus == 0
-      log.debug "Finished extracting reads from #{file}"
+    threadpool = []
+    sampled_read_files = []
+    options[:reads_files].each_with_index do |file, i|
+      next unless desired_pattern[i] #Don't extract reads from reads where those reads should not have been amplified
+
+      sampled = File.basename(file)+'.sampled_reads.fasta'
+      sampled_read_files.push sampled
+
+      thr = Thread.new do
+        grep_cmd = "./read_selection_by_kmer | fq2fa fgrep -f #{tempfile.path} -A2 -B1 | grep -v ^--$ | fastq_sample -n #{options[:samples_per_lane]} - | awk '{print \">\" substr($0,2);getline;print;getline;getline}' > #{sampled}"
+        log.debug "Running cmd: #{grep_cmd}"
+        status, stdout, stderr = systemu grep_cmd
+        raise stderr if stderr != ''
+        raise unless status.exitstatus == 0
+        log.debug "Finished extracting reads from #{file}"
+      end
+      threadpool.push thr
     end
-    threadpool.push thr
+    threadpool.each do |thread| thread.join; end #wait until everything is finito
+
+    log.info "Finished extracting reads for sampling. Now pooling sampled reads"
+    pooled_reads_filename = 'pooled_sampled_reads.fasta'
+    pool_cmd = "cat #{sampled_read_files.join ' '} >#{pooled_reads_filename}"
+    log.debug "Running cmd: #{pool_cmd}"
+    status, stdout, stderr = systemu pool_cmd
+    raise stderr if stderr != ''
+    raise unless status.exitstatus == 0
+
+    log.info "Assembling sampled reads"
+    cap3_cmd = "cap3 #{pooled_reads_filename}"
+    log.debug "Running cmd: #{cap3_cmd}"
+    status, stdout, stderr = systemu cap3_cmd
+    raise stderr if stderr != ''
+    raise unless status.exitstatus == 0
+    log.debug "Finished assembly"
   end
-  threadpool.each do |thread| thread.join; end #wait until everything is finito
-
-
-  #Dir.chdir outdir do
-  log.info "Finished extracting reads for sampling. Now pooling sampled reads"
-  pooled_reads_filename = 'pooled_sampled_reads.fasta'
-  pool_cmd = "cat #{sampled_read_files.join ' '} >#{pooled_reads_filename}"
-  log.debug "Running cmd: #{pool_cmd}"
-  status, stdout, stderr = systemu pool_cmd
-  raise stderr if stderr != ''
-  raise unless status.exitstatus == 0
-
-  log.info "Assembling sampled reads"
-  cap3_cmd = "cap3 #{pooled_reads_filename}"
-  log.debug "Running cmd: #{cap3_cmd}"
-  status, stdout, stderr = systemu cap3_cmd
-  raise stderr if stderr != ''
-  raise unless status.exitstatus == 0
-  log.debug "Finished assembly"
-  #end
-
-
-  # Clean up
-  #sampled_read_files.each do |s| s.close; end
 end
