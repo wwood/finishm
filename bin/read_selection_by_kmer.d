@@ -110,8 +110,8 @@ void main(string[] args){
     }
 
     //output the number of kmers that were sufficiently covered
-    int num_counted = count!("a >= b")(whitelistCounts, targetPerKmer);
-    int num_not_counted = whitelistCounts.length - num_counted;
+    ulong num_counted = count!("a >= b")(whitelistCounts, targetPerKmer);
+    ulong num_not_counted = whitelistCounts.length - num_counted;
     if(!quiet)
       stderr.writeln("Found ",num_counted," from the whitelist as expected and ",num_not_counted," not enough times");
   }
