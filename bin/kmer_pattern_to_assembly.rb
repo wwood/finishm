@@ -106,7 +106,7 @@ csv.each do |row|
   # Reached here means this kmer never fell in no man's land
   if desired_pattern.same_as? this_pattern
     whitelist_kmers.push row[0]
-  elsif !(desired_patter.consistent_with? this_pattern)
+  elsif !(desired_pattern.consistent_with? this_pattern)
     # kmer is not present when it should be
     blacklist_kmers.push row[0]
   end
@@ -139,8 +139,9 @@ Tempfile.open('whitelist') do |white|
       sampled = File.basename(file)+'.sampled_reads.fasta'
       sampled_read_files.push sampled
 
+      grep_path = "#{ENV['HOME']}/git/priner/bin/read_selection_by_kmer "
       thr = Thread.new do
-        grep_cmd = "./read_selection_by_kmer | fq2fa fgrep -f #{tempfile.path} -A2 -B1 | grep -v ^--$ | fastq_sample -n #{options[:samples_per_lane]} - | awk '{print \">\" substr($0,2);getline;print;getline;getline}' > #{sampled}"
+        grep_cmd = "#{grep_path} --quiet --whitelist #{white.path} --blacklist #{black.path} --reads #{file} > #{sampled}"
         log.debug "Running cmd: #{grep_cmd}"
         status, stdout, stderr = systemu grep_cmd
         raise stderr if stderr != ''

@@ -60,24 +60,6 @@ void main(string[] args){
     string fwd = seq.sequence;
     string rev = to!string(nucleotideSequence(fwd, true));
 
-    //I'm sure there is a faster way to search for an array of strings within a particular string, but eh for now.
-    bool blacklisted = false;
-    foreach(black; blacklist){
-      if (std.string.indexOf(fwd, black) != -1 || std.string.indexOf(rev, black) != -1){
-        //blacklisted kmer found
-        blacklisted = true;
-        break;
-      }
-    }
-    if(blacklisted){
-      if(verbose)
-        stderr.writeln(fwd," contains a blacklisted kmer, not including this one");
-      continue;
-    } else {
-      if(verbose)
-        stderr.writeln(fwd," not blacklisted");
-    }
-
     //How many of each whitelist kmers are found (including in the reverse complement)?
     bool whitelisted = false;
     foreach(i, white; whitelist){
@@ -100,11 +82,29 @@ void main(string[] args){
         }
       }
     }
-    //print this sequence if it passes the whitelist test
-    if (whitelisted){
-      writeln(">", seq.header);
-      writeln(fwd);
+    if(!whitelisted) break;
+
+    //I'm sure there is a faster way to search for an array of strings within a particular string, but eh for now.
+    bool blacklisted = false;
+    foreach(black; blacklist){
+      if (std.string.indexOf(fwd, black) != -1 || std.string.indexOf(rev, black) != -1){
+        //blacklisted kmer found
+        blacklisted = true;
+        break;
+      }
     }
+    if(blacklisted){
+      if(verbose)
+        stderr.writeln(fwd," contains a blacklisted kmer, not including this one");
+      continue;
+    } else {
+      if(verbose)
+        stderr.writeln(fwd," not blacklisted");
+    }
+
+    //print this sequence, as it is whitelisted and not blacklisted
+    writeln(">", seq.header);
+    writeln(fwd);
 
     if(all_accounted_for) break;
   }

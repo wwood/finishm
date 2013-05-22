@@ -46,5 +46,11 @@ describe 'kmer_abundance_pattern' do
 
     exp.parse_from_human '110'
     pat.consistent_with?(exp).should eq(false)
+
+    exp.parse_from_human '11-'
+    pat.consistent_with?(exp).should eq(true)
+
+    exp.parse_from_human '1-0'
+    pat.consistent_with?(exp).should eq(false)
   end
 end

@@ -25,6 +25,8 @@ class KmerAbundancePattern < Array
         push true
       elsif char == '0'
         push false
+      elsif char == '-'
+        push nil
       else
         raise "Unexpected pattern character: #{char}"
       end
@@ -50,13 +52,15 @@ class KmerAbundancePattern < Array
   #
   # e.g. 101 is consisten with 101 and 111, but not 011
   #
-  # Behaviour not defined when in no-mans land
+  # Behaviour not defined when the first (this) pattern
+  # includes no-man's land components
   def consistent_with?(another_pattern)
     unless length == another_pattern.length
       raise "Unexpected comparison of this pattern #{inspect} with another: #{another_pattern.inspect}"
     end
     each_with_index do |bool, i|
-      return false if bool and !another_pattern[i]
+      raise unless [true, false].include?(bool)
+      return false if bool and another_pattern[i] == false
     end
     return true
   end
