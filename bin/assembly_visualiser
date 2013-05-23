@@ -1,0 +1,78 @@
+#!/usr/bin/env ruby
+
+require 'optparse'
+require 'bio-logger'
+require 'bio-velvet'
+require 'graphviz'
+
+SCRIPT_NAME = File.basename(__FILE__); LOG_NAME = SCRIPT_NAME.gsub('.rb','')
+
+# Parse command line options into the options hash
+options = {
+  :logger => 'stderr',
+  :log_level => 'info',
+}
+o = OptionParser.new do |opts|
+  opts.banner = "
+    Usage: #{SCRIPT_NAME} --velvet-pregraph PreGraphFile [options]
+
+    Take a graph pre-computed with velveth, and output a GraphViz file for visualisation.
+
+    Overlayed on top of this graph can be added information e.g. nodes that contain
+    particular kmers get coloured.
+    \n\n"
+
+  opts.on("--velvet-pregraph GRAPH_FILE", "PreGraph file output from velveth [required]") do |arg|
+    options[:velvet_pregraph_file] = arg
+  end
+  opts.on("--png OUTPUT_PNG_FILENAME", "Output the graph into PNG format [default: not output as PNG]") do |arg|
+    options[:neato_png] = arg
+  end
+
+  # logger options
+  opts.separator "\nVerbosity:\n\n"
+  opts.on("-q", "--quiet", "Run quietly, set logging to ERROR level [default INFO]") {options[:log_level] = 'error'}
+  opts.on("--logger filename",String,"Log to file [default #{options[:logger]}]") { |name| options[:logger] = name}
+  opts.on("--trace options",String,"Set log level [default INFO]. e.g. '--trace debug' to set logging level to DEBUG"){|s| options[:log_level] = s}
+end; o.parse!
+if ARGV.length != 0 or options[:velvet_pregraph_file].nil?
+  $stderr.puts o
+  exit 1
+end
+# Setup logging
+Bio::Log::CLI.logger(options[:logger]); Bio::Log::CLI.trace(options[:log_level]); log = Bio::Log::LoggerPlus.new(LOG_NAME); Bio::Log::CLI.configure(LOG_NAME)
+
+
+log.info "Parsing graph from #{options[:velvet_pregraph_file]}"
+graph = Bio::Velvet::Graph.parse_from_file(options[:velvet_pregraph_file])
+log.info "Finished parsing graph, found #{graph.number_of_nodes} nodes"
+
+graphviz = GraphViz.new(:G, :type => :digraph)
+
+# Add all the nodes
+log.info "Converting nodes to GraphViz format"
+graph.nodes.each do |node|
+  graphviz.add_nodes node.node_id.to_s, :label => "#{node.node_id}_length#{node.ends_of_kmers_of_node.length}_coverage#{node.coverages[1]}"
+end
+
+# Add all the edges
+log.info "Converting edges to GraphViz format"
+graph.arcs.each do |arc|
+  if (arc.directions_opposing?)
+    graphviz.add_edges arc.end_node_id.to_s, arc.begin_node_id.to_s
+  else
+    graphviz.add_edges arc.begin_node_id.to_s, arc.end_node_id.to_s
+  end
+  #graphviz.add_edges(start_name, stop_name, :style => "setlinewidth(4)", :label => contig, :color => color)
+end
+
+# Print
+log.info "Printing assembly graph"
+graphviz.output :dot => nil
+if options[:neato_png]
+  graphviz.output :png => options[:neato_png]
+end
+
+
+
+
