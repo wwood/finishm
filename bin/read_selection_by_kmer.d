@@ -50,6 +50,9 @@ void main(string[] args){
     int[] whitelistCounts;
     whitelistCounts.length = whitelist.length;
 
+    int num_reads_whitelisted = 0;
+    int num_reads_blacklisted = 0;
+
     //Iterate through the fastq reads given.
     auto fastas = fastaRecords(fastaFile);
     bool all_accounted_for = false;
@@ -63,7 +66,7 @@ void main(string[] args){
       //How many of each whitelist kmers are found (including in the reverse complement)?
       bool whitelisted = false;
       foreach(i, white; whitelist){
-        //don't look for whitelisted kmers
+        //don't look for whitelisted kmers unless more of these kmers are needed.
         if (whitelistCounts[i] < targetPerKmer){
           if (std.string.indexOf(fwd, white) != -1 || std.string.indexOf(rev, white) != -1){
             if(verbose)
@@ -72,7 +75,7 @@ void main(string[] args){
             whitelistCounts[i] += 1;
 
             //check that all whitelist counts have not been overflowed.
-            if(!quiet)
+            if(verbose)
               stderr.writeln("kmer index ",i," now accounted for");
             if(minCount(whitelistCounts)[0] >= targetPerKmer){
               if(verbose)
@@ -82,7 +85,7 @@ void main(string[] args){
           }
         }
       }
-      if(!whitelisted) break;
+      if(!whitelisted) continue;
 
       //I'm sure there is a faster way to search for an array of strings within a particular string, but eh for now.
       bool blacklisted = false;
@@ -94,6 +97,7 @@ void main(string[] args){
         }
       }
       if(blacklisted){
+        num_reads_blacklisted += 1;
         if(verbose)
           stderr.writeln(fwd," contains a blacklisted kmer, not including this one");
         continue;
@@ -103,6 +107,7 @@ void main(string[] args){
       }
 
       //print this sequence, as it is whitelisted and not blacklisted
+      num_reads_whitelisted += 1;
       writeln(">", seq.header);
       writeln(fwd);
 
@@ -110,9 +115,12 @@ void main(string[] args){
     }
 
     //output the number of kmers that were sufficiently covered
+
     ulong num_counted = count!("a >= b")(whitelistCounts, targetPerKmer);
     ulong num_not_counted = whitelistCounts.length - num_counted;
-    if(!quiet)
+    if(!quiet){
       stderr.writeln("Found ",num_counted," from the whitelist as expected and ",num_not_counted," not enough times");
+      stderr.writeln("There were ",num_reads_whitelisted," reads output, and ",num_reads_blacklisted," reads blacklisted");
+    }
   }
 }

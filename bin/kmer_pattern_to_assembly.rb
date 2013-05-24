@@ -104,9 +104,9 @@ csv.each do |row|
   next unless this_pattern.length == desired_pattern.length
 
   # Reached here means this kmer never fell in no man's land
-  if desired_pattern.same_as? this_pattern
+  if desired_pattern.consistent_with? this_pattern
     whitelist_kmers.push row[0]
-  elsif !(desired_pattern.consistent_with? this_pattern)
+  else
     # kmer is not present when it should be
     blacklist_kmers.push row[0]
   end
@@ -122,11 +122,13 @@ end
 #Dir.mkdir outdir unless Dir.exist?(outdir)
 
 # grep the pattern out from the raw reads, subsampling so as to not overwhelm the assembler
-Tempfile.open('whitelist') do |white|
+#Tempfile.open('whitelist') do |white|
+white = File.open 'whitelist', 'w'
   white.puts whitelist_kmers.join("\n")
   white.close
 
-  Tempfile.open('blacklist') do |black|
+  #Tempfile.open('blacklist') do |black|
+  black = File.open('black','w')
     black.puts blacklist_kmers.join("\n")
     black.close
 
@@ -141,10 +143,11 @@ Tempfile.open('whitelist') do |white|
 
       grep_path = "#{ENV['HOME']}/git/priner/bin/read_selection_by_kmer "
       thr = Thread.new do
-        grep_cmd = "#{grep_path} --quiet --whitelist #{white.path} --blacklist #{black.path} --reads #{file} > #{sampled}"
+        grep_cmd = "#{grep_path} --whitelist #{white.path} --blacklist #{black.path} --reads #{file} --kmer-coverage-target 1 > #{sampled}"
         log.debug "Running cmd: #{grep_cmd}"
         status, stdout, stderr = systemu grep_cmd
-        raise stderr if stderr != ''
+        log.debug stderr
+
         raise unless status.exitstatus == 0
         log.debug "Finished extracting reads from #{file}"
       end
@@ -167,5 +170,5 @@ Tempfile.open('whitelist') do |white|
     raise stderr if stderr != ''
     raise unless status.exitstatus == 0
     log.debug "Finished assembly"
-  end
-end
+  #end
+#end
