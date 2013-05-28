@@ -44,7 +44,7 @@ o = OptionParser.new do |opts|
 #    options[:output_directory] = arg
 #  end
   opts.separator "\nOptional arguments:\n\n"
-  opts.on("--samples-per-read NUMBER", "number of reads sampled from each lane to be assembled file [default: #{options[:samples_per_lane]}]") do |arg|
+  opts.on("--samples-per-lane NUMBER", "number of reads sampled from each lane to be assembled file [default: #{options[:samples_per_lane]}]") do |arg|
     options[:samples_per_lane] = arg.to_i
   end
 

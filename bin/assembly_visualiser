@@ -4,6 +4,7 @@ require 'optparse'
 require 'bio-logger'
 require 'bio-velvet'
 require 'graphviz'
+require 'bio'
 
 SCRIPT_NAME = File.basename(__FILE__); LOG_NAME = SCRIPT_NAME.gsub('.rb','')
 
@@ -11,6 +12,8 @@ SCRIPT_NAME = File.basename(__FILE__); LOG_NAME = SCRIPT_NAME.gsub('.rb','')
 options = {
   :logger => 'stderr',
   :log_level => 'info',
+  :start_kmers => [],
+  :end_kmers => [],
 }
 o = OptionParser.new do |opts|
   opts.banner = "
@@ -27,6 +30,12 @@ o = OptionParser.new do |opts|
   end
   opts.on("--png OUTPUT_PNG_FILENAME", "Output the graph into PNG format [default: not output as PNG]") do |arg|
     options[:neato_png] = arg
+  end
+  opts.on("--start-kmers-file FILE", "Path to file containing newline-separated kmers that are associated with the start of the assembly [default: none]") do |arg|
+    options[:start_kmers] = File.open(arg).read.split(/\s+/)
+  end
+  opts.on("--end-kmers-file FILE", "Path to file containing newline-separated kmers that are associated with the end of the assembly [default: none]") do |arg|
+    options[:end_kmers] = File.open(arg).read.split(/\s+/)
   end
 
   # logger options
@@ -49,20 +58,48 @@ log.info "Finished parsing graph, found #{graph.number_of_nodes} nodes"
 
 graphviz = GraphViz.new(:G, :type => :digraph)
 
+if options[:start_kmers].length > 0
+  log.info "Read in #{options[:start_kmers].length} kmers associated with the start of the assembly"
+end
+if options[:end_kmers].length > 0
+  log.info "Read in #{options[:end_kmers].length} kmers associated with the end of the assembly"
+end
+
+class Bio::Velvet::Graph::Node
+  def includes_kmers?(list_of_kmers)
+    list_of_kmers.each do |kmer|
+      return true if ends_of_kmers_of_node.include?(kmer) or ends_of_kmers_of_twin_node.include?(kmer)
+    end
+    return false
+  end
+end
+list_of_start_kmers = options[:start_kmers].collect{|k| [k, Bio::Sequence::NA.new(k).reverse_complement.to_s]}.flatten
+list_of_end_kmers = options[:end_kmers].collect{|k| [k, Bio::Sequence::NA.new(k).reverse_complement.to_s]}.flatten
+
 # Add all the nodes
 log.info "Converting nodes to GraphViz format"
 graph.nodes.each do |node|
-  graphviz.add_nodes node.node_id.to_s, :label => "#{node.node_id}_length#{node.ends_of_kmers_of_node.length}_coverage#{node.coverages[1]}"
+  mods = {
+    :label => "#{node.node_id}_length#{node.ends_of_kmers_of_node.length}_coverage#{node.coverages[1]}",
+  }
+  includes_start = node.includes_kmers?(options[:start_kmers])
+  includes_end = node.includes_kmers?(options[:end_kmers])
+
+  if includes_start and includes_end
+    log.warn "Start and end kmers detected in the same node!"
+  elsif includes_start
+    mods[:color] = "red"
+  elsif includes_end
+    mods[:color] = "green"
+  end
+
+  graphviz.add_nodes node.node_id.to_s, mods
 end
 
 # Add all the edges
 log.info "Converting edges to GraphViz format"
 graph.arcs.each do |arc|
-  if (arc.directions_opposing?)
-    graphviz.add_edges arc.end_node_id.to_s, arc.begin_node_id.to_s
-  else
-    graphviz.add_edges arc.begin_node_id.to_s, arc.end_node_id.to_s
-  end
+  graphviz.add_edges arc.begin_node_id.to_s, arc.end_node_id.to_s
   #graphviz.add_edges(start_name, stop_name, :style => "setlinewidth(4)", :label => contig, :color => color)
 end
 
