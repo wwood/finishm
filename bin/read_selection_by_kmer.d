@@ -9,10 +9,12 @@ import std.array;
 import bio.core.fasta;
 import bio.core.sequence;
 import std.algorithm;
+import std.container;
+import std.c.stdlib;
 
 void main(string[] args){
   string whitelistFile, blacklistFile, fastaFile = null;
-  bool help, verbose, quiet = false;
+  bool help, verbose, quiet, debugging = false;
   int targetPerKmer = 1;
   getopt(args,
     "whitelist",  &whitelistFile,
@@ -20,6 +22,7 @@ void main(string[] args){
     "reads",  &fastaFile,
     "kmer-coverage-target", &targetPerKmer,
     "verbose", &verbose,
+    "debugging", &debugging,
     "quiet", &quiet,
     "help|h",         &help,
   );
@@ -32,23 +35,45 @@ void main(string[] args){
     if(verbose) quiet=false;
 
     //read in a text file of kmers that we wish to find, the whitelist
-    string[] whitelist = split(cast(string) read(whitelistFile));
+    auto whites = split(cast(string) read(whitelistFile));
+    auto whitelist = redBlackTree(whites);
     if (verbose)
       stderr.writeln("Read in ",whitelist.length," kmers as a whitelist, e.g. ",whitelist.front);
 
     //if blacklistFile is specified, read in a list of kmers that are blacklisted, otherwise make an empty array
-    string[] blacklist = [];
+    string[] blacks;
+    auto blacklist = redBlackTree!string();
     if(blacklistFile != null){
-      blacklist = split(cast(string) read(blacklistFile));
+      blacks = split(cast(string) read(blacklistFile));
+      blacklist = redBlackTree(blacks);
       if(verbose)
-        stderr.writeln("Read in ",blacklist.length," blacklisted kmers e.g. ",blacklist[0]);
+        stderr.writeln("Read in ",blacklist.length," blacklisted kmers e.g. ",blacklist.front);
     } else {
       if(verbose)
         stderr.writeln("No blacklisted kmers specified");
     }
 
-    int[] whitelistCounts;
-    whitelistCounts.length = whitelist.length;
+    int[string] whitelistCounts;
+    foreach(white; whites){
+      whitelistCounts[white] = 0;
+    }
+
+    // Find the minimum length of kmer being searched for
+    int whitelistMinLength = map!"a.length"(whites).reduce!"a<b ? a : b";
+    int whitelistMaxLength = map!"a.length"(whites).reduce!"a<b ? b : a";
+    if (whitelistMinLength != whitelistMaxLength){
+      stderr.writeln("Kmers must be of uniform length, but these ones weren't..");
+      exit(1);
+    }
+
+    int blacklistMinLength = -1;
+    if (verbose)
+      stderr.writeln("Minimum length of kmer in whitelist is ",whitelistMinLength);
+    if (blacklistFile){
+      blacklistMinLength = map!"a.length"(blacks).reduce!"a<b ? a : b";
+      if (verbose)
+        stderr.writeln("Minimum length of kmer in whitelist is ",blacklistMinLength);
+    }
 
     int num_reads_whitelisted = 0;
     int num_reads_blacklisted = 0;
@@ -56,6 +81,7 @@ void main(string[] args){
     //Iterate through the fastq reads given.
     auto fastas = fastaRecords(fastaFile);
     bool all_accounted_for = false;
+    int range_end;
     foreach(seq; fastas){
       if (verbose)
         stderr.writeln("Inspecting ", seq);
@@ -63,21 +89,22 @@ void main(string[] args){
       string fwd = seq.sequence;
       string rev = to!string(nucleotideSequence(fwd, true));
 
+      range_end = fwd.length - whitelistMinLength;
+
       //How many of each whitelist kmers are found (including in the reverse complement)?
       bool whitelisted = false;
-      foreach(i, white; whitelist){
-        //don't look for whitelisted kmers unless more of these kmers are needed.
-        if (whitelistCounts[i] < targetPerKmer){
-          if (std.string.indexOf(fwd, white) != -1 || std.string.indexOf(rev, white) != -1){
-            if(verbose)
-              stderr.writeln("Conforms to whitelist entry #",i);
-            whitelisted = true;
-            whitelistCounts[i] += 1;
-
-            //check that all whitelist counts have not been overflowed.
+      foreach(i; 0 .. range_end){
+        auto kmer = fwd[i .. (i+whitelistMinLength)];
+        if (debugging)
+          stdout.writeln("Whitelist inspecting kmer ",kmer);
+        if (kmer in whitelist && whitelistCounts[kmer] < targetPerKmer){
+          whitelisted = true;
+          whitelistCounts[kmer] += 1;
+          if (whitelistCounts[kmer] >= targetPerKmer){
             if(verbose)
               stderr.writeln("kmer index ",i," now accounted for");
-            if(minCount(whitelistCounts)[0] >= targetPerKmer){
+            whitelist.removeKey(kmer);
+            if (whitelist.empty()){
               if(verbose)
                 stderr.writeln("All whitelisted kmers now accounted for");
               all_accounted_for = true; //all done, no more fasta entries required
@@ -89,13 +116,17 @@ void main(string[] args){
 
       //I'm sure there is a faster way to search for an array of strings within a particular string, but eh for now.
       bool blacklisted = false;
-      foreach(black; blacklist){
-        if (std.string.indexOf(fwd, black) != -1 || std.string.indexOf(rev, black) != -1){
-          //blacklisted kmer found
-          blacklisted = true;
-          break;
+      if (blacklistFile != null){
+        foreach(i; 0 .. range_end){
+          auto kmer = fwd[i .. (i+whitelistMinLength)];
+          if (kmer in blacklist){
+            //blacklisted kmer found
+            blacklisted = true;
+            break;
+          }
         }
       }
+
       if(blacklisted){
         num_reads_blacklisted += 1;
         if(verbose)
@@ -116,7 +147,7 @@ void main(string[] args){
 
     //output the number of kmers that were sufficiently covered
 
-    ulong num_counted = count!("a >= b")(whitelistCounts, targetPerKmer);
+    ulong num_counted = count!("a >= b")(whitelistCounts.values, targetPerKmer);
     ulong num_not_counted = whitelistCounts.length - num_counted;
     if(!quiet){
       stderr.writeln("Found ",num_counted," from the whitelist as expected and ",num_not_counted," not enough times");
