@@ -17,7 +17,7 @@ require 'kmer_abundance_pattern'
 options = {
   :logger => 'stderr',
   :log_level => 'info',
-  :samples_per_lane => 200,
+  :min_leftover_length => false,
 }
 o = OptionParser.new do |opts|
   opts.banner = "
@@ -40,12 +40,10 @@ o = OptionParser.new do |opts|
   opts.on("--reads FILES", "comma-separated list of sequence reads files in the same order as the pattern was supplied [required]") do |arg|
     options[:reads_files] = arg.split(',').collect{|r| File.absolute_path r}
   end
-#  opts.on("--output-dir DIR", "already-created output directory for assembly (currently messy on the output) [required]") do |arg|
-#    options[:output_directory] = arg
-#  end
+
   opts.separator "\nOptional arguments:\n\n"
-  opts.on("--samples-per-lane NUMBER", "number of reads sampled from each lane to be assembled file [default: #{options[:samples_per_lane]}]") do |arg|
-    options[:samples_per_lane] = arg.to_i
+  opts.on("--min-leftover-read-length NUMBER", "when searching for reads with kmers, require the kmer to be at the beginning or end of the selected read [default: #{options[:min_leftover_length]}]") do |arg|
+    options[:min_leftover_length] = arg.to_i
   end
 
   # logger options
@@ -142,6 +140,9 @@ white = File.open 'whitelist', 'w'
       sampled_read_files.push sampled
 
       grep_path = "#{ENV['HOME']}/git/priner/bin/read_selection_by_kmer "
+      if options[:min_leftover_length]
+        grep_path += "--min-leftover-length #{options[:min_leftover_length]} "
+      end
       thr = Thread.new do
         grep_cmd = "#{grep_path} --whitelist #{white.path} --blacklist #{black.path} --reads #{file} --kmer-coverage-target 1 > #{sampled}"
         log.debug "Running cmd: #{grep_cmd}"
