@@ -100,4 +100,67 @@ describe script_under_test do
     status.exitstatus.should eq(0)
     stdout.should eq(%w(>whitelist_me ATGCCCCTTTT).join("\n")+"\n")
   end
+
+  it 'should handle min leftover length' do
+    reads = %w(>whitelist_me ATGCCCCTTTT >blacklist_me ATGCATGG)
+    whitelist = %w(ATGC)
+
+    reads_file = Tempfile.new('reads'); reads_file.puts reads.join("\n"); reads_file.close
+    whitelist_file = Tempfile.new('whitelist'); whitelist_file.puts whitelist.join("\n"); whitelist_file.close
+
+
+    status, stdout, stderr = systemu "#{path_to_script} --min-leftover-length 4 --whitelist #{whitelist_file.path} --reads #{reads_file.path} --kmer-coverage-target 10"
+    raise stderr unless stderr == ""
+    status.exitstatus.should eq(0)
+    stdout.should eq(%w(>whitelist_me ATGCCCCTTTT >blacklist_me ATGCATGG).join("\n")+"\n")
+
+    status, stdout, stderr = systemu "#{path_to_script} --min-leftover-length 6 --whitelist #{whitelist_file.path} --reads #{reads_file.path} --kmer-coverage-target 10"
+    raise stderr unless stderr == ""
+    status.exitstatus.should eq(0)
+    stdout.should eq(%w(>whitelist_me ATGCCCCTTTT).join("\n")+"\n")
+
+    status, stdout, stderr = systemu "#{path_to_script} --min-leftover-length 7 --whitelist #{whitelist_file.path} --reads #{reads_file.path} --kmer-coverage-target 10"
+    raise stderr unless stderr == ""
+    status.exitstatus.should eq(0)
+    stdout.should eq(%w(>whitelist_me ATGCCCCTTTT).join("\n")+"\n")
+
+    status, stdout, stderr = systemu "#{path_to_script} --min-leftover-length 8 --whitelist #{whitelist_file.path} --reads #{reads_file.path} --kmer-coverage-target 10"
+    raise stderr unless stderr == ""
+    status.exitstatus.should eq(0)
+    stdout.should eq(%w().join("\n"))
+  end
+
+  it 'should handle min leftover length when kmer is on reverse strand' do
+    reads = %w(>whitelist_me ATGCCCCTTTT >blacklist_me ATGCATGG)
+    whitelist = %w(GCAT)
+
+    reads_file = Tempfile.new('reads'); reads_file.puts reads.join("\n"); reads_file.close
+    whitelist_file = Tempfile.new('whitelist'); whitelist_file.puts whitelist.join("\n"); whitelist_file.close
+
+    status, stdout, stderr = systemu "#{path_to_script} --min-leftover-length 6 --whitelist #{whitelist_file.path} --reads #{reads_file.path} --kmer-coverage-target 10"
+    raise stderr unless stderr == ""
+    status.exitstatus.should eq(0)
+    stdout.should eq(%w(>whitelist_me ATGCCCCTTTT).join("\n")+"\n")
+  end
+
+
+  it 'should handle min leftover length with blacklist in the middle' do
+    reads = %w(>blacklist_me ATGCCCCTTTT >blacklist_me2 ATGCATGG)
+    whitelist = %w(GCAT)
+    blacklist = %w(CCCT)
+
+    reads_file = Tempfile.new('reads'); reads_file.puts reads.join("\n"); reads_file.close
+    whitelist_file = Tempfile.new('whitelist'); whitelist_file.puts whitelist.join("\n"); whitelist_file.close
+    blacklist_file = Tempfile.new('blacklist'); blacklist_file.puts blacklist.join("\n"); blacklist_file.close
+
+    status, stdout, stderr = systemu "#{path_to_script} --min-leftover-length 6 --whitelist #{whitelist_file.path} --reads #{reads_file.path} --kmer-coverage-target 10"
+    raise stderr unless stderr == ""
+    status.exitstatus.should eq(0)
+    stdout.should eq(%w(>blacklist_me ATGCCCCTTTT).join("\n")+"\n")
+
+    status, stdout, stderr = systemu "#{path_to_script} --min-leftover-length 6 --whitelist #{whitelist_file.path} --blacklist #{blacklist_file.path} --reads #{reads_file.path} --kmer-coverage-target 10"
+    raise stderr unless stderr == ""
+    status.exitstatus.should eq(0)
+    stdout.should eq("")
+  end
 end

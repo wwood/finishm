@@ -16,13 +16,15 @@ void main(string[] args){
   string whitelistFile, blacklistFile, fastaFile = null;
   bool help, verbose, quiet, debugging = false;
   int targetPerKmer = 1;
+  int minLeftoverLength;
   getopt(args,
     "whitelist",  &whitelistFile,
     "blacklist",  &blacklistFile,
     "reads",  &fastaFile,
     "kmer-coverage-target", &targetPerKmer,
+    "min-leftover-length", &minLeftoverLength,
     "verbose", &verbose,
-    "debugging", &debugging,
+    "debug", &debugging,
     "quiet", &quiet,
     "help|h",         &help,
   );
@@ -79,7 +81,12 @@ void main(string[] args){
     //Iterate through the fastq reads given.
     auto fastas = fastaRecords(fastaFile);
     bool all_accounted_for = false;
-    ulong range_end;
+    int range_end;
+    string[] kmers;
+    if (minLeftoverLength)
+      kmers = new string[4];
+    else
+      kmers = new string[2];
     foreach(seq; fastas){
       if (verbose)
         stderr.writeln("Inspecting ", seq);
@@ -87,18 +94,25 @@ void main(string[] args){
       string fwd = seq.sequence;
       string rev = to!string(nucleotideSequence(fwd, true));
 
-      range_end = fwd.length - whitelistMinLength+1;
+      range_end = to!int(fwd.length - whitelistMinLength + 1);
+      if (minLeftoverLength)
+        range_end -= minLeftoverLength;
+      if (range_end < 0) continue; //If the read is too short, then don't even bother comparing it
+      if (debugging) stderr.writeln("Range end was ",range_end);
 
       //How many of each whitelist kmers are found (including in the reverse complement)?
       bool whitelisted = false;
       foreach(i; 0 .. range_end){
-        auto kmers = [
-          fwd[i .. (i+whitelistMinLength)],
-          rev[i .. (i+whitelistMinLength)],
-        ];
+        kmers[0] = fwd[i .. (i+whitelistMinLength)];
+        kmers[1] = rev[i .. (i+whitelistMinLength)];
+        // if min leftover length is specified then search the reverse complement of the fwd as well
+        if (minLeftoverLength){
+          kmers[2] = to!string(nucleotideSequence(kmers[0], true));
+          kmers[3] = to!string(nucleotideSequence(kmers[1], true));
+        }
         foreach(kmer; kmers){
           if (debugging)
-            stderr.writeln("Whitelist inspecting kmer ",kmer);
+            stderr.writeln("Whitelist inspecting kmer ",kmer," at position ",i);
           if (kmer in whitelistCounts && whitelistCounts[kmer] < targetPerKmer){
             whitelisted = true;
             whitelistCounts[kmer] += 1;
@@ -115,11 +129,12 @@ void main(string[] args){
         }
       }
       if(!whitelisted) continue;
+      else if (verbose) stderr.writeln("Read contains a valid whitelisted kmer");
 
       //I'm sure there is a faster way to search for an array of strings within a particular string, but eh for now.
       bool blacklisted = false;
       if (blacklistFile != null){
-        foreach(i; 0 .. range_end){
+        foreach(i; 0 .. fwd.length - whitelistMinLength+1){
           auto kmer = fwd[i .. (i+whitelistMinLength)];
           if (kmer in blacks){
             //blacklisted kmer found
