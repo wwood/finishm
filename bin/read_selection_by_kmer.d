@@ -81,7 +81,7 @@ void main(string[] args){
     //Iterate through the fastq reads given.
     auto fastas = fastaRecords(fastaFile);
     bool all_accounted_for = false;
-    int range_end;
+    ptrdiff_t range_end;
     string[] kmers;
     if (minLeftoverLength)
       kmers = new string[4];
@@ -94,7 +94,7 @@ void main(string[] args){
       string fwd = seq.sequence;
       string rev = to!string(nucleotideSequence(fwd, true));
 
-      range_end = to!int(fwd.length - whitelistMinLength + 1);
+      range_end = fwd.length - whitelistMinLength + 1;
       if (minLeftoverLength)
         range_end -= minLeftoverLength;
       if (range_end < 0) continue; //If the read is too short, then don't even bother comparing it

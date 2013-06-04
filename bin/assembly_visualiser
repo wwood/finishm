@@ -5,6 +5,7 @@ require 'bio-logger'
 require 'bio-velvet'
 require 'graphviz'
 require 'bio'
+require 'set'
 
 SCRIPT_NAME = File.basename(__FILE__); LOG_NAME = SCRIPT_NAME.gsub('.rb','')
 
@@ -14,6 +15,7 @@ options = {
   :log_level => 'info',
   :start_kmers => [],
   :end_kmers => [],
+  :coverage_cutoff => 0.0,
 }
 o = OptionParser.new do |opts|
   opts.banner = "
@@ -36,6 +38,9 @@ o = OptionParser.new do |opts|
   end
   opts.on("--end-kmers-file FILE", "Path to file containing newline-separated kmers that are associated with the end of the assembly [default: none]") do |arg|
     options[:end_kmers] = File.open(arg).read.split(/\s+/)
+  end
+  opts.on("--coverage-cutoff NUMBER", "Require at least this much coverage, otherwise the node and associated edges are not shown in the output [default: #{options[:coverage_cutoff]}]") do |arg|
+    options[:coverage_cutoff] = arg.to_f
   end
 
   # logger options
@@ -78,29 +83,39 @@ list_of_end_kmers = options[:end_kmers].collect{|k| [k, Bio::Sequence::NA.new(k)
 
 # Add all the nodes
 log.info "Converting nodes to GraphViz format"
+blacklisted_node_ids = Set.new
 graph.nodes.each do |node|
-  mods = {
-    :label => "#{node.node_id}_length#{node.ends_of_kmers_of_node.length}_coverage#{node.coverages[1]}",
-  }
-  includes_start = node.includes_kmers?(options[:start_kmers])
-  includes_end = node.includes_kmers?(options[:end_kmers])
+  cov = node.coverages[1].to_f/node.ends_of_kmers_of_node.length
+  if cov < options[:coverage_cutoff]
+    blacklisted_node_ids.add node.node_id
+  else
+    mods = {
+      :label => "#{node.node_id}_length#{node.ends_of_kmers_of_node.length}_coverage#{cov.round}",
+    }
+    includes_start = node.includes_kmers?(options[:start_kmers])
+    includes_end = node.includes_kmers?(options[:end_kmers])
 
-  if includes_start and includes_end
-    log.warn "Start and end kmers detected in the same node!"
-  elsif includes_start
-    mods[:color] = "red"
-  elsif includes_end
-    mods[:color] = "green"
+    if includes_start and includes_end
+      log.warn "Start and end kmers detected in the same node!"
+    elsif includes_start
+      mods[:color] = "red"
+    elsif includes_end
+      mods[:color] = "green"
+    end
+
+    graphviz.add_nodes node.node_id.to_s, mods
   end
-
-  graphviz.add_nodes node.node_id.to_s, mods
 end
 
 # Add all the edges
 log.info "Converting edges to GraphViz format"
 graph.arcs.each do |arc|
-  graphviz.add_edges arc.begin_node_id.to_s, arc.end_node_id.to_s
-  #graphviz.add_edges(start_name, stop_name, :style => "setlinewidth(4)", :label => contig, :color => color)
+  # Add unless the node has been blacklisted
+  unless blacklisted_node_ids.include? arc.begin_node_id or
+    blacklisted_node_ids.include? arc.end_node_id
+
+    graphviz.add_edges arc.begin_node_id.to_s, arc.end_node_id.to_s
+  end
 end
 
 # Print

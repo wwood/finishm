@@ -18,6 +18,7 @@ options = {
   :logger => 'stderr',
   :log_level => 'info',
   :min_leftover_length => false,
+  :kmer_coverage_target => 1,
 }
 o = OptionParser.new do |opts|
   opts.banner = "
@@ -44,6 +45,9 @@ o = OptionParser.new do |opts|
   opts.separator "\nOptional arguments:\n\n"
   opts.on("--min-leftover-read-length NUMBER", "when searching for reads with kmers, require the kmer to be at the beginning or end of the selected read [default: #{options[:min_leftover_length]}]") do |arg|
     options[:min_leftover_length] = arg.to_i
+  end
+  opts.on("--kmer-coverage-target NUMBER", "when searching for reads with kmers, require this many copies per kmer [default: #{options[:kmer_coverage_target]}]") do |arg|
+    options[:kmer_coverage_target] = arg.to_i
   end
 
   # logger options
@@ -144,7 +148,7 @@ white = File.open 'whitelist', 'w'
         grep_path += "--min-leftover-length #{options[:min_leftover_length]} "
       end
       thr = Thread.new do
-        grep_cmd = "#{grep_path} --whitelist #{white.path} --blacklist #{black.path} --reads #{file} --kmer-coverage-target 1 > #{sampled}"
+        grep_cmd = "#{grep_path} --whitelist #{white.path} --blacklist #{black.path} --reads #{file} --kmer-coverage-target #{options[:kmer_coverage_target]} > #{sampled}"
         log.debug "Running cmd: #{grep_cmd}"
         status, stdout, stderr = systemu grep_cmd
         log.debug stderr
@@ -164,12 +168,12 @@ white = File.open 'whitelist', 'w'
     raise stderr if stderr != ''
     raise unless status.exitstatus == 0
 
-    log.info "Assembling sampled reads"
-    cap3_cmd = "cap3 #{pooled_reads_filename}"
-    log.debug "Running cmd: #{cap3_cmd}"
-    status, stdout, stderr = systemu cap3_cmd
-    raise stderr if stderr != ''
-    raise unless status.exitstatus == 0
-    log.debug "Finished assembly"
+#    log.info "Assembling sampled reads"
+#    cap3_cmd = "cap3 #{pooled_reads_filename}"
+#    log.debug "Running cmd: #{cap3_cmd}"
+#    status, stdout, stderr = systemu cap3_cmd
+#    raise stderr if stderr != ''
+#    raise unless status.exitstatus == 0
+#    log.debug "Finished assembly"
   #end
 #end

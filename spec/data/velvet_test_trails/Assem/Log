@@ -1,0 +1,35 @@
+Tue Jun  4 10:31:32 2013
+ velveth Assem 31 -short reads.fa
+Version 1.2.07
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 30
+MAXKMERLENGTH = 95
+OPENMP
+
+Tue Jun  4 10:31:36 2013
+ velvetg Assem
+Version 1.2.07
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 30
+MAXKMERLENGTH = 95
+OPENMP
+
+Final graph has 4 nodes and n50 of 224, max 228, total 519, using 0/5 reads
+Tue Jun  4 10:33:55 2013
+ velvetg Assem -read_trkg yes
+Version 1.2.07
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 30
+MAXKMERLENGTH = 95
+OPENMP
+
+Final graph has 4 nodes and n50 of 224, max 228, total 519, using 5/5 reads
