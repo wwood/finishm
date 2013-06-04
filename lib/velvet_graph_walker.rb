@@ -43,14 +43,22 @@ module Bio
               # There is a connection between the end of node1 and the start of node2,
               # but one or both may be reverse complemented
               arc = arc1
-              log.debug "arc1 found: #{arc.inspect}" if log
+              log.debug "arc1 found: #{arc.inspect}" if log and log.debug?
 
               # If the first node has not been written (if this is the second node)
               # then write the sequence of the first node. Here there is a first=>second link,
               # not second=>first, so the forward sequence of the first sequence is written.
               if state == :second
-                seq = last_node.sequence(velvet_graph.hash_length)
-                last_node_was_revcom = !arc.begin_node_forward?
+                first_seq = last_node.sequence(velvet_graph.hash_length)
+                if arc.directions_opposing?
+                  first_seq = revcom first_seq
+                  log.debug "first node revcom: #{first_seq}" if log and log.debug?
+                  seq = first_seq
+                else
+                  log.debug "first node fwd: #{first_seq}" if log and log.debug?
+                  seq = first_seq
+                end
+                last_node_was_revcom = arc.directions_opposing?
                 state = :after_second
               end
               log.debug "At crossroads.\n"+
@@ -88,12 +96,18 @@ module Bio
             # There is a link current => previous
             elsif arc1.nil? and arc2
               arc = arc2
-              log.debug "arc2 found: #{arc.inspect}" if log
+              log.debug "arc2 found: #{arc.inspect}" if log and log.debug?
               if state == :second
-              p last_node.sequence(velvet_graph.hash_length)
-              p revcom(last_node.sequence(velvet_graph.hash_length))
-                seq = revcom(last_node.sequence(velvet_graph.hash_length))
-                last_node_was_revcom = !arc.end_node_forward?
+                first_seq = last_node.sequence(velvet_graph.hash_length)
+                if !arc.directions_opposing?
+                  first_seq = revcom first_seq
+                  log.debug "first node revcom: #{first_seq}" if log and log.debug?
+                  seq = first_seq
+                else
+                  log.debug "first node fwd: #{first_seq}" if log and log.debug?
+                  seq = first_seq
+                end
+                last_node_was_revcom = arc.directions_opposing?
                 state = :after_second
               end
               log.debug "At crossroads.\n"+
