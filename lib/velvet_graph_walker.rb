@@ -32,24 +32,26 @@ module Bio
             last_node = node
             state = :second
           else
-            # Now there is two nodes. What is the edge between them, in terms of its direction?
-            arc1 = velvet_graph.get_arc(last_node, node)
-            arc2 = velvet_graph.get_arc(node, last_node)
-            if arc1.nil? and arc2.nil?
+            # Now there is two nodes in the frame. What is the edge between them, in terms of its direction?
+            arcs = velvet_graph.get_arcs_by_node(last_node, node)
+
+            if arcs.empty?
               raise GraphWalkingException, "Attempted to find trail between two unconnected nodes: #{last_node.inspect}, #{node.inspect}"
+            elsif arcs.length > 1
+              raise GraphWalkingException, "Two adjacent nodes in the graph are (at least) doubly connected too each other, LazyGraphWalker is throwing its hands in the air. Nodes are (in the same order as the specified trail) #{last_node.inspect}, #{node.inspect}"
 
             # There is a link previous => current, the easy case
-            elsif arc1 and arc2.nil?
+            elsif arcs[0].begin_node_id == last_node.node_id
               # There is a connection between the end of node1 and the start of node2,
               # but one or both may be reverse complemented
-              arc = arc1
-              log.debug "arc1 found: #{arc.inspect}" if log and log.debug?
+              arc = arcs[0]
+              log.debug "arc last->current found: #{arc.inspect}" if log and log.debug?
 
               # If the first node has not been written (if this is the second node)
               # then write the sequence of the first node. Here there is a first=>second link,
               # not second=>first, so the forward sequence of the first sequence is written.
               if state == :second
-                first_seq = last_node.sequence(velvet_graph.hash_length)
+                first_seq = last_node.sequence
                 if arc.directions_opposing?
                   first_seq = revcom first_seq
                   log.debug "first node revcom: #{first_seq}" if log and log.debug?
@@ -91,14 +93,14 @@ module Bio
                   seq += node.ends_of_kmers_of_node
                 end
               end
-              last_arc = arc1
+              last_arc = arcs[0]
 
             # There is a link current => previous
-            elsif arc1.nil? and arc2
-              arc = arc2
-              log.debug "arc2 found: #{arc.inspect}" if log and log.debug?
+            else
+              arc = arcs[0]
+              log.debug "arc current->last found: #{arc.inspect}" if log and log.debug?
               if state == :second
-                first_seq = last_node.sequence(velvet_graph.hash_length)
+                first_seq = last_node.sequence
                 if !arc.directions_opposing?
                   first_seq = revcom first_seq
                   log.debug "first node revcom: #{first_seq}" if log and log.debug?
@@ -129,9 +131,7 @@ module Bio
                 end
               end
 
-              last_arc = arc2
-            else
-              raise GraphWalkingException, "Two adjacent nodes in the graph are doubly connected too each other, LazyGraphWalker is throwing its hands in the air. Nodes are (in the same order as the specified trail) #{last_node.inspect}, #{node.inspect}"
+              last_arc = arcs[0]
             end
             last_node = node
           end
@@ -139,7 +139,7 @@ module Bio
         return '' if last_node.nil? #Return nothing when an empty collection is given.
 
         if state == :second
-          return last_node.sequence(velvet_graph.hash_length)
+          return last_node.sequence
         else
           return seq
         end
