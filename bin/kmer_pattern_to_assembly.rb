@@ -4,14 +4,13 @@ require 'optparse'
 require 'bio-logger'
 require 'csv'
 require 'tempfile'
-require 'tmpdir'
 require 'pp'
 require 'systemu'
+require 'bio-velvet'
 
-
-SCRIPT_NAME = File.basename(__FILE__); LOG_NAME = SCRIPT_NAME.gsub('.rb','')
+SCRIPT_NAME = File.basename(__FILE__); LOG_NAME = 'finishm'
 $:.unshift File.join(File.dirname(__FILE__),'..','lib')
-require 'kmer_abundance_pattern'
+require 'priner'
 
 # Parse command line options into the options hash
 options = {
@@ -23,7 +22,24 @@ options = {
   :terminal_contig_search_kmer_size => 33,
   :contig_end_length => 300,
   :graph_search_leash_length => 20000,
+  :reads_to_assemble => nil,
 }
+
+# TODO: make a better interface for this. Maybe specify an entire genome, and then "Contig_1 end, Contig_3 start" or something
+# Look at the last 300bp of the first contig.
+extract_exactly_one_contig_from_file = lambda do |fasta_file_path|
+  contig = nil
+  Bio::FlatFile.foreach(Bio::FastaFormat, fasta_file_path) do |e|
+    if contig.nil?
+      contig = e.seq
+    else
+      raise "Multiple sequences found in a contig file! I need exactly one"
+    end
+  end
+  raise "I need a contig to be in the start contig file" if contig.nil?
+  Bio::Sequence::NA.new(contig.to_s)
+end
+
 o = OptionParser.new do |opts|
   opts.banner = "
     Usage: #{SCRIPT_NAME} <kmer_multiple_abundance_file>
@@ -44,6 +60,12 @@ o = OptionParser.new do |opts|
   end
   opts.on("--reads FILES", "comma-separated list of sequence reads files in the same order as the pattern was supplied [required]") do |arg|
     options[:reads_files] = arg.split(',').collect{|r| File.absolute_path r}
+  end
+  opts.on("--start-contig FASTA", "path to a fasta file with the starting contig in it (only). Assumes we are building off the end of this contig [required]") do |arg|
+    options[:start_contig] = extract_exactly_one_contig_from_file.call arg
+  end
+  opts.on("--end-contig FASTA", "path to a fasta file with the ending contig in it (only). Assumes we are building onto the start of this contig [required]") do |arg|
+    options[:end_contig] = extract_exactly_one_contig_from_file.call arg
   end
 
   opts.separator "\nOptional arguments:\n\n"
@@ -67,8 +89,10 @@ pp options
 end
 # Setup logging
 Bio::Log::CLI.logger(options[:logger]); Bio::Log::CLI.trace(options[:log_level]); log = Bio::Log::LoggerPlus.new(LOG_NAME); Bio::Log::CLI.configure(LOG_NAME)
+Bio::Log::LoggerPlus.new 'bio-velvet'
+Bio::Log::CLI.configure 'bio-velvet'
 
-
+if(false)
 # Parse pattern from cmdline
 desired_pattern = KmerAbundancePattern.new
 desired_pattern.parse_from_human(options[:pattern])
@@ -128,6 +152,7 @@ end
 #Dir.mkdir outdir unless Dir.exist?(outdir)
 
 # grep the pattern out from the raw reads, subsampling so as to not overwhelm the assembler
+pooled_reads_filename = 'pooled_sampled_reads.fasta'
 #Tempfile.open('whitelist') do |white|
 File.open 'whitelist', 'w' do |white|
   white.puts whitelist_kmers.join("\n")
@@ -164,70 +189,65 @@ File.open 'whitelist', 'w' do |white|
     threadpool.each do |thread| thread.join; end #wait until everything is finito
 
     log.info "Finished extracting reads for sampling. Now pooling sampled reads"
-    pooled_reads_filename = 'pooled_sampled_reads.fasta'
     pool_cmd = "cat #{sampled_read_files.join ' '} >#{pooled_reads_filename}"
     log.debug "Running cmd: #{pool_cmd}"
     status, stdout, stderr = systemu pool_cmd
     raise stderr if stderr != ''
     raise unless status.exitstatus == 0
-
-    log.info "Assembling sampled reads with velvet"
-    velvet_result = Bio::Velvet::Runner.new.velvet(options[:velvet_kmer_size], "-short #{pooled_reads_filename.inspect}", '-cov_cutoff 1.5')
-    log.info "Finished running assembly"
-
-    log.info "Parsing the graph output from velvet"
-    graph = velvet_result.last_graph
-    log.info "Finished parsing graph"
-
-    log.info "Finding kmers that are specific to the end of the first contig"
-    # TODO: make a better interface for this. Maybe specify an entire genome, and then "Contig_1 end, Contig_3 start" or something
-    # Look at the last 300bp of the first contig.
-    extract_exactly_one_contig_from_file = lambda do |fasta_file_path|
-      contig = nil
-      Bio::FlatFile.foreach(Bio::FastaFormat, fasta_file_path) do |e|
-        if contig.nil?
-          contig = e.seq
-        else
-          raise "Multiple sequences found in a contig file! I need exactly one"
-        end
-      end
-      raise "I need a contig to be in the start contig file" if contig.nil?
-    end
-    start_contig = extract_exactly_one_contig_from_file.call options[:start_contig]
-    end_contig = extract_exactly_one_contig_from_file.call options[:end_contig]
-    if [start_contig.length,end_contig.length].min < 2*options[:contig_end_length]
-      # TODO: if the contig is very short, earlier kmers in the kmers array may
-      # not be closer to the middle of the contig. re-order the input kmer hash to make it so?
-      log.warn "Choice of initial/terminal nodes to perform graph search with may not be optimal due to the small contig size"
-    end
-
-    start_kmers = []
-    len = start_contig.length
-    start_contig.subseq(len-options[:contig_end_length],len).window_search(options[:terminal_contig_search_kmer_size]) do |kmer_na|
-      start_kmers.push kmer_na.to_s
-    end
-    end_kmers = []
-    end_contig.subseq(1,options[:contig_end_length]).reverse_complement.window_search(options[:terminal_contig_search_kmer_size]) do |kmer_na|
-      end_kmers.push kmer_na.to_s
-    end
-
-    finder = Bio::AssemblyGraphAlgorithms::NodeFinder.new
-    start_node, start_node_forward = finder.find_unique_node_with_kmers(graph, start_kmers)
-    end_node, end_node_forward = finder.find_unique_node_with_kmers(graph, end_kmers)
-    if start.nil? or end_node.nil?
-      log.error "Unable to find any nodes in the graph that have suitable kmers in them, sorry. Maybe fix the node finding code?"
-      exit
-    end
-    log.info "Node(s) found that are suitable as initial and terminal nodes in the graph search, respectively."
-
-    log.info "Searching for trails between the initial and terminal nodes, within the assembly graph"
-    cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
-    trails = cartographer.find_trails_between_nodes(graph, start_node, end_node, options[:graph_search_leash_length], start_node_forward)
-    log.info "Found #{trails.length} trails between the initial and terminal nodes"
-
-    trails.each_with_index do |trail,i|
-      puts ">finishm_trail_#{i}"
-      puts trail.sequence
-    end
   end
+end
+
+end
+
+pooled_reads_filename = 'pooled_sampled_reads.fasta'
+log.info "Assembling sampled reads with velvet"
+velvet_result = Bio::Velvet::Runner.new.velvet(options[:velvet_kmer_size], "-short #{pooled_reads_filename}", '-cov_cutoff 1.5')
+log.info "Finished running assembly"
+
+log.info "Parsing the graph output from velvet"
+graph = velvet_result.last_graph
+pp graph.arcs
+log.info "Finished parsing graph, and found #{graph.nodes.length} nodes"
+
+log.info "Finding kmers that are specific to the end of the first contig"
+start_contig = options[:start_contig]
+end_contig = options[:end_contig]
+if [start_contig.length, end_contig.length].min < 2*options[:contig_end_length]
+  # TODO: if the contig is very short, earlier kmers in the kmers array may
+  # not be closer to the middle of the contig. re-order the input kmer hash to make it so?
+  log.warn "Choice of initial/terminal nodes to perform graph search with may not be optimal due to the small contig size"
+end
+
+start_kmers = []
+len = start_contig.length
+start_contig.subseq(len-options[:contig_end_length],len).window_search(options[:terminal_contig_search_kmer_size]) do |kmer_na|
+  start_kmers.push kmer_na.to_s.upcase
+end
+end_kmers = []
+end_contig.subseq(1,options[:contig_end_length]).reverse_complement.window_search(options[:terminal_contig_search_kmer_size]) do |kmer_na|
+  end_kmers.push kmer_na.to_s.upcase
+end
+
+finder = Bio::AssemblyGraphAlgorithms::NodeFinder.new
+start_node, start_node_forward = finder.find_unique_node_with_kmers(graph, start_kmers)
+log.info "Finding kmers that are specific to the start of the second contig"
+end_node, end_node_forward = finder.find_unique_node_with_kmers(graph, end_kmers)
+if start_node.nil? or end_node.nil?
+  log.error "Unable to find any nodes in the graph that have suitable kmers in them, sorry. Maybe fix the node finding code?"
+  exit
+end
+log.info "Node(s) found that are suitable as initial and terminal nodes in the graph search, respectively: #{start_node.node_id} and #{end_node.node_id}"
+
+log.info "Searching for trails between the initial and terminal nodes, within the assembly graph"
+cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
+trails = cartographer.find_trails_between_nodes(graph, start_node, end_node, options[:graph_search_leash_length], start_node_forward)
+log.info "Found #{trails.length} trail(s) between the initial and terminal nodes"
+
+log.debug "Found trails: #{trails.collect{|t| "Trail: #{t.collect{|n| n.node_id}.join(',')}"}.join(', ')}"
+
+sequencer = Bio::AssemblyGraphAlgorithms::LazyGraphWalker.new
+trails.each_with_index do |trail,i|
+  seq = sequencer.trail_sequence(graph,trail)
+  puts ">finishm_trail_#{i+1}"
+  puts seq
 end
