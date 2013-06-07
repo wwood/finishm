@@ -51,6 +51,19 @@ module Bio
                 else
                   # Keep on truckin'
                   log.debug "Truckin' onto the next node, from #{new_node.node_id} to #{next_node.node_id}" if log and log.debug?
+                  arcs = graph.get_arcs_by_node new_node, next_node
+                  arcs.reject!{|arc| arc.begin_node_id == arc.end_node_id}
+                  if arcs.length != 1
+                    raise "Programming error"
+                  end
+                  arc = arcs[0]
+                  if arc.connects_to_beginning?(next_node.node_id)
+                    trail.last_added_node_dangling_side = :end
+                  elsif arc.connects_to_end?(next_node.node_id)
+                    trail.last_added_node_dangling_side = :start
+                  else
+                    raise "Programming error"
+                  end
                   search_underneath_nodes.call(trail.copy, next_node)
                 end
               end

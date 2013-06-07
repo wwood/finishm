@@ -94,7 +94,7 @@ end
 Bio::Log::CLI.logger(options[:logger]); Bio::Log::CLI.trace(options[:log_level]); log = Bio::Log::LoggerPlus.new(LOG_NAME); Bio::Log::CLI.configure(LOG_NAME)
 Bio::Log::LoggerPlus.new 'bio-velvet'
 Bio::Log::CLI.configure 'bio-velvet'
-
+if false
 # Parse pattern from cmdline
 desired_pattern = KmerAbundancePattern.new
 desired_pattern.parse_from_human(options[:pattern])
@@ -154,8 +154,6 @@ end
 #Dir.mkdir outdir unless Dir.exist?(outdir)
 
 # grep the pattern out from the raw reads, subsampling so as to not overwhelm the assembler
-pooled_reads_filename = 'pooled_sampled_reads.fasta'
-if false
 #Tempfile.open('whitelist') do |white|
 File.open 'whitelist', 'w' do |white|
   white.puts whitelist_kmers.join("\n")
@@ -202,7 +200,7 @@ end
 
 end
 
-
+pooled_reads_filename = 'pooled_sampled_reads.fasta'
 
 log.info "Assembling sampled reads with velvet"
 velvet_result = Bio::Velvet::Runner.new.velvet(options[:velvet_kmer_size], "-short #{pooled_reads_filename}", '-cov_cutoff 1.5')
