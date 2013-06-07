@@ -75,6 +75,9 @@ o = OptionParser.new do |opts|
   opts.on("--kmer-coverage-target NUMBER", "when searching for reads with kmers, require this many copies per kmer [default: #{options[:kmer_coverage_target]}]") do |arg|
     options[:kmer_coverage_target] = arg.to_i
   end
+  opts.on("--output-assembly-graph FILE", "output the graph of the assembly to this file [default: don't output]") do |arg|
+    options[:output_graph_file] = arg
+  end
 
   # logger options
   opts.separator "\nVerbosity:\n\n"
@@ -92,7 +95,6 @@ Bio::Log::CLI.logger(options[:logger]); Bio::Log::CLI.trace(options[:log_level])
 Bio::Log::LoggerPlus.new 'bio-velvet'
 Bio::Log::CLI.configure 'bio-velvet'
 
-if(false)
 # Parse pattern from cmdline
 desired_pattern = KmerAbundancePattern.new
 desired_pattern.parse_from_human(options[:pattern])
@@ -153,6 +155,7 @@ end
 
 # grep the pattern out from the raw reads, subsampling so as to not overwhelm the assembler
 pooled_reads_filename = 'pooled_sampled_reads.fasta'
+if false
 #Tempfile.open('whitelist') do |white|
 File.open 'whitelist', 'w' do |white|
   white.puts whitelist_kmers.join("\n")
@@ -199,14 +202,14 @@ end
 
 end
 
-pooled_reads_filename = 'pooled_sampled_reads.fasta'
+
+
 log.info "Assembling sampled reads with velvet"
 velvet_result = Bio::Velvet::Runner.new.velvet(options[:velvet_kmer_size], "-short #{pooled_reads_filename}", '-cov_cutoff 1.5')
 log.info "Finished running assembly"
 
 log.info "Parsing the graph output from velvet"
 graph = velvet_result.last_graph
-pp graph.arcs
 log.info "Finished parsing graph, and found #{graph.nodes.length} nodes"
 
 log.info "Finding kmers that are specific to the end of the first contig"

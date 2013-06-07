@@ -19,7 +19,7 @@ options = {
 }
 o = OptionParser.new do |opts|
   opts.banner = "
-    Usage: #{SCRIPT_NAME} --velvet-pregraph PreGraphFile [options]
+    Usage: #{SCRIPT_NAME} --velvet-graph PreGraphFile [options]
 
     Take a graph pre-computed with velveth, and output a GraphViz file for visualisation.
 
@@ -27,8 +27,13 @@ o = OptionParser.new do |opts|
     particular kmers get coloured.
     \n\n"
 
-  opts.on("--velvet-pregraph GRAPH_FILE", "PreGraph file output from velveth [required]") do |arg|
+  opts.on("--velvet-graph GRAPH_FILE", "PreGraph file output from velveth [required]") do |arg|
     options[:velvet_pregraph_file] = arg
+  end
+
+  opts.separator "\nOptional arguments:\n\n"
+  opts.on("--dot OUTPUT_DOT_FILENAME", "Output the graph into PNG format [default: not output as DOT]") do |arg|
+    options[:dot_output_file] = arg
   end
   opts.on("--png OUTPUT_PNG_FILENAME", "Output the graph into PNG format [default: not output as PNG]") do |arg|
     options[:neato_png] = arg
@@ -51,6 +56,10 @@ o = OptionParser.new do |opts|
 end; o.parse!
 if ARGV.length != 0 or options[:velvet_pregraph_file].nil?
   $stderr.puts o
+  exit 1
+end
+if !(options[:dot_output_file] or options[:neato_png])
+  $stderr.puts "Need to specify an output format with e.g. --png or --dot"
   exit 1
 end
 # Setup logging
@@ -114,13 +123,24 @@ graph.arcs.each do |arc|
   unless blacklisted_node_ids.include? arc.begin_node_id or
     blacklisted_node_ids.include? arc.end_node_id
 
-    graphviz.add_edges arc.begin_node_id.to_s, arc.end_node_id.to_s
+    # Direction of the arrows, to denote connection to beginning of node (connects to start = in-arrow-head to node on output graph)
+    if arc.connects_end_to_beginning?(arc.begin_node_id, arc.end_node_id)
+      graphviz.add_edges arc.begin_node_id.to_s, arc.end_node_id.to_s
+    elsif  arc.connects_end_to_end?(arc.begin_node_id, arc.end_node_id)
+      graphviz.add_edges arc.begin_node_id.to_s, arc.end_node_id.to_s, {:arrowhead => "none"}
+    elsif  arc.connects_beginning_to_beginning?(arc.begin_node_id, arc.end_node_id)
+      graphviz.add_edges arc.begin_node_id.to_s, arc.end_node_id.to_s, {:color => "blue"}
+    elsif  arc.connects_beginning_to_end?(arc.begin_node_id, arc.end_node_id)
+      graphviz.add_edges arc.end_node_id.to_s, arc.begin_node_id.to_s
+    end
   end
 end
 
 # Print
 log.info "Printing assembly graph"
-graphviz.output :dot => nil
+if options[:dot_output_file]
+  graphviz.output :dot => options[:dot_output_file]
+end
 if options[:neato_png]
   graphviz.output :png => options[:neato_png]
 end

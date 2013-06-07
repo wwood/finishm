@@ -1,3 +1,12 @@
+class Bio::Velvet::Graph::Node
+  def sequence?
+    begin
+      return true if sequence
+    rescue Bio::Velvet::NotImplementedException => e
+      return false
+    end
+  end
+end
 
 module Bio
   module AssemblyGraphAlgorithms
@@ -11,18 +20,14 @@ module Bio
         # TODO: only choose kmers that are unique to the assembly
         found_node = nil
         found_direction = nil
-        kmers.each do |fwd|
+        kmers.each_with_index do |fwd, i|
           rev = Bio::Sequence::NA.new(fwd).reverse_complement.to_s.upcase
+          #log.debug "Testing kmer #{i} #{fwd} / #{rev}"
           current_haul = []
           velvet_graph.nodes.each do |node|
             if log.debug?
-              str = "Searching for #{fwd} and #{rev} in node #{node.node_id}/"
-              if node.sequence?
-                str += node.sequence
-              else
-                str += 'short node'
-              end
-              #log.debug str
+              str = "Searching for #{fwd} and #{rev} in node #{node.node_id}"
+              #str += node.sequence
             end
             if node.sequence? and (node.sequence.include?(fwd) or node.sequence.include?(rev))
               current_haul.push node
@@ -37,9 +42,11 @@ module Bio
                 if found_node.sequence.include?(rev)
                   log.debug "Found a kmer that is included in the forward and reverse directions of the same node. Unlucky, ignoring this kmer" if log.debug?
                 else
+                  log.debug "Found a suitable kmer fwd: #{fwd}"
                   found_direction = true
                 end
               else
+                log.debug "Found a suitable kmer rev: #{rev}"
                 found_direction = false
               end
               break unless found_direction.nil?
