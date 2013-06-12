@@ -70,71 +70,18 @@ log.info "Parsing graph from #{options[:velvet_pregraph_file]}"
 graph = Bio::Velvet::Graph.parse_from_file(options[:velvet_pregraph_file])
 log.info "Finished parsing graph, found #{graph.number_of_nodes} nodes"
 
-graphviz = GraphViz.new(:G, :type => :digraph)
-
 if options[:start_kmers].length > 0
   log.info "Read in #{options[:start_kmers].length} kmers associated with the start of the assembly"
 end
 if options[:end_kmers].length > 0
   log.info "Read in #{options[:end_kmers].length} kmers associated with the end of the assembly"
 end
-
-class Bio::Velvet::Graph::Node
-  def includes_kmers?(list_of_kmers)
-    list_of_kmers.each do |kmer|
-      return true if ends_of_kmers_of_node.include?(kmer) or ends_of_kmers_of_twin_node.include?(kmer)
-    end
-    return false
-  end
-end
 list_of_start_kmers = options[:start_kmers].collect{|k| [k, Bio::Sequence::NA.new(k).reverse_complement.to_s]}.flatten
 list_of_end_kmers = options[:end_kmers].collect{|k| [k, Bio::Sequence::NA.new(k).reverse_complement.to_s]}.flatten
 
-# Add all the nodes
-log.info "Converting nodes to GraphViz format"
-blacklisted_node_ids = Set.new
-graph.nodes.each do |node|
-  cov = node.coverages[1].to_f/node.ends_of_kmers_of_node.length
-  if cov < options[:coverage_cutoff]
-    blacklisted_node_ids.add node.node_id
-  else
-    mods = {
-      :label => "#{node.node_id}_length#{node.ends_of_kmers_of_node.length}_coverage#{cov.round}",
-    }
-    includes_start = node.includes_kmers?(options[:start_kmers])
-    includes_end = node.includes_kmers?(options[:end_kmers])
-
-    if includes_start and includes_end
-      log.warn "Start and end kmers detected in the same node!"
-    elsif includes_start
-      mods[:color] = "red"
-    elsif includes_end
-      mods[:color] = "green"
-    end
-
-    graphviz.add_nodes node.node_id.to_s, mods
-  end
-end
-
-# Add all the edges
-log.info "Converting edges to GraphViz format"
-graph.arcs.each do |arc|
-  # Add unless the node has been blacklisted
-  unless blacklisted_node_ids.include? arc.begin_node_id or
-    blacklisted_node_ids.include? arc.end_node_id
-
-    # Direction of the arrows, to denote connection to beginning of node (connects to start = in-arrow-head to node on output graph)
-    if arc.connects_end_to_beginning?(arc.begin_node_id, arc.end_node_id)
-      graphviz.add_edges arc.begin_node_id.to_s, arc.end_node_id.to_s
-    elsif  arc.connects_end_to_end?(arc.begin_node_id, arc.end_node_id)
-      graphviz.add_edges arc.begin_node_id.to_s, arc.end_node_id.to_s, {:arrowhead => "none"}
-    elsif  arc.connects_beginning_to_beginning?(arc.begin_node_id, arc.end_node_id)
-      graphviz.add_edges arc.begin_node_id.to_s, arc.end_node_id.to_s, {:color => "blue"}
-    elsif  arc.connects_beginning_to_end?(arc.begin_node_id, arc.end_node_id)
-      graphviz.add_edges arc.end_node_id.to_s, arc.begin_node_id.to_s
-    end
-  end
-end
+viser = Bio::Assembly::ABVisualiser.new
+log.info "Converting assembly to GraphViz format"
+graphviz = viser.graphviz(graph, {:start_kmers => list_of_start_kmers, :end_kmers => list_of_end_kmers})
 
 # Print
 log.info "Printing assembly graph"

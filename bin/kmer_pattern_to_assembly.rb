@@ -7,6 +7,7 @@ require 'tempfile'
 require 'pp'
 require 'systemu'
 require 'bio-velvet'
+require 'set'
 
 SCRIPT_NAME = File.basename(__FILE__); LOG_NAME = 'finishm'
 $:.unshift File.join(File.dirname(__FILE__),'..','lib')
@@ -23,6 +24,7 @@ options = {
   :contig_end_length => 300,
   :graph_search_leash_length => 20000,
   :reads_to_assemble => nil,
+  :assembly_coverage_cutoff => 1.5,
 }
 
 # TODO: make a better interface for this. Maybe specify an entire genome, and then "Contig_1 end, Contig_3 start" or something
@@ -78,6 +80,24 @@ o = OptionParser.new do |opts|
   opts.on("--output-assembly-graph FILE", "output the graph of the assembly to this file [default: don't output]") do |arg|
     options[:output_graph_file] = arg
   end
+  opts.on("--already-patterned-reads FILE", "Attempt to assemble the reads in the specified file, useful for re-assembly [default: off]") do |arg|
+    options[:already_patterned_reads] = arg
+  end
+  opts.on("--output-assembly PATH", "Output assembly intermediate files to this directory [default: off]") do |arg|
+    options[:output_assembly_path] = arg
+  end
+  opts.on("--assembly-png PATH", "Output assembly as a ONG file [default: off]") do |arg|
+    options[:output_graph_png] = arg
+  end
+  opts.on("--output-begin-kmers PATH", "Output kmers found at the beginning point to this file [default: off]") do |arg|
+    options[:output_begin_kmers] = arg
+  end
+  opts.on("--output-end-kmers PATH", "Output kmers found at the ending point to this file [default: off]") do |arg|
+    options[:output_end_kmers] = arg
+  end
+  opts.on("--assembly-coverage-cutoff NUMBER", "Require this much coverage in each node, all other nodes are removed [default: #{options[:assembly_coverage_cutoff]}]") do |arg|
+    options[:assembly_coverage_cutoff] = arg.to_f
+  end
 
   # logger options
   opts.separator "\nVerbosity:\n\n"
@@ -86,7 +106,7 @@ o = OptionParser.new do |opts|
   opts.on("--trace options",String,"Set log level [default INFO]. e.g. '--trace debug' to set logging level to DEBUG"){|s| options[:log_level] = s}
 end; o.parse!
 if ARGV.length != 0 or options[:upper_threshold].nil? or options[:lower_threshold].nil? or options[:pattern].nil? or options[:kmer_multiple_abundance_file].nil? or options[:reads_files].nil?
-pp options
+  pp options
   $stderr.puts o
   exit 1
 end
@@ -94,121 +114,130 @@ end
 Bio::Log::CLI.logger(options[:logger]); Bio::Log::CLI.trace(options[:log_level]); log = Bio::Log::LoggerPlus.new(LOG_NAME); Bio::Log::CLI.configure(LOG_NAME)
 Bio::Log::LoggerPlus.new 'bio-velvet'
 Bio::Log::CLI.configure 'bio-velvet'
-if false
-# Parse pattern from cmdline
-desired_pattern = KmerAbundancePattern.new
-desired_pattern.parse_from_human(options[:pattern])
-if options[:reads_files].length != desired_pattern.length
-  raise "Number of entries in the pattern #{desired_pattern.length} and number of reads files #{options[:reads].length} not equivalent!"
-end
-
-# Collect the kmers that will be used to find trusted reads i.e.
-# Go through each line of the kmer abundance file, looking for kmers that suit the pattern
-input_file = nil
-if options[:kmer_multiple_abundance_file] == '-'
-  input_file = $stdin
-else
-  input_file = File.open options[:kmer_multiple_abundance_file]
-end
-csv = CSV.new(input_file, :col_sep => ' ')
-
-whitelist_kmers = []
-blacklist_kmers = []
-csv.each do |row|
-  max_i = row.length - 2 if max_i.nil?
-
-  kmer = row[0]
-  counts = row[1...row.length].collect{|s| s.to_i}
-
-  this_pattern = []
-  counts.each_with_index do |count, i|
-    if count > options[:upper_threshold]
-      this_pattern[i] = true
-    elsif count < options[:lower_threshold]
-      this_pattern[i] = false
-    else
-      # coverage was in no man's land between thresholds.
-      # Ignore this kmer as noise.
-      break
-    end
-  end
-  #log.debug "Found pattern #{this_pattern} from kmer #{kmer}, which has abundances #{counts}" if log.debug?
-  next unless this_pattern.length == desired_pattern.length
-
-  # Reached here means this kmer never fell in no man's land
-  if desired_pattern.consistent_with? this_pattern
-    whitelist_kmers.push row[0]
-  else
-    # kmer is not present when it should be
-    blacklist_kmers.push row[0]
-  end
-end
-log.info "After parsing the kmer multiple abundance file, found #{whitelist_kmers.length} kmers that matched the pattern, and #{blacklist_kmers.length} that didn't"
-unless whitelist_kmers.length > 0
-  log.error "No kmers found that satisfy the given pattern, exiting.."
-  exit 1
-end
-
-
-#outdir = options[:output_directory]
-#Dir.mkdir outdir unless Dir.exist?(outdir)
-
-# grep the pattern out from the raw reads, subsampling so as to not overwhelm the assembler
-#Tempfile.open('whitelist') do |white|
-File.open 'whitelist', 'w' do |white|
-  white.puts whitelist_kmers.join("\n")
-  white.close
-
-  #Tempfile.open('blacklist') do |black|
-  File.open('black','w') do |black|
-    black.puts blacklist_kmers.join("\n")
-    black.close
-
-    threadpool = []
-    sampled_read_files = []
-    options[:reads_files].each_with_index do |file, i|
-      next unless desired_pattern[i] #Don't extract reads from reads where those reads should not have been amplified
-
-      sampled = File.basename(file)+'.sampled_reads.fasta'
-      sampled_read_files.push sampled
-
-      grep_path = "#{ENV['HOME']}/git/priner/bin/read_selection_by_kmer "
-      if options[:min_leftover_length]
-        grep_path += "--min-leftover-length #{options[:min_leftover_length]} "
-      end
-      thr = Thread.new do
-        grep_cmd = "#{grep_path} --whitelist #{white.path} --blacklist #{black.path} --reads #{file} --kmer-coverage-target #{options[:kmer_coverage_target]} > #{sampled}"
-        log.debug "Running cmd: #{grep_cmd}"
-        status, stdout, stderr = systemu grep_cmd
-        log.debug stderr
-
-        raise unless status.exitstatus == 0
-        log.debug "Finished extracting reads from #{file}"
-      end
-      threadpool.push thr
-    end
-    threadpool.each do |thread| thread.join; end #wait until everything is finito
-
-    log.info "Finished extracting reads for sampling. Now pooling sampled reads"
-    pool_cmd = "cat #{sampled_read_files.join ' '} >#{pooled_reads_filename}"
-    log.debug "Running cmd: #{pool_cmd}"
-    status, stdout, stderr = systemu pool_cmd
-    raise stderr if stderr != ''
-    raise unless status.exitstatus == 0
-  end
-end
-
-end
 
 pooled_reads_filename = 'pooled_sampled_reads.fasta'
+if options[:already_patterned_reads] #If skipping read extraction
+  pooled_reads_filename = options[:already_patterned_reads]
+
+else
+  # Parse pattern from cmdline
+  desired_pattern = KmerAbundancePattern.new
+  desired_pattern.parse_from_human(options[:pattern])
+  if options[:reads_files].length != desired_pattern.length
+    raise "Number of entries in the pattern #{desired_pattern.length} and number of reads files #{options[:reads].length} not equivalent!"
+  end
+
+  # Collect the kmers that will be used to find trusted reads i.e.
+  # Go through each line of the kmer abundance file, looking for kmers that suit the pattern
+  input_file = nil
+  if options[:kmer_multiple_abundance_file] == '-'
+    input_file = $stdin
+  else
+    input_file = File.open options[:kmer_multiple_abundance_file]
+  end
+  csv = CSV.new(input_file, :col_sep => ' ')
+
+  whitelist_kmers = []
+  blacklist_kmers = []
+  csv.each do |row|
+    max_i = row.length - 2 if max_i.nil?
+
+    kmer = row[0]
+    counts = row[1...row.length].collect{|s| s.to_i}
+probe = 'TTACATCTTATCTACAATAAACCTTCTGCCTTAGTTTTAGAGCCTATCCGAAAAGTCCTGCTGCTCTGAATGTTATCCAAGCACATGCAAAATGAATTAGT'
+    this_pattern = []
+    counts.each_with_index do |count, i|
+      if count > options[:upper_threshold]
+        this_pattern[i] = true
+      elsif count < options[:lower_threshold]
+        this_pattern[i] = false
+      else
+        # coverage was in no man's land between thresholds.
+        # Ignore this kmer as noise.
+        this_pattern[i] = '-'
+      end
+    end
+    #log.debug "Found pattern #{this_pattern} from kmer #{kmer}, which has abundances #{counts}" if log.debug?
+
+    if desired_pattern.consistent_with? this_pattern
+      whitelist_kmers.push row[0]
+    else
+      # kmer is not present when it should be
+      blacklist_kmers.push row[0]
+    end
+  end
+  log.info "After parsing the kmer multiple abundance file, found #{whitelist_kmers.length} kmers that matched the pattern, and #{blacklist_kmers.length} that didn't"
+  unless whitelist_kmers.length > 0
+    log.error "No kmers found that satisfy the given pattern, exiting.."
+    exit 1
+  end
+
+
+  #outdir = options[:output_directory]
+  #Dir.mkdir outdir unless Dir.exist?(outdir)
+
+  # grep the pattern out from the raw reads, subsampling so as to not overwhelm the assembler
+  #Tempfile.open('whitelist') do |white|
+  File.open 'whitelist', 'w' do |white|
+    white.puts whitelist_kmers.join("\n")
+    white.close
+
+    #Tempfile.open('blacklist') do |black|
+    File.open('black','w') do |black|
+      black.puts blacklist_kmers.join("\n")
+      black.close
+
+      threadpool = []
+      sampled_read_files = []
+      options[:reads_files].each_with_index do |file, i|
+        next unless desired_pattern[i] #Don't extract reads from reads where those reads should not have been amplified
+
+        sampled = File.basename(file)+'.sampled_reads.fasta'
+        sampled_read_files.push sampled
+
+        grep_path = "#{ENV['HOME']}/git/priner/bin/read_selection_by_kmer "
+        if options[:min_leftover_length]
+          grep_path += "--min-leftover-length #{options[:min_leftover_length]} "
+        end
+        thr = Thread.new do
+          grep_cmd = "#{grep_path} --whitelist #{white.path} --blacklist #{black.path} --reads #{file} --kmer-coverage-target #{options[:kmer_coverage_target]} > #{sampled}"
+          log.debug "Running cmd: #{grep_cmd}"
+          status, stdout, stderr = systemu grep_cmd
+          log.debug stderr
+
+          raise unless status.exitstatus == 0
+          log.debug "Finished extracting reads from #{file}"
+        end
+        threadpool.push thr
+      end
+      threadpool.each do |thread| thread.join; end #wait until everything is finito
+
+      log.info "Finished extracting reads for sampling. Now pooling sampled reads"
+      pool_cmd = "cat #{sampled_read_files.join ' '} >#{pooled_reads_filename}"
+      log.debug "Running cmd: #{pool_cmd}"
+      status, stdout, stderr = systemu pool_cmd
+      raise stderr if stderr != ''
+      raise unless status.exitstatus == 0
+    end
+  end
+end
 
 log.info "Assembling sampled reads with velvet"
-velvet_result = Bio::Velvet::Runner.new.velvet(options[:velvet_kmer_size], "-short #{pooled_reads_filename}", '-cov_cutoff 1.5')
+velvet_result = Bio::Velvet::Runner.new.velvet(options[:velvet_kmer_size], "-short #{pooled_reads_filename}", '-cov_cutoff 1.5', :output_assembly_path => options[:output_assembly_path])
 log.info "Finished running assembly"
 
 log.info "Parsing the graph output from velvet"
-graph = velvet_result.last_graph
-log.info "Finished parsing graph, and found #{graph.nodes.length} nodes"
+graph = Bio::Velvet::Graph.parse_from_file (File.join velvet_result.result_directory, 'Graph')
+log.info "Finished parsing graph: found #{graph.nodes.length} nodes and #{graph.arcs.length} arcs"
+
+if options[:assembly_coverage_cutoff]
+  log.info "Removing low-coverage nodes from the graph (less than #{options[:assembly_coverage_cutoff]})"
+  cutoffer = Bio::AssemblyGraphAlgorithms::CoverageBasedGraphFilter.new
+  deleted_nodes, deleted_arcs = cutoffer.remove_low_coverage_nodes(graph, options[:assembly_coverage_cutoff])
+
+  log.info "Removed #{deleted_nodes.length} nodes and #{deleted_arcs.length} arcs from the graph due to low coverage"
+  log.info "Now there is #{graph.nodes.length} nodes and #{graph.arcs.length} arcs remaining"
+end
 
 log.info "Finding kmers that are specific to the end of the first contig"
 start_contig = options[:start_contig]
@@ -229,15 +258,41 @@ end_contig.subseq(1,options[:contig_end_length]).reverse_complement.window_searc
   end_kmers.push kmer_na.to_s.upcase
 end
 
+if options[:output_begin_kmers]
+  File.open(options[:output_begin_kmers], 'w'){|f| f.puts start_kmers.join("\n")}
+end
+if options[:output_end_kmers]
+  File.open(options[:output_end_kmers], 'w'){|f| f.puts end_kmers.join("\n")}
+end
+
 finder = Bio::AssemblyGraphAlgorithms::NodeFinder.new
 start_node, start_node_forward = finder.find_unique_node_with_kmers(graph, start_kmers)
 log.info "Finding kmers that are specific to the start of the second contig"
 end_node, end_node_forward = finder.find_unique_node_with_kmers(graph, end_kmers)
 if start_node.nil? or end_node.nil?
   log.error "Unable to find any nodes in the graph that have suitable kmers in them, sorry. Maybe fix the node finding code?"
+
+  if options[:output_graph_png]
+    start_nodes = finder.find_nodes_with_kmers(graph, start_kmers)
+    end_nodes = finder.find_nodes_with_kmers(graph, end_kmers)
+    log.info "Converting assembly to a graphviz PNG, even though start/end node could not be found properly"
+    viser = Bio::Assembly::ABVisualiser.new
+    gv = viser.graphviz(graph, {
+      :start_node_ids => start_nodes.collect{|n| n.node_id},
+      :end_node_ids => end_nodes.collect{|n| n.node_id}
+    })
+    gv.output :png => options[:output_graph_png]
+  end
   exit
 end
 log.info "Node(s) found that are suitable as initial and terminal nodes in the graph search, respectively: #{start_node.node_id} and #{end_node.node_id}"
+
+if options[:output_graph_png]
+  log.info "Converting assembly to a graphviz PNG"
+  viser = Bio::Assembly::ABVisualiser.new
+  gv = viser.graphviz(graph, {:start_node_id => start_node.node_id, :end_node_id => end_node.node_id})
+  gv.output :png => options[:output_graph_png], :use => :neato
+end
 
 log.info "Searching for trails between the initial and terminal nodes, within the assembly graph"
 cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new

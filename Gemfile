@@ -8,6 +8,7 @@ gem 'bio'
 gem 'progressbar'
 gem 'bio-samtools'
 gem 'systemu'
+gem 'graphviz'
 
 # Add dependencies to develop your gem here.
 # Include everything needed to run rake, tests, features, etc.
