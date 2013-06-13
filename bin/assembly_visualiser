@@ -7,7 +7,9 @@ require 'graphviz'
 require 'bio'
 require 'set'
 
-SCRIPT_NAME = File.basename(__FILE__); LOG_NAME = SCRIPT_NAME.gsub('.rb','')
+SCRIPT_NAME = File.basename(__FILE__); LOG_NAME = 'finishm'
+$:.unshift File.join(File.dirname(__FILE__),'..','lib')
+require 'priner'
 
 # Parse command line options into the options hash
 options = {
@@ -68,7 +70,7 @@ Bio::Log::CLI.logger(options[:logger]); Bio::Log::CLI.trace(options[:log_level])
 
 log.info "Parsing graph from #{options[:velvet_pregraph_file]}"
 graph = Bio::Velvet::Graph.parse_from_file(options[:velvet_pregraph_file])
-log.info "Finished parsing graph, found #{graph.number_of_nodes} nodes"
+log.info "Finished parsing graph, found #{graph.nodes.length} nodes and #{graph.arcs.length} arcs"
 
 if options[:start_kmers].length > 0
   log.info "Read in #{options[:start_kmers].length} kmers associated with the start of the assembly"
@@ -78,6 +80,13 @@ if options[:end_kmers].length > 0
 end
 list_of_start_kmers = options[:start_kmers].collect{|k| [k, Bio::Sequence::NA.new(k).reverse_complement.to_s]}.flatten
 list_of_end_kmers = options[:end_kmers].collect{|k| [k, Bio::Sequence::NA.new(k).reverse_complement.to_s]}.flatten
+
+if options[:coverage_cutoff]
+  cutter = Bio::AssemblyGraphAlgorithms::CoverageBasedGraphFilter.new
+  log.info "Removing low coverage (<#{options[:coverage_cutoff]}) nodes"
+  cutter.remove_low_coverage_nodes(graph, options[:coverage_cutoff])
+  log.info "After removing low coverage nodes, there is #{graph.nodes.length} nodes and #{graph.arcs.length} arcs"
+end
 
 viser = Bio::Assembly::ABVisualiser.new
 log.info "Converting assembly to GraphViz format"

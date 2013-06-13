@@ -42,11 +42,11 @@ module Bio
                 if found_node.sequence.include?(rev)
                   log.debug "Found a kmer that is included in the forward and reverse directions of the same node. Unlucky, ignoring this kmer" if log.debug?
                 else
-                  log.debug "Found a suitable kmer fwd: #{fwd}"
+                  log.info "Found a suitable kmer fwd: #{fwd}"
                   found_direction = true
                 end
               else
-                log.debug "Found a suitable kmer rev: #{rev}"
+                log.info "Found a suitable kmer rev: #{rev}"
                 found_direction = false
               end
               break unless found_direction.nil?

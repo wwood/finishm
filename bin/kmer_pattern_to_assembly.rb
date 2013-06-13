@@ -270,7 +270,12 @@ start_node, start_node_forward = finder.find_unique_node_with_kmers(graph, start
 log.info "Finding kmers that are specific to the start of the second contig"
 end_node, end_node_forward = finder.find_unique_node_with_kmers(graph, end_kmers)
 if start_node.nil? or end_node.nil?
-  log.error "Unable to find any nodes in the graph that have suitable kmers in them, sorry. Maybe fix the node finding code?"
+  if start_node.nil?
+    log.error "Unable to find any nodes in the graph that have kmers corresponding to the _start_ point in them, sorry. Maybe fix the node finding code?"
+  end
+  if end_node.nil?
+    log.error "Unable to find any nodes in the graph that have kmers corresponding to the _end_ point in them, sorry. Maybe fix the node finding code?"
+  end
 
   if options[:output_graph_png]
     start_nodes = finder.find_nodes_with_kmers(graph, start_kmers)
