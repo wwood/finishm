@@ -8,7 +8,10 @@ gem 'bio'
 gem 'progressbar'
 gem 'bio-samtools'
 gem 'systemu'
-gem 'graphviz'
+gem 'ruby-graphviz'
+
+#only needed temporarily until the bio-velvet gem is a proper dependency
+gem 'files'
 
 # Add dependencies to develop your gem here.
 # Include everything needed to run rake, tests, features, etc.

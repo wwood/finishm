@@ -1,13 +1,3 @@
-class Bio::Velvet::Graph::Node
-  def sequence?
-    begin
-      return true if sequence
-    rescue Bio::Velvet::NotImplementedException => e
-      return false
-    end
-  end
-end
-
 module Bio
   module AssemblyGraphAlgorithms
     class NodeFinder
