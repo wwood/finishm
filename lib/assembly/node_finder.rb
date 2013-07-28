@@ -1,8 +1,30 @@
 module Bio
   module AssemblyGraphAlgorithms
     class NodeFinder
-      def log
-        Bio::Log::LoggerPlus['finishm']
+      include Bio::FinishM::Logging
+
+      # Find the node whre the read with the given sequence_id (sequence ID from within velvet)
+      # resides. Assumes that read tracking was turned on during velvetg command.
+      # Returns [node_id, direction] where direction is true if the read is forward-facing
+      # relative to the node, or nil if no node could be found.
+      # When multiple nodes contain the read, return the node that is closest to the beginning
+      # of the read.
+      def find_unique_node_with_sequence_id(graph, sequence_id)
+        nodes_with_read = graph.nodes.select do |node|
+          node.short_reads.select{|r| r.read_id == sequence_id}.length > 0
+        end
+        log.debug "Found #{nodes_with_read.length} nodes with the anchor read in it"
+        return nil if nodes_with_read.empty?
+
+        # TODO: There is a slight bit of imperfection here - multiple nodes can be the minimum
+        # Hopefully won't be a bit problem
+        best_node = nodes_with_read.min do |n1, n2|
+          r1 = n1.short_reads.find{|r| r.read_id == sequence_id}
+          r2 = n2.short_reads.find{|r| r.read_id == sequence_id}
+          r1.offset_from_start_of_node <=> r2.offset_from_start_of_node
+        end
+        best_noded_read = best_node.short_reads.find{|r| r.read_id == sequence_id}
+        return best_node, best_noded_read.direction
       end
 
       def find_unique_node_with_kmers(velvet_graph, kmers)

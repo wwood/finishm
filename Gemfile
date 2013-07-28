@@ -9,6 +9,7 @@ gem 'progressbar'
 gem 'bio-samtools'
 gem 'systemu'
 gem 'ruby-graphviz'
+gem 'ds'
 
 #only needed temporarily until the bio-velvet gem is a proper dependency
 gem 'files'

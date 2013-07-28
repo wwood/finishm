@@ -92,12 +92,12 @@ o = OptionParser.new do |opts|
   opts.on("--assembly-svg PATH", "Output assembly as an SVG file [default: off]") do |arg|
     options[:output_graph_svg] = arg
   end
-  opts.on("--output-begin-kmers PATH", "Output kmers found at the beginning point to this file [default: off]") do |arg|
-    options[:output_begin_kmers] = arg
-  end
-  opts.on("--output-end-kmers PATH", "Output kmers found at the ending point to this file [default: off]") do |arg|
-    options[:output_end_kmers] = arg
-  end
+#  opts.on("--output-begin-kmers PATH", "Output kmers found at the beginning point to this file [default: off]") do |arg|
+#    options[:output_begin_kmers] = arg
+#  end
+#  opts.on("--output-end-kmers PATH", "Output kmers found at the ending point to this file [default: off]") do |arg|
+#    options[:output_end_kmers] = arg
+#  end
   opts.on("--assembly-coverage-cutoff NUMBER", "Require this much coverage in each node, all other nodes are removed [default: #{options[:assembly_coverage_cutoff]}]") do |arg|
     options[:assembly_coverage_cutoff] = arg.to_f
   end
@@ -225,12 +225,38 @@ probe = 'TTACATCTTATCTACAATAAACCTTCTGCCTTAGTTTTAGAGCCTATCCGAAAAGTCCTGCTGCTCTGAAT
   end
 end
 
-log.info "Assembling sampled reads with velvet"
-velvet_result = Bio::Velvet::Runner.new.velvet(options[:velvet_kmer_size], "-short #{pooled_reads_filename}", '-cov_cutoff 1.5', :output_assembly_path => options[:output_assembly_path])
-log.info "Finished running assembly"
+log.info "Extracting dummy reads from the ends of contigs to use as anchors"
+start_contig = options[:start_contig]
+end_contig = options[:end_contig]
+if [start_contig.length, end_contig.length].min < 2*options[:contig_end_length]
+  log.warn "Choice of initial/terminal nodes to perform graph search with may not be optimal due to the small contig size"
+end
+if [start_contig.length, end_contig.length].min < options[:contig_end_length]
+  log.error "At least one contig too small to proceed with current code base, need to fix the code to allow such a small contig"
+  exit 1
+end
+# Use the last bit of the first contig and the first bit of the second contig as the anchors
+velvet_result = nil
+Tempfile.open('anchors.fa') do |tempfile|
+  tempfile.puts ">start_contig"
+  tempfile.puts start_contig[start_contig.length-options[:contig_end_length]...start_contig.length]
+  tempfile.puts ">end_contig"
+  tempfile.puts end_contig[0...options[:contig_end_length]]
+  tempfile.close
+
+  log.info "Assembling sampled reads with velvet"
+  # Bit of a hack, but have to use -short1 as the anchors because then start and end anchors will have node IDs 1 and 2, respectively.
+  velvet_result = Bio::Velvet::Runner.new.velvet(
+    options[:velvet_kmer_size],
+    "-short #{tempfile.path} -short2 #{pooled_reads_filename}",
+    "-cov_cutoff 0 -read_trkg yes",
+    :output_assembly_path => options[:output_assembly_path]
+  )
+  log.info "Finished running assembly"
+end
 
 log.info "Parsing the graph output from velvet"
-graph = Bio::Velvet::Graph.parse_from_file (File.join velvet_result.result_directory, 'Graph')
+graph = Bio::Velvet::Graph.parse_from_file (File.join velvet_result.result_directory, 'Graph2')
 log.info "Finished parsing graph: found #{graph.nodes.length} nodes and #{graph.arcs.length} arcs"
 
 if options[:assembly_coverage_cutoff]
@@ -242,36 +268,11 @@ if options[:assembly_coverage_cutoff]
   log.info "Now there is #{graph.nodes.length} nodes and #{graph.arcs.length} arcs remaining"
 end
 
-log.info "Finding kmers that are specific to the end of the first contig"
-start_contig = options[:start_contig]
-end_contig = options[:end_contig]
-if [start_contig.length, end_contig.length].min < 2*options[:contig_end_length]
-  # TODO: if the contig is very short, earlier kmers in the kmers array may
-  # not be closer to the middle of the contig. re-order the input kmer hash to make it so?
-  log.warn "Choice of initial/terminal nodes to perform graph search with may not be optimal due to the small contig size"
-end
-
-start_kmers = []
-len = start_contig.length
-start_contig.subseq(len-options[:contig_end_length],len).window_search(options[:terminal_contig_search_kmer_size]) do |kmer_na|
-  start_kmers.push kmer_na.to_s.upcase
-end
-end_kmers = []
-end_contig.subseq(1,options[:contig_end_length]).reverse_complement.window_search(options[:terminal_contig_search_kmer_size]) do |kmer_na|
-  end_kmers.push kmer_na.to_s.upcase
-end
-
-if options[:output_begin_kmers]
-  File.open(options[:output_begin_kmers], 'w'){|f| f.puts start_kmers.join("\n")}
-end
-if options[:output_end_kmers]
-  File.open(options[:output_end_kmers], 'w'){|f| f.puts end_kmers.join("\n")}
-end
-
 finder = Bio::AssemblyGraphAlgorithms::NodeFinder.new
-start_node, start_node_forward = finder.find_unique_node_with_kmers(graph, start_kmers)
-log.info "Finding kmers that are specific to the start of the second contig"
-end_node, end_node_forward = finder.find_unique_node_with_kmers(graph, end_kmers)
+log.info "Finding node representing the end of the first contig"
+start_node, start_node_forward = finder.find_unique_node_with_sequence_id(graph, 1)
+log.info "Finding node representing the start of the second contig"
+end_node, end_node_forward = finder.find_unique_node_with_sequence_id(graph, 2)
 if start_node.nil? or end_node.nil?
   if start_node.nil?
     log.error "Unable to find any nodes in the graph that have kmers corresponding to the _start_ point in them, sorry. Maybe fix the node finding code?"
@@ -283,16 +284,23 @@ if start_node.nil? or end_node.nil?
   if options[:output_graph_png] or options[:output_graph_svg]
     start_nodes = finder.find_nodes_with_kmers(graph, start_kmers)
     end_nodes = finder.find_nodes_with_kmers(graph, end_kmers)
-    log.info "Converting assembly to a graphviz PNG/SVG, even though start/end node could not be found properly"
+    log.info "Converting assembly to a graphviz PNG/SVG, even if start/end node could not be found properly"
     viser = Bio::Assembly::ABVisualiser.new
     gv = viser.graphviz(graph, {
       :start_node_ids => start_nodes.collect{|n| n.node_id},
       :end_node_ids => end_nodes.collect{|n| n.node_id}
     })
-    gv.output :png => options[:output_graph_png] if options[:output_graph_png]
-    gv.output :svg => options[:output_graph_svg] if options[:output_graph_svg]
+    if options[:output_graph_png]
+      log.info "Writing PNG of graph to #{options[:output_graph_png]}"
+      gv.output :png => options[:output_graph_png]
+    end
+    if options[:output_graph_svg]
+      log.info "Writing SVG of graph to #{options[:output_graph_svg]}"
+      gv.output :svg => options[:output_graph_svg]
+    end
   end
-  exit
+  log.error "Unknown start or end points, giving up, sorry."
+  exit 1
 end
 log.info "Node(s) found that are suitable as initial and terminal nodes in the graph search, respectively: #{start_node.node_id} and #{end_node.node_id}"
 

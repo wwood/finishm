@@ -32,12 +32,12 @@ module Bio
         blacklisted_node_ids = Set.new
         log.debug "Converting nodes to GraphViz format"
         graph.nodes.each do |node|
-          cov = node.coverages[1].to_f/node.ends_of_kmers_of_node.length
+          cov = node.coverage
           if options[:coverage_cutoff] and cov < options[:coverage_cutoff]
             blacklisted_node_ids.add node.node_id
           else
             mods = {
-              :label => "#{node.node_id}_length#{node.ends_of_kmers_of_node.length}_coverage#{cov.round}",
+              :label => "n#{node.node_id}_length#{node.ends_of_kmers_of_node.length}_coverage#{cov.round}",
             }
             includes_start = false
             includes_end = false

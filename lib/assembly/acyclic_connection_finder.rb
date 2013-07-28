@@ -1,9 +1,27 @@
+require 'ds'
+require 'set'
 
 module Bio
   module AssemblyGraphAlgorithms
     class AcyclicConnectionFinder
       def log
         Bio::Log::LoggerPlus['finishm']
+      end
+
+      def find_trails_between_nodes_depth_first_search(graph, initial_node, terminal_node, leash_length, start_looking_off_the_end_of_the_first_node)
+        found_a_path = false
+        discovered_list = Set.new
+
+        stack = DS::Stack.new
+        stack.push [initial_node, start_looking_off_the_end_of_the_first_node]
+        while !stack.empty?
+          current_node, current_direction = stack.pop
+          if current_node == terminal_node
+            log.debug "Found a path between initial and terminal nodes."
+            found_a_path = true
+          end
+        end
+        raise
       end
 
       # Perform a search of the graph starting at the initial node, and try to
@@ -21,7 +39,7 @@ module Bio
 
           if new_node == terminal_node
             # We have found a successful trail. Done.
-            log.debug "Successful trail found: #{trail.collect{|node| node.node_id}.join(',')}" if log and log.debug?
+            log.info "Successful trail found: #{trail.collect{|node| node.node_id}.join(',')}" if log and log.debug?
             successful_trails.push trail
 
           else
