@@ -86,8 +86,11 @@ o = OptionParser.new do |opts|
   opts.on("--output-assembly PATH", "Output assembly intermediate files to this directory [default: off]") do |arg|
     options[:output_assembly_path] = arg
   end
-  opts.on("--assembly-png PATH", "Output assembly as a ONG file [default: off]") do |arg|
+  opts.on("--assembly-png PATH", "Output assembly as a PNG file [default: off]") do |arg|
     options[:output_graph_png] = arg
+  end
+  opts.on("--assembly-svg PATH", "Output assembly as an SVG file [default: off]") do |arg|
+    options[:output_graph_svg] = arg
   end
   opts.on("--output-begin-kmers PATH", "Output kmers found at the beginning point to this file [default: off]") do |arg|
     options[:output_begin_kmers] = arg
@@ -277,16 +280,17 @@ if start_node.nil? or end_node.nil?
     log.error "Unable to find any nodes in the graph that have kmers corresponding to the _end_ point in them, sorry. Maybe fix the node finding code?"
   end
 
-  if options[:output_graph_png]
+  if options[:output_graph_png] or options[:output_graph_svg]
     start_nodes = finder.find_nodes_with_kmers(graph, start_kmers)
     end_nodes = finder.find_nodes_with_kmers(graph, end_kmers)
-    log.info "Converting assembly to a graphviz PNG, even though start/end node could not be found properly"
+    log.info "Converting assembly to a graphviz PNG/SVG, even though start/end node could not be found properly"
     viser = Bio::Assembly::ABVisualiser.new
     gv = viser.graphviz(graph, {
       :start_node_ids => start_nodes.collect{|n| n.node_id},
       :end_node_ids => end_nodes.collect{|n| n.node_id}
     })
-    gv.output :png => options[:output_graph_png]
+    gv.output :png => options[:output_graph_png] if options[:output_graph_png]
+    gv.output :svg => options[:output_graph_svg] if options[:output_graph_svg]
   end
   exit
 end
@@ -297,6 +301,12 @@ if options[:output_graph_png]
   viser = Bio::Assembly::ABVisualiser.new
   gv = viser.graphviz(graph, {:start_node_id => start_node.node_id, :end_node_id => end_node.node_id})
   gv.output :png => options[:output_graph_png], :use => :neato
+end
+if options[:output_graph_svg]
+  log.info "Converting assembly to a graphviz SVG"
+  viser = Bio::Assembly::ABVisualiser.new
+  gv = viser.graphviz(graph, {:start_node_id => start_node.node_id, :end_node_id => end_node.node_id})
+  gv.output :svg => options[:output_graph_svg], :use => :neato
 end
 
 log.info "Searching for trails between the initial and terminal nodes, within the assembly graph"
