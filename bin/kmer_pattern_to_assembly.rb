@@ -77,8 +77,8 @@ o = OptionParser.new do |opts|
   opts.on("--kmer-coverage-target NUMBER", "when searching for reads with kmers, require this many copies per kmer [default: #{options[:kmer_coverage_target]}]") do |arg|
     options[:kmer_coverage_target] = arg.to_i
   end
-  opts.on("--output-assembly-graph FILE", "output the graph of the assembly to this file [default: don't output]") do |arg|
-    options[:output_graph_file] = arg
+  opts.on("--assembly-kmer NUMBER", "when assembling, use this kmer length [default: #{options[:velvet_kmer_size]}]") do |arg|
+    options[:velvet_kmer_size] = arg.to_i
   end
   opts.on("--already-patterned-reads FILE", "Attempt to assemble the reads in the specified file, useful for re-assembly [default: off]") do |arg|
     options[:already_patterned_reads] = arg
@@ -91,6 +91,9 @@ o = OptionParser.new do |opts|
   end
   opts.on("--assembly-svg PATH", "Output assembly as an SVG file [default: off]") do |arg|
     options[:output_graph_svg] = arg
+  end
+  opts.on("--assembly-dot PATH", "Output assembly as an DOT file [default: off]") do |arg|
+    options[:output_graph_dot] = arg
   end
 #  opts.on("--output-begin-kmers PATH", "Output kmers found at the beginning point to this file [default: off]") do |arg|
 #    options[:output_begin_kmers] = arg
@@ -252,11 +255,17 @@ Tempfile.open('anchors.fa') do |tempfile|
     "-cov_cutoff 0 -read_trkg yes",
     :output_assembly_path => options[:output_assembly_path]
   )
+  if log.debug?
+    log.debug "velveth stdout: #{velvet_result.velveth_stdout}"
+    log.debug "velveth stderr: #{velvet_result.velveth_stderr}"
+    log.debug "velvetg stdout: #{velvet_result.velvetg_stdout}"
+    log.debug "velvetg stderr: #{velvet_result.velvetg_stderr}"
+  end
   log.info "Finished running assembly"
 end
 
 log.info "Parsing the graph output from velvet"
-graph = Bio::Velvet::Graph.parse_from_file (File.join velvet_result.result_directory, 'Graph2')
+graph = Bio::Velvet::Graph.parse_from_file(File.join velvet_result.result_directory, 'Graph2')
 log.info "Finished parsing graph: found #{graph.nodes.length} nodes and #{graph.arcs.length} arcs"
 
 if options[:assembly_coverage_cutoff]
@@ -316,17 +325,21 @@ if options[:output_graph_svg]
   gv = viser.graphviz(graph, {:start_node_id => start_node.node_id, :end_node_id => end_node.node_id})
   gv.output :svg => options[:output_graph_svg], :use => :neato
 end
+if options[:output_graph_dot]
+  log.info "Converting assembly to a graphviz DOT"
+  viser = Bio::Assembly::ABVisualiser.new
+  gv = viser.graphviz(graph, {:start_node_id => start_node.node_id, :end_node_id => end_node.node_id, :digraph => false})
+  gv.output :dot => options[:output_graph_dot]
+end
 
 log.info "Searching for trails between the initial and terminal nodes, within the assembly graph"
 cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
 trails = cartographer.find_trails_between_nodes(graph, start_node, end_node, options[:graph_search_leash_length], start_node_forward)
 log.info "Found #{trails.length} trail(s) between the initial and terminal nodes"
 
-log.debug "Found trails: #{trails.collect{|t| "Trail: #{t.collect{|n| n.node_id}.join(',')}"}.join(', ')}"
+log.debug "Found trails: #{trails.collect{|t| t.to_s}.join("\n")}"
 
-sequencer = Bio::AssemblyGraphAlgorithms::LazyGraphWalker.new
-trails.each_with_index do |trail,i|
-  seq = sequencer.trail_sequence(graph,trail)
-  puts ">finishm_trail_#{i+1}"
-  puts seq
+trails.each_with_index do |trail, i|
+  puts ">trail#{i+1}"
+  puts trail.sequence
 end

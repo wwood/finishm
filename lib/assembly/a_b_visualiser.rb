@@ -25,8 +25,11 @@ module Bio
       # :start_node_ids: array of node IDs to mark as a start
       # :end_node_ids:array of node IDs to mark as a end
       # :coverage_cutoff: ignore nodes with less coverage than this cutoff
+      # :digraph: output as a digraph (default true, else output undirected graph)
       def graphviz(graph, options={})
-        graphviz = GraphViz.new(:G, :type => :digraph)
+        opts = {}
+        opts[:type] = :digraph unless options[:digraph] == false
+        graphviz = GraphViz.new(:G, opts)
 
         # Add all the nodes
         blacklisted_node_ids = Set.new

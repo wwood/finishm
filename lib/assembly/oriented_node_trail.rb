@@ -29,6 +29,46 @@ module Bio
           @trail.each(&block)
         end
 
+        def last
+          @trail[@trail.length-1]
+        end
+
+        # Return a list of OrientedNode objects, one for each neighbour
+        # of the last node in this path (in the correct direction)
+        def neighbours_of_last_node(graph)
+          neighbour_nodes = nil
+          if last.first_side == START_IS_FIRST
+            neighbour_nodes = graph.neighbours_off_end(last.node)
+          else
+            neighbour_nodes = graph.neighbours_into_start(last.node)
+          end
+
+          neighbours_with_orientation = neighbour_nodes.collect do |neighbour|
+            arcs = graph.get_arcs_by_node last.node, neighbour
+            raise "Cycle detected but the code is dumb here currently" if arcs.length != 1 or arcs[0].begin_node_id == arcs[0].end_node_id
+            arc = arcs[0]
+
+            oriented = OrientedNode.new
+            oriented.node = neighbour
+            if arc.begin_node_id == neighbour.node_id
+              if arc.begin_node_direction
+                oriented.first_side = END_IS_FIRST
+              else
+                oriented.first_side = START_IS_FIRST
+              end
+            elsif arc.end_node_id == neighbour.node_id
+              if arc.end_node_direction
+                oriented.first_side = START_IS_FIRST
+              else
+                oriented.first_side = END_IS_FIRST
+              end
+            end
+
+            oriented
+          end
+          return neighbours_with_orientation
+        end
+
         # Return the sequence of the entire trail, or an empty string if there is no
         # nodes in the trail. For certain (small) configurations of (short) nodes, there may
         # be insufficient information to uniquely determine the sequence of the trail.
@@ -55,6 +95,18 @@ module Bio
           end
         end
 
+        def copy
+          o = OrientedNodeTrail.new
+          each do |oriented|
+            o.add_node oriented.node, oriented.first_side
+          end
+          return o
+        end
+
+        def to_s
+          "OrientedNodeTrail: #{object_id}: #{collect{|n| [n.node.node_id,n.first_side].join(',')}.join(' ')}"
+        end
+
         class OrientedNode
           attr_accessor :node, :first_side
 
@@ -64,6 +116,10 @@ module Bio
 
           def starts_at_end?
             @first_side == OrientedNodeTrail::END_IS_FIRST
+          end
+
+          def to_s
+            "OrientedNode: node #{@node.node_id}, first_side: #{@first_side}"
           end
         end
 
