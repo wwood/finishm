@@ -195,6 +195,7 @@ probe = 'TTACATCTTATCTACAATAAACCTTCTGCCTTAGTTTTAGAGCCTATCCGAAAAGTCCTGCTGCTCTGAAT
 
       threadpool = []
       sampled_read_files = []
+      log.info "Extracting reads that contain suitable kmers"
       options[:reads_files].each_with_index do |file, i|
         next unless desired_pattern[i] #Don't extract reads from reads where those reads should not have been amplified
 
@@ -246,6 +247,7 @@ Tempfile.open('anchors.fa') do |tempfile|
   tempfile.puts ">end_contig"
   tempfile.puts end_contig[0...options[:contig_end_length]]
   tempfile.close
+  puts `cat #{tempfile.path}`
 
   log.info "Assembling sampled reads with velvet"
   # Bit of a hack, but have to use -short1 as the anchors because then start and end anchors will have node IDs 1 and 2, respectively.
@@ -306,6 +308,10 @@ if start_node.nil? or end_node.nil?
     if options[:output_graph_svg]
       log.info "Writing SVG of graph to #{options[:output_graph_svg]}"
       gv.output :svg => options[:output_graph_svg]
+    end
+    if options[:output_graph_dot]
+      log.info "Writing DOT of graph to #{options[:output_graph_dot]}"
+      gv.output :dot => options[:output_graph_dot]
     end
   end
   log.error "Unknown start or end points, giving up, sorry."
