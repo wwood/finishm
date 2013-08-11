@@ -27,6 +27,40 @@ module Bio
         return best_node, best_noded_read.direction
       end
 
+      def find_unique_nodes_with_sequence_ids(graph, sequence_ids)
+        # Create data structure
+        endings = {}
+        sequence_ids.each do |seq_id|
+          endings[seq_id] = []
+        end
+
+        # Fill data structure with candidate nodes
+        graph.nodes.each do |node|
+          node.short_reads.each do |read|
+            if endings[read.read_id]
+              endings[read.read_id].push node
+            end
+          end
+        end
+
+        # Pick the best node from each of the candidate nodes for each sequence_id
+        endings.collect do |sequence_id, nodes|
+          best_node = nodes.min do |n1, n2|
+            r1 = n1.short_reads.find{|r| r.read_id == sequence_id}
+            r2 = n2.short_reads.find{|r| r.read_id == sequence_id}
+            r1.offset_from_start_of_node <=> r2.offset_from_start_of_node
+          end
+          if best_node
+            best_noded_read = best_node.short_reads.find{|r| r.read_id == sequence_id}
+            [best_node, best_noded_read.direction]
+          else
+            []
+          end
+        end
+
+        return endings
+      end
+
       def find_unique_node_with_kmers(velvet_graph, kmers)
         # TODO: search in a more sane way, algorithmically
         # TODO: only choose kmers that are unique to the assembly

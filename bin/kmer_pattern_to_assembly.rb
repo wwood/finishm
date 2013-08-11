@@ -273,7 +273,7 @@ log.info "Finished parsing graph: found #{graph.nodes.length} nodes and #{graph.
 if options[:assembly_coverage_cutoff]
   log.info "Removing low-coverage nodes from the graph (less than #{options[:assembly_coverage_cutoff]})"
   cutoffer = Bio::AssemblyGraphAlgorithms::CoverageBasedGraphFilter.new
-  deleted_nodes, deleted_arcs = cutoffer.remove_low_coverage_nodes(graph, options[:assembly_coverage_cutoff])
+  deleted_nodes, deleted_arcs = cutoffer.remove_low_coverage_nodes(graph, options[:assembly_coverage_cutoff], :whitelisted_sequences => [1,2])
 
   log.info "Removed #{deleted_nodes.length} nodes and #{deleted_arcs.length} arcs from the graph due to low coverage"
   log.info "Now there is #{graph.nodes.length} nodes and #{graph.arcs.length} arcs remaining"
@@ -283,7 +283,7 @@ finder = Bio::AssemblyGraphAlgorithms::NodeFinder.new
 log.info "Finding node representing the end of the first contig"
 start_node, start_node_forward = finder.find_unique_node_with_sequence_id(graph, 1)
 log.info "Finding node representing the start of the second contig"
-end_node, end_node_forward = finder.find_unique_node_with_sequence_id(graph, 2)
+end_node, end_node_forward = finder.find_unique_node_with_sequence_id(graph, 2)#TODO: find the node nearest the end of this, not the start
 if start_node.nil? or end_node.nil?
   if start_node.nil?
     log.error "Unable to find any nodes in the graph that have kmers corresponding to the _start_ point in them, sorry. Maybe fix the node finding code?"
@@ -293,14 +293,9 @@ if start_node.nil? or end_node.nil?
   end
 
   if options[:output_graph_png] or options[:output_graph_svg]
-    start_nodes = finder.find_nodes_with_kmers(graph, start_kmers)
-    end_nodes = finder.find_nodes_with_kmers(graph, end_kmers)
-    log.info "Converting assembly to a graphviz PNG/SVG, even if start/end node could not be found properly"
+    log.info "Converting assembly to a graphviz PNG/SVG, even if start/end node was not be found properly"
     viser = Bio::Assembly::ABVisualiser.new
-    gv = viser.graphviz(graph, {
-      :start_node_ids => start_nodes.collect{|n| n.node_id},
-      :end_node_ids => end_nodes.collect{|n| n.node_id}
-    })
+    gv = viser.graphviz(graph)
     if options[:output_graph_png]
       log.info "Writing PNG of graph to #{options[:output_graph_png]}"
       gv.output :png => options[:output_graph_png]
