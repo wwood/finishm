@@ -227,11 +227,105 @@ module Bio
         return successful_trails
       end
 
+      # Find trails between a set of different nodes
+      def find_trails_between_node_set(graph, anchoring_nodes_and_directions, leash_length)
+        path_sets = []
+
+        # all vs all searching, but only the top triangle of the matrix
+        anchoring_nodes_and_directions.each_with_index do |pair, i|
+          initial_node = anchoring_nodes_and_directions.to_a[i][0]
+          initial_node_direction = anchoring_nodes_and_directions.to_a[i][1]
+          path = Bio::Velvet::Graph::OrientedNodeTrail.new
+          way = initial_node_direction ?
+            Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST :
+            Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST
+          path.add_node initial_node, way
+
+          target_nodes = Set.new
+          j = 0
+          anchoring_nodes_and_directions.each do |node, dir|
+            #target all nodes that come after this one in the array
+            target_nodes << node unless j<=i
+            j += 1
+          end
+
+          path_sets.push find_trails_between_one_node_and_a_set_of_others(graph, path, target_nodes, leash_length)
+        end
+        return path_sets
+      end
+
+      def find_trails_between_one_node_and_a_set_of_others(graph, initial_path, target_nodes, leash_length)
+        paths_found = []
+        discovered_list = Set.new
+        explored_list = Set.new
+        known_edges = Set.new
+        stack = DS::Stack.new
+
+        path = initial_path.copy
+        stack.push path
+
+        while current_path = stack.pop
+          current_node = current_path.last.node
+          log.debug "Just popped #{current_node.node_id}"
+          if target_nodes.include?(current_node)
+            log.info "Found a path between two nodes nodes: #{initial_path.first.node.node_id} and #{current_node.node_id}!"
+            paths_found.push current_path
+          end
+
+          # Visit all the adjacent nodes
+          str = current_path.collect{|n| "#{n.node.node_id}_#{n.node.coverage.round}"}.join(' ')
+          log.debug "Finding next neighbours of this trail: #{str}"
+          finished_exploring = true
+          neighbours = current_path.neighbours_of_last_node(graph)
+          neighbours.each do |neighbour|
+            edges = graph.get_arcs_by_node current_node, neighbour.node
+            raise "dragons" if edges.length != 1
+            edge = edges[0]
+            log.debug "Considering neighbour #{neighbour.node.node_id}" if log.debug?
+
+            if known_edges.include?(edge)
+              log.debug "Already seen this edge, ignoring: #{edge.begin_node_id}/#{edge.end_node_id}" if log.debug?
+              next
+            end
+            known_edges << edge
+
+            discovered = discovered_list.include?(neighbour.node)
+            explored = explored_list.include?(neighbour.node)
+            if !discovered and !explored
+              log.debug "Found a new edge to discover/explore: #{edge.begin_node_id}/#{edge.end_node_id}" if log.debug?
+              discovered_list << neighbour
+              new_path = current_path.copy
+              new_path.add_node neighbour.node, neighbour.first_side
+              if new_path.length_in_bp > leash_length
+                log.debug "Discontinuing this path because it is beyond the leash length: #{new_path.to_s}"
+              else
+                log.debug "Adding new path to the stack: #{new_path.to_s}"
+                stack.push new_path
+                log.debug "Stack is now #{stack.size} in length"
+                finished_exploring = false
+              end
+            end
+          end
+
+          if finished_exploring
+            log.debug "Finished exploring #{current_path.collect{|ori_node|ori_node.node.node_id}.join(',')}"
+            explored_list << current_path.last.node
+            #popped = stack.pop
+          end
+        end
+        log.info "Found #{paths_found.length} paths, after exploring #{explored_list.length} nodes and #{known_edges.length} edges"
+        return paths_found
+      end
+
       class Trail < Array
         attr_accessor :last_added_node_dangling_side
 
+        attr_reader :length_in_bp
+
         def add_node(node)
           push node
+          @length_in_bp ||= 0
+          @length_in_bp += node.length_alone
         end
 
         # Number of nucleotides in this trail

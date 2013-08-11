@@ -18,6 +18,7 @@ options = {
   :velvetg_arguments => '-read_trkg yes -exp_cov 41 -cov_cutoff 12.0973243610491', #hack
   :contig_end_length => 300,
   :output_assembly_path => 'velvetAssembly',
+  :graph_search_leash_length => 3000,
 }
 o = OptionParser.new do |opts|
   opts.banner = "
@@ -64,6 +65,7 @@ Bio::Log::LoggerPlus.new 'bio-velvet'; Bio::Log::CLI.configure 'bio-velvet'
 # Extract contig ends from each of the input contigs, so that the contig ends can be found in the
 # assembly graph structure.
 contig_ends = []
+velvet_sequence_id_to_contig_end = {}
 class ContigEnd
   attr_accessor :sequence, :start_or_end, :contig_name, :velvet_sequence_id
 end
@@ -77,8 +79,10 @@ Bio::FlatFile.foreach(options[:contigs_file]) do |seq|
   contig_end.start_or_end = :start
   contig_end.sequence = seq.seq[0...options[:contig_end_length]] #TODO: reverse complement this.
   contig_end.contig_name = seq.definition
+  velvet_sequence_id_to_contig_end[velvet_read_index] = contig_end
   contig_end.velvet_sequence_id = velvet_read_index; velvet_read_index += 1
   contig_ends.push contig_end
+
 
   # Add the back of the contig
   contig_end = ContigEnd.new
@@ -86,6 +90,7 @@ Bio::FlatFile.foreach(options[:contigs_file]) do |seq|
   s = seq.seq
   contig_end.sequence = s[s.length-options[:contig_end_length]...s.length]
   contig_end.contig_name = seq.definition
+  velvet_sequence_id_to_contig_end[velvet_read_index] = contig_end
   contig_end.velvet_sequence_id = velvet_read_index; velvet_read_index += 1
   contig_ends.push contig_end
 end
@@ -151,3 +156,21 @@ anchor_sequence_ids = contig_ends.collect{|c| c.velvet_sequence_id}
 anchoring_nodes_and_directions = finder.find_unique_nodes_with_sequence_ids(graph, anchor_sequence_ids)
 num_anchors_found = anchoring_nodes_and_directions.reject{|s,e| e[0].nil?}.length
 log.info "Found anchoring nodes for #{num_anchors_found} out of #{contig_ends.length} contig ends"
+
+log.info "Searching for trails between the nodes within the assembly graph"
+cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
+trail_sets = cartographer.find_trails_between_node_set(graph, anchoring_nodes_and_directions.values.reject{|v| v[0].nil?}, options[:graph_search_leash_length])
+log.info "Found #{trail_sets.reduce(0){|s,set|s+=set.length}.length} trail(s) in total"
+
+node_id_to_contig_description = {}
+anchoring_nodes_and_directions.each do |seq_id, pair|
+  next if pair.empty? #When no nodes were found
+  node_id = pair[0].node_id
+  node_id_to_contig_description[node_id] = velvet_sequence_id_to_contig_end[seq_id]
+end
+trails.each do |trail|
+  start = node_id_to_contig_description[trail.first.node.node_id]
+  finish = node_id_to_contig_description[trail.last.node.node_id]
+  log.info "Found a trail that linked #{start.contig_name}/#{start.start_or_end} with #{finish.contig_name}/#{finish.start_or_end}"
+end
+
