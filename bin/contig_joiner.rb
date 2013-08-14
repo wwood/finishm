@@ -15,7 +15,7 @@ options = {
   :logger => 'stderr',
   :log_level => 'info',
   :velvet_kmer_size => 73,#TODO: these options should be exposed to the user, and perhaps not guessed at
-  :velvetg_arguments => '-read_trkg yes -exp_cov 41 -cov_cutoff 12.0973243610491', #hack
+  :velvetg_arguments => '-read_trkg yes',# -exp_cov 41 -cov_cutoff 12.0973243610491', #hack
   :contig_end_length => 300,
   :output_assembly_path => 'velvetAssembly',
   :graph_search_leash_length => 3000,
@@ -37,6 +37,9 @@ o = OptionParser.new do |opts|
   end
 
   opts.separator "\nOptional arguments:\n\n"
+  opts.on("--output-trails-fasta PATH", "Output found paths to this file in fasta format [default: off]") do |arg|
+    options[:overall_trail_output_fasta_file] = arg
+  end
   opts.on("--already-assembled-velvet-directory PATH", "Skip until after assembly in this process, and start from this assembly directory created during a previous run of this script [default: off]") do |arg|
     options[:previous_assembly] = arg
   end
@@ -66,18 +69,21 @@ Bio::Log::LoggerPlus.new 'bio-velvet'; Bio::Log::CLI.configure 'bio-velvet'
 # assembly graph structure.
 contig_ends = []
 velvet_sequence_id_to_contig_end = {}
+contig_lengths = {}
 class ContigEnd
   attr_accessor :sequence, :start_or_end, :contig_name, :velvet_sequence_id
 end
 velvet_read_index = 1
 Bio::FlatFile.foreach(options[:contigs_file]) do |seq|
+  contig_lengths[seq.definition] = seq.seq.length
   if seq.seq.length < options[:contig_end_length]
     log.warn "Contig #{seq.definition} is shorter than the end length used to anchor the contig in the assembly. This is not ideal but may be ok."
+    #TODO: fix this - should be counting from the middle. Should I just ignore those ones?
   end
   # Add the start of the contig
   contig_end = ContigEnd.new
   contig_end.start_or_end = :start
-  contig_end.sequence = seq.seq[0...options[:contig_end_length]] #TODO: reverse complement this.
+  contig_end.sequence = Bio::Sequence::NA.new(seq.seq[0...options[:contig_end_length]]).reverse_complement.to_s
   contig_end.contig_name = seq.definition
   velvet_sequence_id_to_contig_end[velvet_read_index] = contig_end
   contig_end.velvet_sequence_id = velvet_read_index; velvet_read_index += 1
@@ -155,12 +161,17 @@ i = 1
 anchor_sequence_ids = contig_ends.collect{|c| c.velvet_sequence_id}
 anchoring_nodes_and_directions = finder.find_unique_nodes_with_sequence_ids(graph, anchor_sequence_ids)
 num_anchors_found = anchoring_nodes_and_directions.reject{|s,e| e[0].nil?}.length
+anchoring_node_id_to_contig_end = {}
+anchoring_nodes_and_directions.each do |seq_id, node_and_direction|
+  next if node_and_direction[0].nil? #skip when there is no node found in the graph for this contig end
+  anchoring_node_id_to_contig_end[node_and_direction[0].node_id] = velvet_sequence_id_to_contig_end[seq_id]
+end
 log.info "Found anchoring nodes for #{num_anchors_found} out of #{contig_ends.length} contig ends"
 
 log.info "Searching for trails between the nodes within the assembly graph"
 cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
 trail_sets = cartographer.find_trails_between_node_set(graph, anchoring_nodes_and_directions.values.reject{|v| v[0].nil?}, options[:graph_search_leash_length])
-log.info "Found #{trail_sets.reduce(0){|s,set|s+=set.length}.length} trail(s) in total"
+log.info "Found #{trail_sets.reduce(0){|s,set|s+=set.length}} trail(s) in total"
 
 node_id_to_contig_description = {}
 anchoring_nodes_and_directions.each do |seq_id, pair|
@@ -168,9 +179,59 @@ anchoring_nodes_and_directions.each do |seq_id, pair|
   node_id = pair[0].node_id
   node_id_to_contig_description[node_id] = velvet_sequence_id_to_contig_end[seq_id]
 end
-trails.each do |trail|
-  start = node_id_to_contig_description[trail.first.node.node_id]
-  finish = node_id_to_contig_description[trail.last.node.node_id]
-  log.info "Found a trail that linked #{start.contig_name}/#{start.start_or_end} with #{finish.contig_name}/#{finish.start_or_end}"
+contig_end_id_to_partners = {}
+# Tabulate all the partners each way (complete the previously triangular matrix)
+trail_sets.each do |trail_set|
+  trail_set.each do |trail|
+    start_id = trail.first.node.node_id
+    end_id = trail.last.node.node_id
+    contig_end_id_to_partners[start_id] ||= []
+    contig_end_id_to_partners[start_id].push node_id_to_contig_description[end_id]
+    contig_end_id_to_partners[end_id] ||= []
+    contig_end_id_to_partners[end_id].push node_id_to_contig_description[start_id]
+  end
 end
+
+puts %w(contig_end_id contig_name contig_length connections).join "\t"
+trail_sets.each_with_index do |trail_set, i|
+  partner_contig_ends = contig_end_id_to_partners[contig_ends[i].velvet_sequence_id]
+  partner_contig_ends ||= []
+  # Each contig has 2 trail sets associated with it - one for the start and one for the end
+  puts [
+    contig_ends[i].velvet_sequence_id,
+    contig_ends[i].contig_name,
+    contig_lengths[contig_ends[i].contig_name],
+    partner_contig_ends.collect{|c| c.velvet_sequence_id}.sort.join(',')
+  ].join("\t")
+end
+
+if options[:overall_trail_output_fasta_file]
+  File.open(options[:overall_trail_output_fasta_file],'w') do |outfile|
+    trail_sets.each do |trail_set|
+      trail_set.each do |trail|
+        begin
+          trail_sequence = trail.sequence #Get the trail sequence first as this may not be possible.
+
+          start_id = trail.first.node.node_id
+          end_id = trail.last.node.node_id
+          start_contig_end = anchoring_node_id_to_contig_end[start_id]
+          end_contig_end = anchoring_node_id_to_contig_end[end_id]
+          outfile.print '>'
+          outfile.print start_contig_end.contig_name
+          outfile.print '_'
+          outfile.print start_contig_end.start_or_end
+          outfile.print ':'
+          outfile.print end_contig_end.contig_name
+          outfile.print '_'
+          outfile.puts end_contig_end.start_or_end
+
+          outfile.puts trail_sequence
+        rescue Bio::Velvet::NotImplementedException => e
+          log.warn "Problem getting sequence of found trail #{trail.to_s}, skipping this trail: #{e.to_s}"
+        end
+      end
+    end
+  end
+end
+
 

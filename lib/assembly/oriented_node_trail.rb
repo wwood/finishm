@@ -43,28 +43,33 @@ module Bio
             neighbour_nodes = graph.neighbours_into_start(last.node)
           end
 
-          neighbours_with_orientation = neighbour_nodes.collect do |neighbour|
+          neighbours_with_orientation = []
+          neighbour_nodes.each do |neighbour|
             arcs = graph.get_arcs_by_node last.node, neighbour
-            raise "Cycle detected but the code is dumb here currently" if arcs.length != 1 or arcs[0].begin_node_id == arcs[0].end_node_id
-            arc = arcs[0]
+            raise "Cycle detected but the code is dumb here currently" if arcs[0].begin_node_id == arcs[0].end_node_id
 
-            oriented = OrientedNode.new
-            oriented.node = neighbour
-            if arc.begin_node_id == neighbour.node_id
-              if arc.begin_node_direction
-                oriented.first_side = END_IS_FIRST
-              else
-                oriented.first_side = START_IS_FIRST
+            # Sometimes, but rarely, two nodes will be joined more than once, for whatever reason
+            arcs.each do |arc|
+              arc = arcs[0]
+
+              oriented = OrientedNode.new
+              oriented.node = neighbour
+              if arc.begin_node_id == neighbour.node_id
+                if arc.begin_node_direction
+                  oriented.first_side = END_IS_FIRST
+                else
+                  oriented.first_side = START_IS_FIRST
+                end
+              elsif arc.end_node_id == neighbour.node_id
+                if arc.end_node_direction
+                  oriented.first_side = START_IS_FIRST
+                else
+                  oriented.first_side = END_IS_FIRST
+                end
               end
-            elsif arc.end_node_id == neighbour.node_id
-              if arc.end_node_direction
-                oriented.first_side = START_IS_FIRST
-              else
-                oriented.first_side = END_IS_FIRST
-              end
+
+              neighbours_with_orientation.push oriented
             end
-
-            oriented
           end
           return neighbours_with_orientation
         end

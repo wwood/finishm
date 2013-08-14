@@ -279,30 +279,30 @@ module Bio
           neighbours = current_path.neighbours_of_last_node(graph)
           neighbours.each do |neighbour|
             edges = graph.get_arcs_by_node current_node, neighbour.node
-            raise "dragons" if edges.length != 1
-            edge = edges[0]
-            log.debug "Considering neighbour #{neighbour.node.node_id}" if log.debug?
+            edges.each do |edge|
+              log.debug "Considering neighbour #{neighbour.node.node_id}" if log.debug?
 
-            if known_edges.include?(edge)
-              log.debug "Already seen this edge, ignoring: #{edge.begin_node_id}/#{edge.end_node_id}" if log.debug?
-              next
-            end
-            known_edges << edge
+              if known_edges.include?(edge)
+                log.debug "Already seen this edge, ignoring: #{edge.begin_node_id}/#{edge.end_node_id}" if log.debug?
+                next
+              end
+              known_edges << edge
 
-            discovered = discovered_list.include?(neighbour.node)
-            explored = explored_list.include?(neighbour.node)
-            if !discovered and !explored
-              log.debug "Found a new edge to discover/explore: #{edge.begin_node_id}/#{edge.end_node_id}" if log.debug?
-              discovered_list << neighbour
-              new_path = current_path.copy
-              new_path.add_node neighbour.node, neighbour.first_side
-              if new_path.length_in_bp > leash_length
-                log.debug "Discontinuing this path because it is beyond the leash length: #{new_path.to_s}"
-              else
-                log.debug "Adding new path to the stack: #{new_path.to_s}"
-                stack.push new_path
-                log.debug "Stack is now #{stack.size} in length"
-                finished_exploring = false
+              discovered = discovered_list.include?(neighbour.node)
+              explored = explored_list.include?(neighbour.node)
+              if !discovered and !explored
+                log.debug "Found a new edge to discover/explore: #{edge.begin_node_id}/#{edge.end_node_id}" if log.debug?
+                discovered_list << neighbour
+                new_path = current_path.copy
+                new_path.add_node neighbour.node, neighbour.first_side
+                if new_path.length_in_bp > leash_length
+                  log.debug "Discontinuing this path because it is beyond the leash length: #{new_path.to_s}"
+                else
+                  log.debug "Adding new path to the stack: #{new_path.to_s}"
+                  stack.push new_path
+                  log.debug "Stack is now #{stack.size} in length"
+                  finished_exploring = false
+                end
               end
             end
           end
