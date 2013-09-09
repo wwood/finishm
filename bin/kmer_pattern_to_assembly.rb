@@ -293,7 +293,7 @@ if start_node.nil? or end_node.nil?
   end
 
   if options[:output_graph_png] or options[:output_graph_svg]
-    log.info "Converting assembly to a graphviz PNG/SVG, even if start/end node was not be found properly"
+    log.info "Converting assembly to a graphviz PNG/SVG/DOT, even if start/end node was not be found properly"
     viser = Bio::Assembly::ABVisualiser.new
     gv = viser.graphviz(graph)
     if options[:output_graph_png]
@@ -335,6 +335,8 @@ end
 
 log.info "Searching for trails between the initial and terminal nodes, within the assembly graph"
 cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
+#raise "Untested connection finder below"
+#trails = cartographer.find_all_trails_between_nodes(graph, start_node, end_node, options[:graph_search_leash_length], start_node_forward)
 trails = cartographer.find_trails_between_nodes(graph, start_node, end_node, options[:graph_search_leash_length], start_node_forward)
 log.info "Found #{trails.length} trail(s) between the initial and terminal nodes"
 

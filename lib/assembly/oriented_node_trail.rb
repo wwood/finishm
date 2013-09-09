@@ -25,12 +25,26 @@ module Bio
           @trail.push oriented
         end
 
+        def add_oriented_node(oriented_node)
+          @trail.push oriented_node
+        end
+
         def each(&block)
           @trail.each(&block)
         end
 
         def last
           @trail[@trail.length-1]
+        end
+
+        def remove_last_node
+          @trail.pop
+        end
+
+        # Return true if the path contains the oriented
+        # node
+        def include_oriented_node?(oriented_node)
+          @trail.include?(oriented_node)
         end
 
         # Return a list of OrientedNode objects, one for each neighbour

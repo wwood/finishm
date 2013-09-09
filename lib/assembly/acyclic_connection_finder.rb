@@ -12,6 +12,59 @@ module Bio
         find_trails_between_nodes_depth_first_search(graph, initial_node, terminal_node, leash_length, start_looking_off_the_end_of_the_first_node)
       end
 
+      def find_all_trails_between_nodes(graph, initial_node, terminal_node, leash_length, start_looking_off_the_end_of_the_first_node)
+        initial_path = Bio::Velvet::Graph::OrientedNodeTrail.new
+        way = start_looking_off_the_end_of_the_first_node ?
+          Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST :
+          Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST
+        initial_path.add_node initial_node, way
+
+        return depth_first_search_recursive(graph, initial_path, terminal_node, leash_length)
+      end
+
+      # A recursive depth first search algorithm for exploring the graph. Returns an array
+      # of paths between the current path and the terminal node
+      def depth_first_search_recursive(graph, path, terminal_node, leash_length)
+        paths_found = []
+        log.debug "Depth-first searching from #{path.to_s}"
+
+        neighbours = path.neighbours_of_last_node(graph)
+
+        # First, explore the neighbours - are we there yet?
+        neighbours.each do |neighbour|
+          log.debug "Considering neighbour in loop 1: #{neighbour}"
+          #TODO: be cogent of orientation of the terminal node. Analogous fix for  second loop below
+          if neighbour.node == terminal_node
+            #yey, found a path. Record this.
+            log.info "Found a trail"
+            path.add_oriented_node neighbour
+            paths_found.push path.copy
+            path.remove_last_node
+          end
+        end
+
+        # Next do further exploration
+        neighbours.each do |neighbour|
+          log.debug "Considering neighbour in loop 2: #{neighbour}"
+          # Ignore cyclical paths
+          next if path.include_oriented_node?(neighbour)
+
+          # Ignore paths that are finished
+          next if neighbour.node == terminal_node
+
+          # DFS the other nodes
+          path.add_oriented_node neighbour
+          if path.length_in_bp > leash_length
+            log.debug "Exploration truncated as leash length has been exceeded, along: #{path.to_s}"
+          else
+            paths_found.push depth_first_search_recursive(graph, path, terminal_node, leash_length)
+          end
+          path.remove_last_node
+        end
+
+        return paths_found.flatten
+      end
+
       def find_trails_between_nodes_depth_first_search(graph, initial_node, terminal_node, leash_length, start_looking_off_the_end_of_the_first_node)
         paths_found = []
         discovered_list = Set.new
