@@ -13,7 +13,7 @@ module Bio
         nodes_with_read = graph.nodes.select do |node|
           node.short_reads.select{|r| r.read_id == sequence_id}.length > 0
         end
-        log.debug "Found #{nodes_with_read.length} nodes with the anchor read in it"
+        log.debug "Found #{nodes_with_read.length} nodes with the anchor read in it: #{nodes_with_read.collect{|n| n.node_id}.sort.join(',')}"
         return nil if nodes_with_read.empty?
 
         # TODO: There is a slight bit of imperfection here - multiple nodes can be the minimum

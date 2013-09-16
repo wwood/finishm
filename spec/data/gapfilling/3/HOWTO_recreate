@@ -1,0 +1,4 @@
+ben@u:~/git/priner/spec/data/gapfilling/3$ ~/git/sammy/sammy.pl -r <(cat reference_part1.fa) -n 200 -i 300 >reference_part1.reads.fa
+ben@u:~/git/priner/spec/data/gapfilling/3$ ~/git/sammy/sammy.pl -r <(cat reference_part2.fa) -n 20 -i 300 >reference_part2.reads.fa
+ben@u:~/git/priner/spec/data/gapfilling/3$ cat reference_part1.reads.fa reference_part2.reads.fa |pigz -c >reads.fa.gz
+

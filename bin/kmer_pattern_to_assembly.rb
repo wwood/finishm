@@ -292,7 +292,7 @@ if start_node.nil? or end_node.nil?
     log.error "Unable to find any nodes in the graph that have kmers corresponding to the _end_ point in them, sorry. Maybe fix the node finding code?"
   end
 
-  if options[:output_graph_png] or options[:output_graph_svg]
+  if options[:output_graph_png] or options[:output_graph_svg] or options[:output_graph_dot]
     log.info "Converting assembly to a graphviz PNG/SVG/DOT, even if start/end node was not be found properly"
     viser = Bio::Assembly::ABVisualiser.new
     gv = viser.graphviz(graph)
