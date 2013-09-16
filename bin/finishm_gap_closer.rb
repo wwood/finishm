@@ -116,9 +116,6 @@ if options[:previously_serialized_parsed_graph_file].nil?
       tempfile.puts ">anchor1"
       tempfile.puts sequence[n_region_start-options[:contig_end_length]+1...n_region_start]
       tempfile.puts ">anchor2"
-      # puts anchor2 in revcom so the node finder finds the region furthest from the Ns
-      second = Bio::Sequence::NA.new(sequence[n_region_end..n_region_end+options[:contig_end_length]]).reverse_complement.to_s
-      #tempfile.puts second
       tempfile.puts sequence[n_region_end..n_region_end+options[:contig_end_length]]
       tempfile.close
       `cat #{tempfile.path}`
