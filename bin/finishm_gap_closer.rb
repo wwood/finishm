@@ -19,6 +19,7 @@ options = {
   :contig_end_length => 200,
   :output_assembly_path => 'velvetAssembly',
   :graph_search_leash_length => 3000,
+  :assembly_coverage_cutoff => 1.5,
 }
 o = OptionParser.new do |opts|
   opts.banner = "
@@ -43,6 +44,12 @@ o = OptionParser.new do |opts|
   opts.on("--overhang NUM", "Start assembling this far from the gap [default: #{options[:contig_end_length]}]") do |arg|
     options[:contig_end_length] = arg.to_i
   end
+  opts.on("--start OFFSET", "Start trying to fill from this position in the contig, requires --stop [default: found from position of Ns}]") do |arg|
+    options[:start_offset] = arg.to_i-1
+  end
+  opts.on("--stop OFFSET", "Start trying to fill to this position in the contig, requires --start [default: found from position of Ns}]") do |arg|
+    options[:end_offset] = arg.to_i-1
+  end
   opts.on("--assembly-png PATH", "Output assembly as a PNG file [default: off]") do |arg|
     options[:output_graph_png] = arg
   end
@@ -52,7 +59,9 @@ o = OptionParser.new do |opts|
   opts.on("--assembly-dot PATH", "Output assembly as an DOT file [default: off]") do |arg|
     options[:output_graph_dot] = arg
   end
-
+  opts.on("--velvet-kmer KMER", "kmer size to use with velvet [default: #{options[:velvet_kmer_size]}]") do |arg|
+    options[:velvet_kmer_size] = arg.to_i
+  end
 
   opts.separator "\nDebug-related options:\n\n"
   opts.on("--already-assembled-velvet-directory PATH", "Skip until after assembly in this process, and start from this assembly directory created during a previous run of this script [default: off]") do |arg|
@@ -90,13 +99,22 @@ Bio::FlatFile.foreach(options[:contig_file]) do |seq|
   end
 
   sequence = seq.seq
-  matches = sequence.match(/(N+)/i)
-  if !matches
-    raise "Unable to find any gaps in the input sequence. That was a bit too easy.."
+
+  if options[:start_offset] and options[:end_offset]
+    log.info "Trying to gap fill from #{options[:start_offset]+1} to #{options[:end_offset]+1}"
+    n_region_start = options[:start_offset]
+    n_region_end = options[:end_offset]
+  else
+    log.info "Determining where to fill from the presence of Ns"
+
+    matches = sequence.match(/(N+)/i)
+    if !matches
+      raise "Unable to find any gaps in the input sequence. That was a bit too easy.."
+    end
+    n_region_start = matches.offset(0)[0]
+    n_region_end = n_region_start + matches[1].length
+    log.info "Detected a gap between #{n_region_start} and #{n_region_end}"
   end
-  n_region_start = matches.offset(0)[0]
-  n_region_end = n_region_start + matches[1].length
-  log.info "Detected a gap between #{n_region_start} and #{n_region_end}"
 
   # Check to make sure we are sufficiently distant from the ends
   if n_region_start < options[:contig_end_length] or
@@ -153,6 +171,15 @@ if options[:previously_serialized_parsed_graph_file].nil?
     end
     log.info "Stored a binary representation of the velvet graph at #{options[:serialize_parsed_graph_file]}"
   end
+
+  if options[:assembly_coverage_cutoff]
+    log.info "Removing low-coverage nodes from the graph (less than #{options[:assembly_coverage_cutoff]})"
+    cutoffer = Bio::AssemblyGraphAlgorithms::CoverageBasedGraphFilter.new
+    deleted_nodes, deleted_arcs = cutoffer.remove_low_coverage_nodes(graph, options[:assembly_coverage_cutoff], :whitelisted_sequences => [1,2])
+
+    log.info "Removed #{deleted_nodes.length} nodes and #{deleted_arcs.length} arcs from the graph due to low coverage"
+    log.info "Now there is #{graph.nodes.length} nodes and #{graph.arcs.length} arcs remaining"
+  end
 else
   log.info "Restoring graph file from #{options[:previously_serialized_parsed_graph_file]}.."
   graph = Marshal.load(File.open(options[:previously_serialized_parsed_graph_file]))
@@ -175,22 +202,23 @@ else
   raise "Unable to find both anchor reads from the assembly, cannot continue. This is probably an error with this script, not you."
 end
 
-if options[:output_graph_png] or options[:output_graph_svg] or options[:output_graph_dot]
-  log.info "Converting assembly to a graphviz PNG/SVG/DOT, even if start/end node was not be found properly"
+if options[:output_graph_png]
+  log.info "Converting assembly to a graphviz PNG"
   viser = Bio::Assembly::ABVisualiser.new
-  gv = viser.graphviz(graph)
-  if options[:output_graph_png]
-    log.info "Writing PNG of graph to #{options[:output_graph_png]}"
-    gv.output :png => options[:output_graph_png]
-  end
-  if options[:output_graph_svg]
-    log.info "Writing SVG of graph to #{options[:output_graph_svg]}"
-    gv.output :svg => options[:output_graph_svg]
-  end
-  if options[:output_graph_dot]
-    log.info "Writing DOT of graph to #{options[:output_graph_dot]}"
-    gv.output :dot => options[:output_graph_dot]
-  end
+  gv = viser.graphviz(graph, {:start_node_id => start_node.node_id, :end_node_id => end_node.node_id})
+  gv.output :png => options[:output_graph_png], :use => :neato
+end
+if options[:output_graph_svg]
+  log.info "Converting assembly to a graphviz SVG"
+  viser = Bio::Assembly::ABVisualiser.new
+  gv = viser.graphviz(graph, {:start_node_id => start_node.node_id, :end_node_id => end_node.node_id})
+  gv.output :svg => options[:output_graph_svg], :use => :neato
+end
+if options[:output_graph_dot]
+  log.info "Converting assembly to a graphviz DOT"
+  viser = Bio::Assembly::ABVisualiser.new
+  gv = viser.graphviz(graph, {:start_node_id => start_node.node_id, :end_node_id => end_node.node_id, :digraph => false})
+  gv.output :dot => options[:output_graph_dot]
 end
 
 
