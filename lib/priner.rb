@@ -23,4 +23,5 @@ require 'assembly/velvet_graph_sequence_extractor'
 require 'assembly/a_b_visualiser'
 require 'assembly/coverage_based_graph_filter'
 require 'assembly/oriented_node_trail'
+require 'assembly/depth_first_search'
 

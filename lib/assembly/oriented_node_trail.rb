@@ -60,21 +60,49 @@ module Bio
           neighbours_with_orientation = []
           neighbour_nodes.each do |neighbour|
             arcs = graph.get_arcs_by_node last.node, neighbour
-            raise "Cycle detected but the code is dumb here currently" if arcs[0].begin_node_id == arcs[0].end_node_id
 
             # Sometimes, but rarely, two nodes will be joined more than once, for whatever reason
             arcs.each do |arc|
-              arc = arcs[0]
-
               oriented = OrientedNode.new
               oriented.node = neighbour
-              if arc.begin_node_id == neighbour.node_id
+              if arc.begin_node_id == arc.end_node_id
+                # A node connecting to itself. Happens rarely.
+                if last.first_side == START_IS_FIRST
+                  if arc.begin_node_direction and arc.end_node_direction
+                    oriented.first_side = START_IS_FIRST
+                  elsif arc.begin_node_direction and !arc.end_node_direction
+                    oriented.first_side = END_IS_FIRST
+                  elsif !arc.begin_node_direction and arc.end_node_direction
+                    raise "I don't think this is supposed to be possible. Programming error?"
+                  elsif !arc.begin_node_direction and !arc.end_node_direction
+                    oriented.first_side = START_IS_FIRST
+                  else
+                    raise "programming error"
+                  end
+                else
+                  # coming from the end of the original node
+                  if arc.begin_node_direction and arc.end_node_direction
+                    oriented.first_side = END_IS_FIRST
+                  elsif arc.begin_node_direction and !arc.end_node_direction
+                    raise "I don't think this is supposed to be possible. Programming error?"
+                  elsif !arc.begin_node_direction and arc.end_node_direction
+                    oriented.first_side = START_IS_FIRST
+                  elsif !arc.begin_node_direction and !arc.end_node_direction
+                    oriented.first_side = END_IS_FIRST
+                  else
+                    raise "programming error"
+                  end
+                end
+
+              elsif arc.begin_node_id == neighbour.node_id
+                # connected to a different node, the 1st in the arc's pair
                 if arc.begin_node_direction
                   oriented.first_side = END_IS_FIRST
                 else
                   oriented.first_side = START_IS_FIRST
                 end
               elsif arc.end_node_id == neighbour.node_id
+                # connected to a different node, the 2nd in the arc's pair
                 if arc.end_node_direction
                   oriented.first_side = START_IS_FIRST
                 else
