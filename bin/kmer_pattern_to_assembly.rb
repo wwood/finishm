@@ -252,7 +252,7 @@ Tempfile.open('anchors.fa') do |tempfile|
     tempfile.puts ">end_contig"
     #Have to be in reverse, because the node finder finds the node at the start of the read, not the end
     fwd2 = Bio::Sequence::NA.new(end_contig[0...options[:contig_end_length]])
-    tempfile.puts fwd2.reverse_complement.to_s.gsub(/n+$/,'')
+    tempfile.puts fwd2.reverse_complement.to_s
   end
   tempfile.close
   puts `cat #{tempfile.path}`
@@ -321,6 +321,13 @@ if start_node.nil? or end_node.nil?
   exit 1
 end
 log.info "Node(s) found that are suitable as initial and terminal nodes in the graph search, respectively: #{start_node.node_id} and #{end_node.node_id}"
+
+log.info "Removing nodes unconnected to either the start or the end from the graph.."
+original_num_nodes = graph.nodes.length
+original_num_arcs = graph.arcs.length
+filter = Bio::AssemblyGraphAlgorithms::ConnectivityBasedGraphFilter.new
+filter.remove_unconnected_nodes(graph, [start_node, end_node])
+log.info "Removed #{original_num_nodes-graph.nodes.length} nodes and #{original_num_arcs-graph.arcs.length} arcs"
 
 if options[:output_graph_png]
   log.info "Converting assembly to a graphviz PNG"

@@ -41,9 +41,13 @@ module Bio::AssemblyGraphAlgorithms
 
       # Depth-first search of all the connected parts looking for nodes to keep
       whitelisted_nodes.each do |originally_whitelisted_node|
-        [true, false].each do |direction|
-          graph.depth_first_search(originally_whitelisted_node, direction) do |node|
-            all_whitelisted_nodes << node
+        [:start_is_first, :end_is_first].each do |direction|
+          onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
+          onode.node = originally_whitelisted_node
+          onode.first_side = direction
+          graph.depth_first_search(onode) do |path|
+            all_whitelisted_nodes << path.last.node
+            true
           end
         end
       end
