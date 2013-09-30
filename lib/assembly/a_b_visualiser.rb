@@ -98,6 +98,22 @@ module Bio
 
         return graphviz
       end
+
+
+      class SimplifiedGraph
+        def self.create_from_velvet_graph(graph)
+          nodes_incorporated = 0
+
+          # While there is more of the graph to incorporate
+          while nodes_incorporated < graph.nodes.length
+            raise "not implemented"
+          end
+        end
+
+        # A class representing a linear string of nodes without forks
+        class Path
+        end
+      end
     end
   end
 end
