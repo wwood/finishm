@@ -20,7 +20,6 @@ options = {
   :min_leftover_length => false,
   :kmer_coverage_target => 1,
   :velvet_kmer_size => 155,
-  :terminal_contig_search_kmer_size => 33,
   :contig_end_length => 300,
   :graph_search_leash_length => 20000,
   :reads_to_assemble => nil,
@@ -103,6 +102,9 @@ o = OptionParser.new do |opts|
 #  end
   opts.on("--assembly-coverage-cutoff NUMBER", "Require this much coverage in each node, all other nodes are removed [default: #{options[:assembly_coverage_cutoff]}]") do |arg|
     options[:assembly_coverage_cutoff] = arg.to_f
+  end
+  opts.on("--contig-end-length LENGTH", "Number of base pairs to start into the ends of the contigs [default: #{options[:contig_end_length]}]") do |arg|
+    options[:contig_end_length] = arg.to_i
   end
 
   # logger options
@@ -242,10 +244,16 @@ end
 # Use the last bit of the first contig and the first bit of the second contig as the anchors
 velvet_result = nil
 Tempfile.open('anchors.fa') do |tempfile|
-  tempfile.puts ">start_contig"
-  tempfile.puts start_contig[start_contig.length-options[:contig_end_length]...start_contig.length]
-  tempfile.puts ">end_contig"
-  tempfile.puts end_contig[0...options[:contig_end_length]]
+  # Putting these same sequences in many times seems to better the
+  # chances velvet won't throw them out
+  50.times do
+    tempfile.puts ">start_contig"
+    tempfile.puts start_contig[start_contig.length-options[:contig_end_length]...start_contig.length]
+    tempfile.puts ">end_contig"
+    #Have to be in reverse, because the node finder finds the node at the start of the read, not the end
+    fwd2 = Bio::Sequence::NA.new(end_contig[0...options[:contig_end_length]])
+    tempfile.puts fwd2.reverse_complement.to_s.gsub(/n+$/,'')
+  end
   tempfile.close
   puts `cat #{tempfile.path}`
 

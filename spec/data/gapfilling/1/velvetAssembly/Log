@@ -1,0 +1,199 @@
+Mon Sep 16 18:24:55 2013
+ velveth velvetAssembly 73 -short /tmp/anchors.fa20130916-5665-10b1dyo -short2 -fasta.gz reads.fa.gz
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Mon Sep 16 18:24:55 2013
+ velvetg velvetAssembly -read_trkg yes
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 27, max 27, total 27, using 0/6 reads
+Mon Sep 16 18:26:26 2013
+ velveth velvetAssembly 73 -short /tmp/anchors.fa20130916-5684-x1dxgz -short2 -fasta.gz reads.fa.gz
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Mon Sep 16 18:26:26 2013
+ velvetg velvetAssembly -read_trkg yes
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 27, max 27, total 27, using 0/7 reads
+Mon Sep 16 18:31:38 2013
+ velveth velvetAssembly 73 -short /tmp/anchors.fa20130916-5907-12xqs92 -short2 -fasta.gz reads.fa.gz
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Mon Sep 16 18:31:38 2013
+ velvetg velvetAssembly -read_trkg yes
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 6 nodes and n50 of 289, max 289, total 335, using 4/14 reads
+Mon Sep 16 18:33:53 2013
+ velveth velvetAssembly 73 -short /tmp/anchors.fa20130916-5937-rg1dkm -short2 -fasta.gz reads.fa.gz
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Mon Sep 16 18:33:53 2013
+ velvetg velvetAssembly -read_trkg yes
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 6 nodes and n50 of 289, max 289, total 335, using 4/14 reads
+Mon Sep 16 18:35:37 2013
+ velveth velvetAssembly 73 -short /tmp/anchors.fa20130916-5980-49ybv5 -short2 -fasta.gz reads.fa.gz
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Mon Sep 16 18:35:37 2013
+ velvetg velvetAssembly -read_trkg yes
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 6 nodes and n50 of 289, max 289, total 335, using 14/49 reads
+Mon Sep 16 18:36:21 2013
+ velveth velvetAssembly 73 -short /tmp/anchors.fa20130916-6001-1vt3ga1 -short2 -fasta.gz reads.fa.gz
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Mon Sep 16 18:36:21 2013
+ velvetg velvetAssembly -read_trkg yes
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 6 nodes and n50 of 289, max 289, total 335, using 22/77 reads
+Mon Sep 16 18:36:46 2013
+ velveth velvetAssembly 33 -short /tmp/anchors.fa20130916-6016-vupn28 -short2 -fasta.gz reads.fa.gz
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Mon Sep 16 18:36:46 2013
+ velvetg velvetAssembly -read_trkg yes
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 4 nodes and n50 of 323, max 323, total 472, using 77/77 reads
+Mon Sep 16 19:08:03 2013
+ velveth velvetAssembly 33 -short /tmp/anchors.fa20130916-6393-zzzm25 -short2 -fasta.gz reads.fa.gz
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Mon Sep 16 19:08:04 2013
+ velvetg velvetAssembly -read_trkg yes
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 3 nodes and n50 of 323, max 323, total 503, using 79/79 reads
+Mon Sep 16 19:15:44 2013
+ velveth velvetAssembly 33 -short /tmp/anchors.fa20130916-6447-1scyu58 -short2 -fasta.gz reads.fa.gz
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Mon Sep 16 19:16:21 2013
+ velveth velvetAssembly 33 -short /tmp/anchors.fa20130916-6460-20wrnh -short2 -fasta.gz reads.fa.gz
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Mon Sep 16 19:16:21 2013
+ velvetg velvetAssembly -read_trkg yes -max_divergence 1.0
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 3 nodes and n50 of 323, max 323, total 503, using 79/79 reads
