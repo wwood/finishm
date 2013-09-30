@@ -36,11 +36,12 @@ module Bio
         log.debug "Converting nodes to GraphViz format"
         graph.nodes.each do |node|
           cov = node.coverage
-          if options[:coverage_cutoff] and cov < options[:coverage_cutoff]
+          if options[:coverage_cutoff] and cov < options[:coverage_cutoff] and !cov.nil?
             blacklisted_node_ids.add node.node_id
           else
+            cov_string = cov.nil? ? '' : cov.round
             mods = {
-              :label => "n#{node.node_id}_length#{node.ends_of_kmers_of_node.length}_coverage#{cov.round}",
+              :label => "n#{node.node_id}_length#{node.ends_of_kmers_of_node.length}_coverage#{cov_string}",
             }
             includes_start = false
             includes_end = false

@@ -135,9 +135,16 @@ if options[:previously_serialized_parsed_graph_file].nil?
     velvet_result.result_directory = options[:previous_assembly]
   end
 
+  require 'ruby-prof'
+  RubyProf.start
+
   log.info "Parsing the graph output from velvet"
   graph = Bio::Velvet::Graph.parse_from_file(File.join velvet_result.result_directory, 'Graph2')
   log.info "Finished parsing graph: found #{graph.nodes.length} nodes and #{graph.arcs.length} arcs"
+
+  result = RubyProf.stop
+  printer = RubyProf::FlatPrinter.new(result)
+  printer.print(STDOUT)
 
   if options[:serialize_parsed_graph_file]
     log.info "Storing a binary version of the graph file for later use at #{options[:serialize_parsed_graph_file]}"

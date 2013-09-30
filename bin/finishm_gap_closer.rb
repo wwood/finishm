@@ -132,17 +132,19 @@ if options[:previously_serialized_parsed_graph_file].nil?
   if options[:previous_assembly].nil? #If assembly has not already been carried out
     Tempfile.open('anchors.fa') do |tempfile|
       tempfile.puts ">anchor1"
-      tempfile.puts sequence[n_region_start-options[:contig_end_length]+1...n_region_start]
+      tempfile.puts sequence[n_region_start-options[:contig_end_length]-1...n_region_start]
       tempfile.puts ">anchor2"
-      tempfile.puts sequence[n_region_end..n_region_end+options[:contig_end_length]]
+      #Have to be in reverse, because the node finder finds the node at the start of the read, not the end
+      fwd2 = Bio::Sequence::NA.new(sequence[n_region_end..(n_region_end+options[:contig_end_length])])
+      tempfile.puts fwd2.reverse_complement.to_s
       tempfile.close
-      `cat #{tempfile.path}`
+      log.debug "Inputting anchors into the assembly: #{File.open(tempfile.path).read}" if log.debug?
 
       log.info "Assembling sampled reads with velvet"
       # Bit of a hack, but have to use -short1 as the anchors because then start and end anchors will have node IDs 1,2,... etc.
       velvet_result = Bio::Velvet::Runner.new.velvet(
         options[:velvet_kmer_size],
-        "-short #{tempfile.path} -short2 -fasta.gz #{options[:reads_file]}",
+        "-short #{tempfile.path} -short2 -fastq.gz #{options[:reads_file]}",
         options[:velvetg_arguments],
         :output_assembly_path => options[:output_assembly_path]
       )
