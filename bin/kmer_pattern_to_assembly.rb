@@ -255,7 +255,7 @@ Tempfile.open('anchors.fa') do |tempfile|
     tempfile.puts fwd2.reverse_complement.to_s
   end
   tempfile.close
-  puts `cat #{tempfile.path}`
+  #puts `cat #{tempfile.path}`
 
   log.info "Assembling sampled reads with velvet"
   # Bit of a hack, but have to use -short1 as the anchors because then start and end anchors will have node IDs 1 and 2, respectively.

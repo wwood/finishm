@@ -6,18 +6,25 @@ class Util
   end
 end
 
+Bio::Log::CLI.logger('stderr'); Bio::Log::CLI.trace('debug'); log = Bio::Log::LoggerPlus.new('finishm'); Bio::Log::CLI.configure('finishm')
+
 describe "AcyclicConnectionFinder" do
-  it 'should calculate trails' do
+
+  it 'should calculate an easy trail' do
     graph = Bio::Velvet::Graph.parse_from_file File.join(TEST_DATA_DIR, 'velvet_test_trails','Assem','LastGraph')
     # Make sure we are on the same page
     graph.arcs.length.should eq(4)
     graph.nodes.length.should eq(4)
     nodes = graph.nodes
 
+    viser = Bio::Assembly::ABVisualiser.new
+    gv = viser.graphviz(graph)
+    gv.output :svg => 'a.svg', :use => :neato
+
+
     cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
 
     log = nil
-    #Bio::Log::CLI.logger('stderr'); Bio::Log::CLI.trace('debug'); log = Bio::Log::LoggerPlus.new('finishm'); Bio::Log::CLI.configure('finishm')
     initial_node = graph.nodes[1]
     terminal_node = graph.nodes[1]
     trails = cartographer.find_trails_between_nodes(graph, initial_node, terminal_node, 99999999, true)

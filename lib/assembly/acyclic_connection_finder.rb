@@ -9,7 +9,15 @@ module Bio
       end
 
       def find_trails_between_nodes(graph, initial_node, terminal_node, leash_length, start_looking_off_the_end_of_the_first_node)
-        find_trails_between_nodes_depth_first_search(graph, initial_node, terminal_node, leash_length, start_looking_off_the_end_of_the_first_node)
+        #find_trails_between_nodes_depth_first_search(graph, initial_node, terminal_node, leash_length, start_looking_off_the_end_of_the_first_node)
+
+        initial_path = Bio::Velvet::Graph::OrientedNodeTrail.new
+        way = start_looking_off_the_end_of_the_first_node ?
+          Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST :
+          Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST
+        initial_path.add_node initial_node, way
+
+        return find_all_trails_squid_way(graph, initial_path, terminal_node, leash_length)
       end
 
       def find_all_trails_between_nodes(graph, initial_node, terminal_node, leash_length, start_looking_off_the_end_of_the_first_node)
@@ -20,6 +28,124 @@ module Bio
         initial_path.add_node initial_node, way
 
         return depth_first_search_recursive(graph, initial_path, terminal_node, leash_length)
+      end
+
+      def find_all_trails_squid_way(graph, path, terminal_node, leash_length)
+        # do a depth first search, but keep track of which nodes are known to
+        # to make it to the end. Then at the end work backwards to collect the paths
+        # and separate them all.
+
+        golden_onodes = Set.new #Nodes known to lead to the final destination
+        golden_path = nil #This is the first full path to be found
+        golden_path_fragments = [] #paths to join up to the end
+        already_visited_nodes = Set.new #Nodes that have already been explored
+
+        stack = DS::Stack.new
+        stack.push path.copy
+        p terminal_node.node_id
+
+        # Depth first searching
+        # While there is paths that haven't been fully explored
+        while current_path = stack.pop
+          log.debug "Perhaps #{current_path}?" if log.debug?
+          if golden_onodes.include?(current_path.last.to_settable)
+            # Found another golden path(s)
+            log.debug "Ran into a golden node" if log.debug?
+            golden_path_fragments.push current_path
+            current_path.each do |onode|
+              golden_onodes << onode.to_settable
+            end
+          elsif already_visited_nodes.include?(current_path.last.to_settable) and
+            current_path.last.node.node_id != terminal_node.node_id
+            # Already seen this node, do nothing with it
+            log.debug "Skipping #{current_path.last} since that has already been seen" if log.debug?
+            next
+          else
+            log.debug "That's a new node, #{current_path.last}" if log.debug?
+            # Found a new node for the user to play with
+            already_visited_nodes << current_path.last.to_settable
+
+            # Have we found a path?
+            if current_path.last.node.node_id == terminal_node.node_id
+              log.debug "Found the terminal node: #{current_path}"
+              if golden_path.nil?
+                # This is the first path to be found
+                golden_path = current_path.copy
+                current_path.each do |onode|
+                  golden_onodes << onode.to_settable
+                end
+              else
+                # Found a new path that only converges on the terminal node
+                golden_path_fragments.push current_path.copy
+                current_path.each do |onode|
+                  golden_onodes << onode.to_settable
+                end
+              end
+            end
+
+            # prep for next time if we aren't beyond the leash. Presumably this
+            # doesn't happen much, but there is a possibility that the leash will
+            # prevent a real path being discovered. If there is two or more paths to a node
+            # and a path longer than the leash is discovered first, then all the
+            # nodes on that leash will be marked as discovered when they really aren't
+            # TODO: fix the above bug
+            if leash_length.nil? or path.length_in_bp < leash_length
+              # Sort node IDs to simplify testing
+              next_nodes = current_path.neighbours_of_last_node(graph).sort{|n1, n2|
+                -(n1.node.node_id <=> n2.node.node_id)
+              }
+              next_nodes.each do |n|
+                path = current_path.copy
+                path.add_oriented_node n
+                stack.push path
+              end
+            else
+              log.debug "Giving up because this is beyond the leash" if log.debug?
+            end
+          end
+        end
+        log.debug "Golden path: #{golden_path.to_s}" if log.debug?
+        log.debug "found #{golden_path_fragments.length} golden fragments: #{golden_path_fragments.collect{|g| g.to_s}.join("\n")}" if log.debug?
+
+        # OK, so we've transformed the data into a state where all paths are
+        # valid ones. Now separate out the paths and return the array
+        # First transform the data so it can be referenced by the end node
+        terminal_golden_nodes_to_paths = {}
+        golden_path_fragments.each do |fragment|
+          l = fragment.last.to_settable
+          terminal_golden_nodes_to_paths[l] ||= []
+          terminal_golden_nodes_to_paths[l].push fragment
+        end
+        # Next backtrack through the paths
+        # Each path starts at the beginning and ends at a
+        # golden node
+        all_paths = []
+        stack = DS::Stack.new
+        stack.push golden_path
+        while current_path = stack.pop
+          all_paths.push current_path
+          # Iterate down this path, spawning new paths if there
+          # are paths that intersect
+          passed_nodes = []
+          current_path.trail.reverse.each do |onode|
+            frags = terminal_golden_nodes_to_paths[current_path.last.to_settable]
+            if frags
+              frags.each do |fragment|
+                # The fragment extends from the beginning to the golden node,
+                # the current node. So create a new complete path,
+                # And push it to the stack.
+                new_golden = fragment.copy
+                passed_nodes.reverse.each do |onode|
+                  new_golden.add_oriented_node onode
+                end
+              end
+            end
+            passed_nodes.push onode
+          end
+        end
+
+        # All the paths are in an array, just a linear series of distinct paths
+        return all_paths
       end
 
       # A recursive depth first search algorithm for exploring the graph. Returns an array

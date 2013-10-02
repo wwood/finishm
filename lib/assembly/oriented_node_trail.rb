@@ -4,6 +4,7 @@ module Bio
       # An ordered list of nodes, each with an orientation along that trail
       class OrientedNodeTrail
         include Enumerable
+        attr_reader :trail
 
         START_IS_FIRST = :start_is_first
         END_IS_FIRST = :end_is_first
@@ -171,6 +172,12 @@ module Bio
 
           def to_s
             "OrientedNode: node #{@node.node_id}, first_side: #{@first_side}"
+          end
+
+          # Set#include? doesn't pick up when the same OrientedNode is picked
+          # up twice independently, I don't think. So convert to an array first
+          def to_settable
+            [@node.node_id, @first_side]
           end
         end
 
