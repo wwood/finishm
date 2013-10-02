@@ -42,7 +42,6 @@ module Bio
 
         stack = DS::Stack.new
         stack.push path.copy
-        p terminal_node.node_id
 
         # Depth first searching
         # While there is paths that haven't been fully explored
@@ -121,23 +120,40 @@ module Bio
         # golden node
         all_paths = []
         stack = DS::Stack.new
+        # Push the golden path and all paths that finish at the last node
         stack.push golden_path
+        paths_to_last = terminal_golden_nodes_to_paths[golden_path.last.to_settable]
+        if paths_to_last
+          paths_to_last.each{|path| stack.push path}
+        end
+        log.debug "Before defragging begins there is #{stack.size} things on the stack"
+
         while current_path = stack.pop
+          log.debug "Defragging #{current_path.to_s}" if log.debug?
           all_paths.push current_path
           # Iterate down this path, spawning new paths if there
           # are paths that intersect
           passed_nodes = []
-          current_path.trail.reverse.each do |onode|
-            frags = terminal_golden_nodes_to_paths[current_path.last.to_settable]
+          current_path.trail.reverse.each_with_index do |onode, i|
+            next if i == 0 #skip the last node in the trail - that's already been handled
+            frags = terminal_golden_nodes_to_paths[onode.to_settable]
+            log.debug "Offshoots from #{onode}: #{frags.nil? ? '[]' : frags.collect{|f| f.collect{|n| n.node_id}.join(',')}.join(' and ')}" if log.debug?
             if frags
               frags.each do |fragment|
+                log.debug "Using an offshoot: #{fragment.to_s}"
                 # The fragment extends from the beginning to the golden node,
                 # the current node. So create a new complete path,
                 # And push it to the stack.
                 new_golden = fragment.copy
-                passed_nodes.reverse.each do |onode|
-                  new_golden.add_oriented_node onode
+                log.debug "Adding #{new_golden.to_s} and #{passed_nodes.collect{|n| n.node_id}}"
+                #break
+                passed_nodes.reverse.each_with_index do |onode, i|
+                  #unless i == passed_nodes.length - 1
+                    new_golden.add_oriented_node onode
+                  #end
                 end
+                log.debug "Enqueueing: #{new_golden.to_s}" if log.debug?
+                stack.push new_golden
               end
             end
             passed_nodes.push onode

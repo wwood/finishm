@@ -6,7 +6,7 @@ class Util
   end
 end
 
-Bio::Log::CLI.logger('stderr'); Bio::Log::CLI.trace('debug'); log = Bio::Log::LoggerPlus.new('finishm'); Bio::Log::CLI.configure('finishm')
+#Bio::Log::CLI.logger('stderr'); Bio::Log::CLI.trace('debug'); log = Bio::Log::LoggerPlus.new('finishm'); Bio::Log::CLI.configure('finishm')
 
 describe "AcyclicConnectionFinder" do
 
@@ -17,9 +17,9 @@ describe "AcyclicConnectionFinder" do
     graph.nodes.length.should eq(4)
     nodes = graph.nodes
 
-    viser = Bio::Assembly::ABVisualiser.new
-    gv = viser.graphviz(graph)
-    gv.output :svg => 'a.svg', :use => :neato
+    #viser = Bio::Assembly::ABVisualiser.new
+    #gv = viser.graphviz(graph)
+    #gv.output :svg => 'a.svg', :use => :neato
 
 
     cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
@@ -58,10 +58,11 @@ describe "AcyclicConnectionFinder" do
     trails.length.should == 2
     trails[0].length.should == 3
     trails[0][0].node_id.should == 1
-    trails[0][1].node_id.should == 2
+    [2,3].include?(trails[0][1].node_id).should == true
     trails[0][2].node_id.should == 4
     trails[1][0].node_id.should == 1
-    trails[1][1].node_id.should == 3
+    [2,3].include?(trails[1][1].node_id).should == true
+    trails[1][1].node_id.should_not == trails[0][1].node_id
     trails[1][2].node_id.should == 4
   end
 
@@ -114,6 +115,14 @@ describe "AcyclicConnectionFinder" do
     trails[1][0].node_id.should == 3
     trails[1][1].node_id.should == 4
     trails[1][2].node_id.should == 1
+  end
+
+  it 'should be able to deal with multi-fragment paths' do
+    fail
+  end
+
+  it 'should be able to give the right answer with 2 trails not ending at the terminal node' do
+    fail
   end
 
   it 'should not go overboard searching for paths' do

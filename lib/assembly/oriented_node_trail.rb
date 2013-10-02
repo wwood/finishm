@@ -42,6 +42,14 @@ module Bio
           @trail.pop
         end
 
+        def length
+          @trail.length
+        end
+
+        def [](index)
+          @trail[index]
+        end
+
         # Return true if the path contains the oriented
         # node
         def include_oriented_node?(oriented_node)
@@ -178,6 +186,10 @@ module Bio
           # up twice independently, I don't think. So convert to an array first
           def to_settable
             [@node.node_id, @first_side]
+          end
+
+          def node_id
+            @node.node_id
           end
         end
 
