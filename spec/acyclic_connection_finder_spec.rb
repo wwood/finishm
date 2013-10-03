@@ -163,6 +163,49 @@ describe "AcyclicConnectionFinder" do
     trails[0][1].node_id.should == 2
     trails[0][2].node_id.should == 4
   end
+
+  it 'should find paths not both ending at terminal node' do
+    graph = GraphTesting.emit([
+      [1,2],
+      [2,3],
+      [3,4],
+      [1,5],
+      [5,3]
+    ])
+    p graph
+    initial_node = graph.nodes[1]
+    terminal_node = graph.nodes[4]
+    cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
+    paths = cartographer.find_trails_between_nodes(graph, initial_node, terminal_node, nil, true)
+    GraphTesting.sorted_paths(paths).should == [
+      [1,2,3,4],
+      [1,5,3,4],
+    ]
+  end
+
+  it 'should find through consecutive loops' do
+    # 1 2/3 4 5/6 7
+    graph = GraphTesting.emit([
+      [1,2],
+      [1,3],
+      [2,4],
+      [3,4],
+      [4,5],
+      [4,6],
+      [5,7],
+      [6,7],
+    ])
+    initial_node = graph.nodes[1]
+    terminal_node = graph.nodes[7]
+    cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
+    paths = cartographer.find_trails_between_nodes(graph, initial_node, terminal_node, nil, true)
+    GraphTesting.sorted_paths(paths).should == [
+      [1,2,4,5,7],
+      [1,2,4,6,7],
+      [1,3,4,5,7],
+      [1,3,4,6,7],
+    ]
+  end
 end
 
 describe 'Trail' do
