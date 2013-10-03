@@ -61,34 +61,36 @@ module Bio
             next
           else
             log.debug "That's a new node, #{current_path.last}" if log.debug?
-            # Found a new node for the user to play with
-            already_visited_nodes << current_path.last.to_settable
 
-            # Have we found a path?
-            if current_path.last.node.node_id == terminal_node.node_id
-              log.debug "Found the terminal node: #{current_path}"
-              if golden_path.nil?
-                # This is the first path to be found
-                golden_path = current_path.copy
-                current_path.each do |onode|
-                  golden_onodes << onode.to_settable
-                end
-              else
-                # Found a new path that only converges on the terminal node
-                golden_path_fragments.push current_path.copy
-                current_path.each do |onode|
-                  golden_onodes << onode.to_settable
-                end
-              end
-            end
-
-            # prep for next time if we aren't beyond the leash. Presumably this
+            # if we aren't beyond the leash. Presumably this
             # doesn't happen much, but there is a possibility that the leash will
             # prevent a real path being discovered. If there is two or more paths to a node
             # and a path longer than the leash is discovered first, then all the
             # nodes on that leash will be marked as discovered when they really aren't
             # TODO: fix the above bug
             if leash_length.nil? or path.length_in_bp < leash_length
+              # Found a new node for the user to play with
+              already_visited_nodes << current_path.last.to_settable
+
+              # Have we found a path?
+              if current_path.last.node.node_id == terminal_node.node_id
+                log.debug "Found the terminal node: #{current_path}"
+                if golden_path.nil?
+                  # This is the first path to be found
+                  golden_path = current_path.copy
+                  current_path.each do |onode|
+                    golden_onodes << onode.to_settable
+                  end
+                else
+                  # Found a new path that only converges on the terminal node
+                  golden_path_fragments.push current_path.copy
+                  current_path.each do |onode|
+                    golden_onodes << onode.to_settable
+                  end
+                end
+              end
+
+              # prep for next time
               # Sort node IDs to simplify testing
               next_nodes = current_path.neighbours_of_last_node(graph).sort{|n1, n2|
                 -(n1.node.node_id <=> n2.node.node_id)
@@ -105,9 +107,13 @@ module Bio
         end
         log.debug "Golden path: #{golden_path.to_s}" if log.debug?
         log.debug "found #{golden_path_fragments.length} golden fragments: #{golden_path_fragments.collect{|g| g.to_s}.join("\n")}" if log.debug?
+        log.debug '                 '
+        return [] if golden_path.nil?
 
-        # OK, so we've transformed the data into a state where all paths are
-        # valid ones. Now separate out the paths and return the array
+        # OK, so we've transformed the data into a state where there is
+        # at least one path through the data (or it is nil if there is no path)
+        # and tentacles hanging off various golden nodes.
+        # Now separate out the paths and return the array.
         # First transform the data so it can be referenced by the end node
         terminal_golden_nodes_to_paths = {}
         golden_path_fragments.each do |fragment|
@@ -121,39 +127,36 @@ module Bio
         all_paths = []
         stack = DS::Stack.new
         # Push the golden path and all paths that finish at the last node
-        stack.push golden_path
-        paths_to_last = terminal_golden_nodes_to_paths[golden_path.last.to_settable]
-        if paths_to_last
-          paths_to_last.each{|path| stack.push path}
-        end
-        log.debug "Before defragging begins there is #{stack.size} things on the stack"
+        stack.push [golden_path, 0]
 
-        while current_path = stack.pop
-          log.debug "Defragging #{current_path.to_s}" if log.debug?
+        while array = stack.pop
+          current_path = array[0]
+          num_to_ignore = array[1]
+
+          log.debug "Defragging #{current_path.to_s}, ignoring the last #{num_to_ignore} nodes" if log.debug?
           all_paths.push current_path
+
           # Iterate down this path, spawning new paths if there
           # are paths that intersect
           passed_nodes = []
           current_path.trail.reverse.each_with_index do |onode, i|
-            next if i == 0 #skip the last node in the trail - that's already been handled
-            frags = terminal_golden_nodes_to_paths[onode.to_settable]
-            log.debug "Offshoots from #{onode}: #{frags.nil? ? '[]' : frags.collect{|f| f.collect{|n| n.node_id}.join(',')}.join(' and ')}" if log.debug?
-            if frags
-              frags.each do |fragment|
-                log.debug "Using an offshoot: #{fragment.to_s}"
-                # The fragment extends from the beginning to the golden node,
-                # the current node. So create a new complete path,
-                # And push it to the stack.
-                new_golden = fragment.copy
-                log.debug "Adding #{new_golden.to_s} and #{passed_nodes.collect{|n| n.node_id}}"
-                #break
-                passed_nodes.reverse.each_with_index do |onode, i|
-                  #unless i == passed_nodes.length - 1
+            unless i < num_to_ignore #ignore the last one(s) because they've already been handled
+              frags = terminal_golden_nodes_to_paths[onode.to_settable]
+              log.debug "Offshoots from #{onode}: #{frags.nil? ? '[]' : frags.collect{|f| f.collect{|n| n.node_id}.join(',')}.join(' and ')}" if log.debug?
+              if frags
+                frags.each do |fragment|
+                  log.debug "Using an offshoot: #{fragment.to_s}"
+                  # The fragment extends from the beginning to the golden node,
+                  # the current node. So create a new complete path,
+                  # And push it to the stack.
+                  new_golden = fragment.copy
+                  log.debug "Adding #{new_golden.to_s} and #{passed_nodes.collect{|n| n.node_id}}"
+                  passed_nodes.reverse.each_with_index do |onode, i|
                     new_golden.add_oriented_node onode
-                  #end
+                  end
+                  log.debug "Enqueueing: #{new_golden.to_s} ignoring the last #{i+1} nodes" if log.debug?
+                  stack.push [new_golden, i+1]
                 end
-                log.debug "Enqueueing: #{new_golden.to_s}" if log.debug?
-                stack.push new_golden
               end
             end
             passed_nodes.push onode
