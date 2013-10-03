@@ -46,7 +46,7 @@ module Bio
         # Depth first searching
         # While there is paths that haven't been fully explored
         while current_path = stack.pop
-          log.debug "Perhaps #{current_path}?" if log.debug?
+          #log.debug "Perhaps #{current_path}?" if log.debug?
           if golden_onodes.include?(current_path.last.to_settable)
             # Found another golden path(s)
             log.debug "Ran into a golden node" if log.debug?
@@ -74,7 +74,7 @@ module Bio
 
               # Have we found a path?
               if current_path.last.node.node_id == terminal_node.node_id
-                log.debug "Found the terminal node: #{current_path}"
+                log.debug "Found the terminal node: #{current_path}" if log.debug?
                 if golden_path.nil?
                   # This is the first path to be found
                   golden_path = current_path.copy
@@ -107,7 +107,7 @@ module Bio
         end
         log.debug "Golden path: #{golden_path.to_s}" if log.debug?
         log.debug "found #{golden_path_fragments.length} golden fragments: #{golden_path_fragments.collect{|g| g.to_s}.join("\n")}" if log.debug?
-        log.debug '                 '
+        log.debug '                 ' if log.debug?
         return [] if golden_path.nil?
 
         # OK, so we've transformed the data into a state where there is
@@ -145,12 +145,12 @@ module Bio
               log.debug "Offshoots from #{onode}: #{frags.nil? ? '[]' : frags.collect{|f| f.collect{|n| n.node_id}.join(',')}.join(' and ')}" if log.debug?
               if frags
                 frags.each do |fragment|
-                  log.debug "Using an offshoot: #{fragment.to_s}"
+                  log.debug "Using an offshoot: #{fragment.to_s}" if log.debug?
                   # The fragment extends from the beginning to the golden node,
                   # the current node. So create a new complete path,
                   # And push it to the stack.
                   new_golden = fragment.copy
-                  log.debug "Adding #{new_golden.to_s} and #{passed_nodes.collect{|n| n.node_id}}"
+                  log.debug "Adding #{new_golden.to_s} and #{passed_nodes.collect{|n| n.node_id}}" if log.debug?
                   passed_nodes.reverse.each_with_index do |onode, i|
                     new_golden.add_oriented_node onode
                   end
