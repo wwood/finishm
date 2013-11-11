@@ -24,6 +24,8 @@ options = {
   :graph_search_leash_length => 20000,
   :reads_to_assemble => nil,
   :assembly_coverage_cutoff => 1.5,
+  :kmer_path_filter_min_coverage => 1,
+  :kmer_path_end_exclusion_length => 50,
 }
 
 # TODO: make a better interface for this. Maybe specify an entire genome, and then "Contig_1 end, Contig_3 start" or something
@@ -137,12 +139,7 @@ else
 
   # Collect the kmers that will be used to find trusted reads i.e.
   # Go through each line of the kmer abundance file, looking for kmers that suit the pattern
-  input_file = nil
-  if options[:kmer_multiple_abundance_file] == '-'
-    input_file = $stdin
-  else
-    input_file = File.open options[:kmer_multiple_abundance_file]
-  end
+  input_file = File.open options[:kmer_multiple_abundance_file]
   csv = CSV.new(input_file, :col_sep => ' ')
 
   whitelist_kmers = []
@@ -354,6 +351,16 @@ cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
 #trails = cartographer.find_all_trails_between_nodes(graph, start_node, end_node, options[:graph_search_leash_length], start_node_forward)
 trails = cartographer.find_trails_between_nodes(graph, start_node, end_node, options[:graph_search_leash_length], start_node_forward)
 log.info "Found #{trails.length} trail(s) between the initial and terminal nodes"
+
+log.info "Reading kmer abundances from #{options[:kmer_multiple_abundance_file]}.."
+kmer_hash = Bio::KmerMultipleAbundanceHash.parse_from_file options[:kmer_multiple_abundance_file]
+log.info "Finished reading the kmer abundances"
+log.info "Filtering trail(s) based on kmer coverage, requiring each kmer in the path to have a minimum of #{options[:kmer_path_filter_min_coverage]} coverage in patterned reads, except for the #{options[:kmer_path_end_exclusion_length]}bp at the ends"
+kmer_path_filter = Bio::AssemblyGraphAlgorithms::KmerCoverageBasedPathFilter.new
+thresholds = desired_pattern.collect{|c| c == true ? 1 : 0}
+log.info "Using thresholds for filtering: #{thresholds}"
+trails = kmer_path_filter.filter(trails, kmer_hash, thresholds, :exclude_ending_length => options[:kmer_path_end_exclusion_length])
+log.info "After filtering remained #{trails.length} trails"
 
 log.debug "Found trails: #{trails.collect{|t| t.to_s}.join("\n")}"
 
