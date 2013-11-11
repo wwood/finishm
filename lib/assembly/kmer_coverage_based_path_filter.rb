@@ -9,7 +9,10 @@ module Bio::AssemblyGraphAlgorithms
     #
     # :paths: an iterable collection of paths
     # :kmer_hash: KmerMultipleAbundanceHash
-    # :thresholds: minimum coverage (min number of full kmers) required at each point along the path
+    # :thresholds: minimum coverages (min numbers of full kmers) required at each point along the path
+    #
+    # Optional options
+    # * :exclude_ending_length => don't filter out paths based on kmers close to the end e.g. :exclude_ending_length => 2 means the first 2 and last 2 kmers are not considered
     def filter(paths, kmer_hash, thresholds, options={})
       # sanity check
       unless kmer_hash.number_of_abundances == thresholds.length
@@ -19,7 +22,15 @@ module Bio::AssemblyGraphAlgorithms
       passable_paths = []
       paths.each do |path|
         passable = true
-        Bio::Sequence::NA.new(path.sequence).window_search(kmer_hash.kmer_length,1) do |kmer|
+        seq = path.sequence
+
+        # remove ends of sequence if kmers don't count at the ends
+        if options[:exclude_ending_length]
+          ex = options[:exclude_ending_length]
+          seq = seq[ex...(seq.length-ex)]
+        end
+
+        Bio::Sequence::NA.new(seq).window_search(kmer_hash.kmer_length,1) do |kmer|
           kmer_hash[kmer].each_with_index do |abundance, i|
             if abundance < thresholds[i]
               passable = false

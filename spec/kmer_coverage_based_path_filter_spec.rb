@@ -56,4 +56,18 @@ describe "kmer coverage path filter" do
     paths = Bio::AssemblyGraphAlgorithms::KmerCoverageBasedPathFilter.new.filter(trails, kmers, [1]*2)
     paths.collect{|t| t.sequence}.should == %w(ATAGC AGATC)
   end
+
+  it 'should respect exclusion of filtering at the ends' do
+    kmers = Bio::KmerMultipleAbundanceHash.new
+    kmers['ATATATTT'] = [1, 10]
+    kmers['TATATTTA'] = [3, 1]
+    trail = DummyTrail.new('GATATATTTAC')
+    paths = Bio::AssemblyGraphAlgorithms::KmerCoverageBasedPathFilter.new.filter([trail], kmers, [1]*2)
+    paths.collect{|t| t.sequence}.should == %w()
+    paths = Bio::AssemblyGraphAlgorithms::KmerCoverageBasedPathFilter.new.filter([trail], kmers, [1]*2, :exclude_ending_length => 1)
+    paths.collect{|t| t.sequence}.should == %w(GATATATTTAC)
+    trail = DummyTrail.new('GATATATTTAGC')
+    paths = Bio::AssemblyGraphAlgorithms::KmerCoverageBasedPathFilter.new.filter([trail], kmers, [1]*2, :exclude_ending_length => 1)
+    paths.collect{|t| t.sequence}.should == %w()
+  end
 end
