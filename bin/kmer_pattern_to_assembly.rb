@@ -26,6 +26,7 @@ options = {
   :assembly_coverage_cutoff => 1.5,
   :kmer_path_filter_min_coverage => 1,
   :kmer_path_end_exclusion_length => 50,
+  :trail_kmer_coverage_file => 'trail_coverages.csv'
 }
 
 # TODO: make a better interface for this. Maybe specify an entire genome, and then "Contig_1 end, Contig_3 start" or something
@@ -355,6 +356,15 @@ log.info "Found #{trails.length} trail(s) between the initial and terminal nodes
 log.info "Reading kmer abundances from #{options[:kmer_multiple_abundance_file]}.."
 kmer_hash = Bio::KmerMultipleAbundanceHash.parse_from_file options[:kmer_multiple_abundance_file]
 log.info "Finished reading the kmer abundances"
+
+if options[:trail_kmer_coverage_file]
+  log.info "Writing out kmer coverages to #{options[:trail_kmer_coverage_file]}.."
+  writer = Bio::AssemblyGraphAlgorithms::KmerCoverageWriter.new
+  io = File.open(options[:trail_kmer_coverage_file],'w')
+  writer.write(io, trails, kmer_hash)
+  log.info "Finished writing"
+end
+
 log.info "Filtering trail(s) based on kmer coverage, requiring each kmer in the path to have a minimum of #{options[:kmer_path_filter_min_coverage]} coverage in patterned reads, except for the #{options[:kmer_path_end_exclusion_length]}bp at the ends"
 kmer_path_filter = Bio::AssemblyGraphAlgorithms::KmerCoverageBasedPathFilter.new
 thresholds = desired_pattern.collect{|c| c == true ? 1 : 0}
