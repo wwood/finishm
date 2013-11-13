@@ -1,5 +1,8 @@
 require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
 require 'bio'
+require 'tempfile'
+
+Bio::Log::CLI.logger('stderr'); Bio::Log::CLI.trace('debug'); log = Bio::Log::LoggerPlus.new('finishm'); Bio::Log::CLI.configure('finishm'); Bio::Log::CLI.configure('bio-velvet')
 
 class String
   def revcom
@@ -71,5 +74,43 @@ ACTATGCTGGTATTTCACTTCCAGGTACAGG'.gsub(/\n/,'')
     trail = Bio::Velvet::Graph::OrientedNodeTrail.new
     trail.add_node graph.nodes[2], :start_is_first
     expect {trail.sequence}.to raise_error
+  end
+
+  it 'should not have the bug I found any more' do
+    # This graph is somewhat abbreviated and not a full and complete LastGraph file, but should be ok
+    lastgraph = <<EOF
+5     2805    43      1
+NODE    1      71      0       0       13651   13188
+ATAGATTATTTTTATTTTTCAGAGAATTTACAGAAAGATCAGTTAAAATCCAGAGCAAGAAAAGCATTGCA
+AAATTCTCTGAAAAATAAAAATAATCTATGCTGCTCGGTTTGACAAATTTTATCCCGTAAACTCCCTTTTT
+NODE    2      47      0       0       9848    9462
+GAAATTAAAAGAAGCTAAAGAGATTCAAAAATCGATCGATAACAAGA
+ATTTCTGCAATGCTTTTCTTGCTCTGGATTTTAACTGATCTTTCTGT
+NODE    3      11      0       0       2338    2246
+AACAGCTTCCA
+AGCTTCTTTTA
+NODE    4     2       0       0       396     378
+TA
+CA
+NODE    5     36      0       0       7023    6808
+TCATCAACAAGCTCAGCTTTGGATTTATCGAATTCT
+AGGAGTTTACGGGATAAAATTTGTCAAACCGAGCAG
+ARC     1      2      202
+EOF
+    lastgraph.gsub!(/ +/,"\t")
+    Tempfile.open('spec') do |f|
+      f.puts lastgraph
+      f.close
+
+      graph = Bio::Velvet::Graph.parse_from_file f.path
+      graph.nodes.length.should == 5
+      trail = Bio::Velvet::Graph::OrientedNodeTrail.new
+      trail.add_node graph.nodes[3], :end_is_first
+      trail.add_node graph.nodes[2], :end_is_first
+      trail.add_node graph.nodes[1], :end_is_first
+      trail.add_node graph.nodes[4], :start_is_first
+      trail.add_node graph.nodes[5], :start_is_first
+      trail.sequence.should == 'TGGAAGCTGTTTCTTGTTATCGATCGATTTTTGAATCTCTTTAGCTTCTTTTAATTTCTGCAATGCTTTTCTTGCTCTGGATTTTAACTGATCTTTCTGTAAATTCTCTGAAAAATAAAAATAATCTAT GCTGCTCGGTTTGACAAATTTTATCCCGTAAACTCCTTTTTTATCATCAACAAGCTCAGCTTTGGATTTATCGAATTCT'
+    end
   end
 end

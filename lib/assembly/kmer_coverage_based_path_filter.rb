@@ -44,5 +44,22 @@ module Bio::AssemblyGraphAlgorithms
       end
       return passable_paths
     end
+
+    # Write coverages to the given IO object as a tab-separated file similar
+    # to the output of "samtools depth"
+    def write_depths(io, trail_name, trail_sequence, kmer_hash)
+      #write header
+      io.print %w(trail position).join("\t")
+      io.print "\t"
+      kmer_hash.number_of_abundances.times{|i| io.print "\tcoverage#{i+1}"}
+      io.puts
+
+      #write data
+      pos = 1
+      Bio::Sequence::NA.new(trail_sequence).window_search(kmer_hash.kmer_length,1) do |kmer|
+        io.puts [trail_name, pos, kmer_hash[kmer]].flatten.join("\t")
+        pos += 1
+      end
+    end
   end
 end

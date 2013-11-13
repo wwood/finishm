@@ -24,6 +24,7 @@ module Bio
         end
         obj[kmer] = abundances
       end
+      return obj
     end
 
     def kmer_length
