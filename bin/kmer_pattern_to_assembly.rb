@@ -260,7 +260,7 @@ Tempfile.open('anchors.fa') do |tempfile|
   velvet_result = Bio::Velvet::Runner.new.velvet(
     options[:velvet_kmer_size],
     "-short #{tempfile.path} -short2 #{pooled_reads_filename}",
-    "-cov_cutoff 0 -read_trkg yes",
+    "-cov_cutoff #{options[:assembly_coverage_cutoff]} -read_trkg yes",
     :output_assembly_path => options[:output_assembly_path]
   )
   if log.debug?
@@ -273,7 +273,7 @@ Tempfile.open('anchors.fa') do |tempfile|
 end
 
 log.info "Parsing the graph output from velvet"
-graph = Bio::Velvet::Graph.parse_from_file(File.join velvet_result.result_directory, 'Graph2')
+graph = Bio::Velvet::Graph.parse_from_file(File.join velvet_result.result_directory, 'LastGraph')
 log.info "Finished parsing graph: found #{graph.nodes.length} nodes and #{graph.arcs.length} arcs"
 
 if options[:assembly_coverage_cutoff]
@@ -342,7 +342,7 @@ end
 if options[:output_graph_dot]
   log.info "Converting assembly to a graphviz DOT"
   viser = Bio::Assembly::ABVisualiser.new
-  gv = viser.graphviz(graph, {:start_node_id => start_node.node_id, :end_node_id => end_node.node_id, :digraph => false})
+  gv = viser.graphviz(graph, {:start_node_id => start_node.node_id, :end_node_id => end_node.node_id})
   gv.output :dot => options[:output_graph_dot]
 end
 

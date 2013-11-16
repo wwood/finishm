@@ -15,7 +15,6 @@ options = {
   :logger => 'stderr',
   :log_level => 'info',
   :velvet_kmer_size => 43,#TODO: these options should be exposed to the user, and perhaps not guessed at
-  :velvetg_arguments => '-read_trkg yes',
   :contig_end_length => 200,
   :output_assembly_path => 'velvetAssembly',
   :graph_search_leash_length => 3000,
@@ -61,6 +60,9 @@ o = OptionParser.new do |opts|
   end
   opts.on("--velvet-kmer KMER", "kmer size to use with velvet [default: #{options[:velvet_kmer_size]}]") do |arg|
     options[:velvet_kmer_size] = arg.to_i
+  end
+  opts.on("--assembly-coverage-cutoff NUMBER", "Require this much coverage in each node, all other nodes are removed [default: #{options[:assembly_coverage_cutoff]}]") do |arg|
+    options[:assembly_coverage_cutoff] = arg.to_f
   end
 
   opts.separator "\nDebug-related options:\n\n"
@@ -145,7 +147,7 @@ if options[:previously_serialized_parsed_graph_file].nil?
       velvet_result = Bio::Velvet::Runner.new.velvet(
         options[:velvet_kmer_size],
         "-short #{tempfile.path} -short2 -fastq.gz #{options[:reads_file]}",
-        options[:velvetg_arguments],
+        "-read_trkg yes -cov_cutoff #{options[:assembly_coverage_cutoff]}",
         :output_assembly_path => options[:output_assembly_path]
       )
       if log.debug?
@@ -163,7 +165,7 @@ if options[:previously_serialized_parsed_graph_file].nil?
   end
 
   log.info "Parsing the graph output from velvet"
-  graph = Bio::Velvet::Graph.parse_from_file(File.join velvet_result.result_directory, 'Graph2')
+  graph = Bio::Velvet::Graph.parse_from_file(File.join velvet_result.result_directory, 'LastGraph')
   log.info "Finished parsing graph: found #{graph.nodes.length} nodes and #{graph.arcs.length} arcs"
 
   if options[:serialize_parsed_graph_file]
