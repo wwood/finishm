@@ -79,9 +79,6 @@ o = OptionParser.new do |opts|
   opts.on("--kmer-coverage-target NUMBER", "when searching for reads with kmers, require this many copies per kmer [default: #{options[:kmer_coverage_target]}]") do |arg|
     options[:kmer_coverage_target] = arg.to_i
   end
-  opts.on("--assembly-kmer NUMBER", "when assembling, use this kmer length [default: #{options[:velvet_kmer_size]}]") do |arg|
-    options[:velvet_kmer_size] = arg.to_i
-  end
   opts.on("--already-patterned-reads FILE", "Attempt to assemble the reads in the specified file, useful for re-assembly [default: off]") do |arg|
     options[:already_patterned_reads] = arg
   end
