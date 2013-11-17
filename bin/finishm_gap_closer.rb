@@ -206,6 +206,14 @@ else
   raise "Unable to find both anchor reads from the assembly, cannot continue. This is probably an error with this script, not you."
 end
 
+log.info "Removing nodes unconnected to either the start or the end from the graph.."
+original_num_nodes = graph.nodes.length
+original_num_arcs = graph.arcs.length
+filter = Bio::AssemblyGraphAlgorithms::ConnectivityBasedGraphFilter.new
+filter.remove_unconnected_nodes(graph, [start_node, end_node])
+log.info "Removed #{original_num_nodes-graph.nodes.length} nodes and #{original_num_arcs-graph.arcs.length} arcs"
+
+
 if options[:output_graph_png]
   log.info "Converting assembly to a graphviz PNG"
   viser = Bio::Assembly::ABVisualiser.new
