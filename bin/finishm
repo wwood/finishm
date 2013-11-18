@@ -18,7 +18,7 @@ global = OptionParser.new do |opts|
   opts.banner = "
     Usage: #{SCRIPT_NAME} <command> [<arguments>]
 
-    FinishM is a collection of related tasks:
+    FinishM is a collection of related tasks. Available commands:
 
     finish\tprocess results from multi-primer multi-lane PCR experimental setup
     gapfill\tFill assembly gaps (N characters)
@@ -28,26 +28,38 @@ global.order!
 
 operator = nil
 subcommands = {
-  'finish' => OptionParser.new do |opts|
-     # ...
-  end,
-  'gapfill' => OptionParser.new do |opts|
-    require 'finishm/gapfiller'
+  'finish' => lambda {OptionParser.new do |opts|
+    operator = Bio::FinishM::Finisher.new
+    operator.add_options(opts, options)
+  end},
+  'gapfill' => lambda {OptionParser.new do |opts|
     operator = Bio::FinishM::GapFiller.new
     operator.add_options(opts, options)
-  end
+  end}
 }
 
 # Setup logging
-Bio::Log::CLI.logger(options[:logger]); Bio::Log::CLI.trace(options[:log_level]); log = Bio::Log::LoggerPlus.new(LOG_NAME); Bio::Log::CLI.configure(LOG_NAME)
+Bio::Log::CLI.logger(options[:logger]); Bio::Log::CLI.trace(options[:log_level]); log = Bio::Log::LoggerPlus.new(LOG_NAME); Bio::Log::CLI.configure(LOG_NAME); log.outputters[0].formatter = Log4r::PatternFormatter.new(:pattern => "%5l %c %d: %m", :date_pattern => '%d/%m %T')
+
 Bio::Log::LoggerPlus.new 'bio-velvet'; Bio::Log::CLI.configure 'bio-velvet'
 
 subcommand = ARGV.shift
-subcommands[subcommand].parse!
-if operator.nil?
-  log.error "No subcommand detected."
-  $stderr.puts global.usage
+if subcommand.nil?
+  $stderr.puts global
+  exit 1
+elsif !subcommands[subcommand]
+  log.error "Unrecognized subcommand: #{subcommand}"
   exit 1
 else
-  operator.run ARGV
+  subcommands[subcommand].call.parse!
+  log.info "Running FinishM #{subcommand} with these options: #{PP.pp(options, "").gsub(/\n$/,'')}"
+
+  error_message = operator.validate_options(options, ARGV)
+  if error_message.nil?
+    operator.run options, ARGV
+  else
+    $stderr.puts
+    $stderr.puts error_message
+  end
 end
+

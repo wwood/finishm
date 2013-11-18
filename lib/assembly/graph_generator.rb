@@ -8,7 +8,7 @@ module Bio
 
       # Were all the probe recovered through the process?
       def completely_probed?
-        !(@probe_nodes.find{|node| node.nil?}
+        !(@probe_nodes.find{|node| node.nil?})
       end
 
       def missing_probe_indices

@@ -26,3 +26,6 @@ require 'assembly/oriented_node_trail'
 require 'assembly/depth_first_search'
 require 'assembly/kmer_coverage_based_path_filter'
 require 'assembly/graph_generator'
+
+require 'finishm/finisher'
+require 'finishm/gapfiller'
