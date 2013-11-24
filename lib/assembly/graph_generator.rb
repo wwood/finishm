@@ -58,7 +58,7 @@ module Bio
           unless paths.nil? or paths.empty?
             args += " #{velvet_flag}"
             paths.each do |path|
-              args += "-short#{readset_index} #{path}"
+              args += " -short#{readset_index} #{path}"
               readset_index += 1
             end
           end
@@ -71,6 +71,10 @@ module Bio
       include Bio::FinishM::Logging
 
       def add_options(option_parser, options)
+        options.merge({
+          :velvet_kmer_size => 87,
+          :assembly_coverage_cutoff => 3.5,
+        })
         option_parser.on("--assembly-kmer NUMBER", "when assembling, use this kmer length [default: #{options[:velvet_kmer_size]}]") do |arg|
           options[:velvet_kmer_size] = arg.to_i
         end
@@ -117,14 +121,14 @@ module Bio
                 tempfile.puts probe
               end
               tempfile.close
-              log.debug "Inputting probes into the assembly:\n#{File.open(tempfile.path).read}" if log.debug?
+              log.debug "IInputting probes into the assembly:\n#{File.open(tempfile.path).read}" if log.debug?
 
               log.info "Assembling sampled reads with velvet"
               # Bit of a hack, but have to use -short1 as the anchors because then start and end anchors will have node IDs 1,2,... etc.
               velvet_result = Bio::Velvet::Runner.new.velvet(
                 options[:velvet_kmer_size],
                 read_inputs.velvet_read_arguments,
-                "-read_trkg yes -cov_cutoff #{options[:assembly_coverage_cutoff]}",
+                "-read_trkg yes -cov_cutoff #{options[:assembly_coverage_cutoff]} -tour_bus no",
                 :output_assembly_path => options[:output_assembly_path]
               )
               if log.debug?
@@ -167,6 +171,7 @@ module Bio
         finishm_graph = Bio::FinishM::ProbedGraph.new
         endings.each do |array|
           node = array[0]
+          p node.class
           direction = array[1]
 
           finishm_graph.probe_nodes ||= []
