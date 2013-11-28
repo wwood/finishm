@@ -44,7 +44,7 @@ module Bio
         end
 
         # Pick the best node from each of the candidate nodes for each sequence_id
-        endings.collect do |sequence_id, nodes|
+        return endings.collect do |sequence_id, nodes|
           best_node = nodes.min do |n1, n2|
             r1 = n1.short_reads.find{|r| r.read_id == sequence_id}
             r2 = n2.short_reads.find{|r| r.read_id == sequence_id}
@@ -57,8 +57,6 @@ module Bio
             []
           end
         end
-
-        return endings
       end
 
       def find_unique_node_with_kmers(velvet_graph, kmers)

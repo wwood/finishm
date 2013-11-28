@@ -58,7 +58,9 @@ module Bio
           unless paths.nil? or paths.empty?
             args += " #{velvet_flag}"
             paths.each do |path|
-              args += " -short#{readset_index} #{path}"
+              short_num = readset_index
+              short_num = '' if readset_index == 1
+              args += " -short#{short_num} #{path}"
               readset_index += 1
             end
           end
@@ -116,12 +118,20 @@ module Bio
           velvet_result = nil
           if options[:previous_assembly].nil? #If assembly has not already been carried out
             Tempfile.open('probes.fa') do |tempfile|
-              probe_sequences.each_with_index do |probe, i|
-                tempfile.puts ">probe#{i}"
-                tempfile.puts probe
+              50.times do
+                probe_sequences.each_with_index do |probe, i|
+                  tempfile.puts ">probe#{i}"
+                  tempfile.puts probe
+                end
               end
               tempfile.close
-              log.debug "IInputting probes into the assembly:\n#{File.open(tempfile.path).read}" if log.debug?
+              singles = read_inputs.fasta_singles
+              if singles and !singles.empty?
+                read_inputs.fasta_singles = [tempfile.path, singles].flatten
+              else
+                read_inputs.fasta_singles = [tempfile.path]
+              end
+              log.debug "Inputting probes into the assembly:\n#{File.open(tempfile.path).read}" if log.debug?
 
               log.info "Assembling sampled reads with velvet"
               # Bit of a hack, but have to use -short1 as the anchors because then start and end anchors will have node IDs 1,2,... etc.
@@ -169,23 +179,21 @@ module Bio
         anchor_sequence_ids = (1..probe_sequences.length)
         endings = finder.find_unique_nodes_with_sequence_ids(graph, anchor_sequence_ids)
         finishm_graph = Bio::FinishM::ProbedGraph.new
-        endings.each do |array|
-          node = array[0]
-          p node.class
-          direction = array[1]
-
-          finishm_graph.probe_nodes ||= []
-          finishm_graph.probe_nodes.push node
-          finishm_graph.probe_node_directions ||= []
-          finishm_graph.probe_node_directions.push direction
-        end
+        finishm_graph.graph = graph
+        p endings
+        finishm_graph.probe_nodes = endings.collect{|array| array[0]}
+        finishm_graph.probe_node_directions = endings.collect{|array| array[1]}
 
         # Check to make sure the probe sequences map to nodes in the graph
         if finishm_graph.completely_probed?
-          probe_descriptions = finishm_graph.probe_nodes.collect do |probe,i|
-            "#{probe.node_id}/#{finishm_graph.probe_node_directions[i]}"
-          end.join(', ')
-          log.info "Found all anchoring nodes in the graph: #{probe_descriptions}"
+          if log.info?
+            probe_descriptions = ''
+            finishm_graph.probe_nodes.each_with_index do |probe,i|
+              probe_descriptions += ' ' unless i==0
+              probe_descriptions += "#{probe.node_id}/#{finishm_graph.probe_node_directions[i]}"
+            end.join(', ')
+            log.info "Found all anchoring nodes in the graph: #{probe_descriptions}"
+          end
         else
           raise "Unable to find both anchor reads from the assembly, cannot continue. This is probably an error with this script, not you. Probes not found: #{finishm_graph.missing_probe_indices.inspect}"
         end

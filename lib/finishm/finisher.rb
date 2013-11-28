@@ -261,30 +261,31 @@ class Bio::FinishM::Finisher
     trails = cartographer.find_trails_between_nodes(graph, start_node, end_node, options[:graph_search_leash_length], start_node_forward)
     log.info "Found #{trails.length} trail(s) between the initial and terminal nodes"
 
-    log.info "Reading kmer abundances from #{options[:kmer_multiple_abundance_file]}.."
-    kmer_hash = Bio::KmerMultipleAbundanceHash.parse_from_file options[:kmer_multiple_abundance_file]
-    log.info "Finished reading the kmer abundances"
+#    log.info "Reading kmer abundances from #{options[:kmer_multiple_abundance_file]}.."
+#    kmer_hash = Bio::KmerMultipleAbundanceHash.parse_from_file options[:kmer_multiple_abundance_file]
+#    log.info "Finished reading the kmer abundances"
 
-    if options[:trail_kmer_coverage_file]
-      log.info "Writing out kmer coverages to #{options[:trail_kmer_coverage_file]}.."
-      writer = Bio::AssemblyGraphAlgorithms::KmerCoverageWriter.new
-      io = File.open(options[:trail_kmer_coverage_file],'w')
-      writer.write(io, trails, kmer_hash)
-      log.info "Finished writing"
-    end
+#    if options[:trail_kmer_coverage_file]
+#      log.info "Writing out kmer coverages to #{options[:trail_kmer_coverage_file]}.."
+#      writer = Bio::AssemblyGraphAlgorithms::KmerCoverageWriter.new
+#      io = File.open(options[:trail_kmer_coverage_file],'w')
+#      writer.write(io, trails, kmer_hash)
+#      log.info "Finished writing"
+#    end
 
-    log.info "Filtering trail(s) based on kmer coverage, requiring each kmer in the path to have a minimum of #{options[:kmer_path_filter_min_coverage]} coverage in patterned reads, except for the #{options[:kmer_path_end_exclusion_length]}bp at the ends"
-    kmer_path_filter = Bio::AssemblyGraphAlgorithms::KmerCoverageBasedPathFilter.new
-    thresholds = desired_pattern.collect{|c| c == true ? 1 : 0}
-    log.info "Using thresholds for filtering: #{thresholds}"
-    trails = kmer_path_filter.filter(trails, kmer_hash, thresholds, :exclude_ending_length => options[:kmer_path_end_exclusion_length])
-    log.info "After filtering remained #{trails.length} trails"
+#    log.info "Filtering trail(s) based on kmer coverage, requiring each kmer in the path to have a minimum of #{options[:kmer_path_filter_min_coverage]} coverage in patterned reads, except for the #{options[:kmer_path_end_exclusion_length]}bp at the ends"
+#    kmer_path_filter = Bio::AssemblyGraphAlgorithms::KmerCoverageBasedPathFilter.new
+#    thresholds = desired_pattern.collect{|c| c == true ? 1 : 0}
+#    log.info "Using thresholds for filtering: #{thresholds}"
+#    trails = kmer_path_filter.filter(trails, kmer_hash, thresholds, :exclude_ending_length => options[:kmer_path_end_exclusion_length])
+#    log.info "After filtering remained #{trails.length} trails"
 
     log.debug "Found trails: #{trails.collect{|t| t.to_s}.join("\n")}"
 
-    trails.each_with_index do |trail, i|
-      puts ">trail#{i+1}"
-      puts trail.sequence
-    end
+    # TODO: actually output the trails somehow
+#    trails.each_with_index do |trail, i|
+#      puts ">trail#{i+1}"
+#      puts trail.sequence
+#    end
   end
 end
