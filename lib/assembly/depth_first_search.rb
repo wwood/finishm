@@ -11,6 +11,7 @@ module Bio
       # searching further from this point (false)
       # or keep going (true).
       def depth_first_search(oriented_node)
+        log = Bio::Log::LoggerPlus['finishm']
         discovered_oriented_nodes = Set.new
 
         # Traverse through the graph, yielding at each new node

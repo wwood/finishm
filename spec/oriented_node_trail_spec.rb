@@ -76,7 +76,7 @@ ACTATGCTGGTATTTCACTTCCAGGTACAGG'.gsub(/\n/,'')
     expect {trail.sequence}.to raise_error
   end
 
-  it 'should not have the bug I found any more' do
+  it 'should not have the bug I found any more full' do
     # This graph is somewhat abbreviated and not a full and complete LastGraph file, but should be ok
     lastgraph = <<EOF
 5     2805    43      1
@@ -111,6 +111,32 @@ EOF
       trail.add_node graph.nodes[4], :start_is_first
       trail.add_node graph.nodes[5], :start_is_first
       trail.sequence.should == 'TGGAAGCTGTTTCTTGTTATCGATCGATTTTTGAATCTCTTTAGCTTCTTTTAATTTCTGCAATGCTTTTCTTGCTCTGGATTTTAACTGATCTTTCTGTAAATTCTCTGAAAAATAAAAATAATCTAT GCTGCTCGGTTTGACAAATTTTATCCCGTAAACTCCTTTTTTATCATCAACAAGCTCAGCTTTGGATTTATCGAATTCT'
+    end
+  end
+
+  it 'should not have the bug I found any more cut down version' do
+    # This graph is somewhat abbreviated and not a full and complete LastGraph file, but should be ok
+    lastgraph = <<EOF
+416     2705    43      1
+NODE    62      71      13651   13188   0       0
+ATAGATTATTTTTATTTTTCAGAGAATTTACAGAAAGATCAGTTAAAATCCAGAGCAAGAAAAGCATTGCA
+AAATTCTCTGAAAAATAAAAATAATCTATGCTGCTCGGTTTGACAAATTTTATCCCGTAAACTCCCTTTTT
+NODE    165     2       396     378     0       0
+TA
+CA
+ARC	-62	165	198
+EOF
+    lastgraph.gsub!(/ +/,"\t")
+    Tempfile.open('spec') do |f|
+      f.puts lastgraph
+      f.close
+
+      graph = Bio::Velvet::Graph.parse_from_file f.path
+      graph.nodes.length.should == 2
+      trail = Bio::Velvet::Graph::OrientedNodeTrail.new
+      trail.add_node graph.nodes[62], :end_is_first
+      trail.add_node graph.nodes[165], :start_is_first
+      trail.sequence.should == 'TGCAATGCTTTTCTTGCTCTGGATTTTAACTGATCTTTCTGTAAATTCTCTGAAAAATAAAAATAATCTAT GCTGCTCGGTTTGACAAATTTTATCCCGTAAACTCCTTTTTTA'
     end
   end
 end

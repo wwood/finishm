@@ -45,8 +45,11 @@ module Bio::AssemblyGraphAlgorithms
           onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
           onode.node = originally_whitelisted_node
           onode.first_side = direction
+          log.debug "Testing for connectivity from #{onode.node.node_id}/#{onode.first_side}" if log.debug?
           graph.depth_first_search(onode) do |path|
-            all_whitelisted_nodes << path.last.node
+            node = path.last
+            log.debug "Whitelisting node #{node.node.node_id}/#{node.first_side}" if log.debug?
+            all_whitelisted_nodes << node.node
             true
           end
         end

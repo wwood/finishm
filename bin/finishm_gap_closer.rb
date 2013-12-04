@@ -16,7 +16,7 @@ options = {
   :log_level => 'info',
   :velvet_kmer_size => 43,#TODO: these options should be exposed to the user, and perhaps not guessed at
   :contig_end_length => 200,
-  :output_assembly_path => 'velvetAssembly',
+  :output_assembly_path => '/tmp/velvetAssembly',
   :graph_search_leash_length => 3000,
   :assembly_coverage_cutoff => 1.5,
 }
@@ -90,6 +90,9 @@ end
 # Setup logging
 Bio::Log::CLI.logger(options[:logger]); Bio::Log::CLI.trace(options[:log_level]); log = Bio::Log::LoggerPlus.new(LOG_NAME); Bio::Log::CLI.configure(LOG_NAME)
 Bio::Log::LoggerPlus.new 'bio-velvet'; Bio::Log::CLI.configure 'bio-velvet'
+log.outputters[0].formatter = Log4r::PatternFormatter.new(:pattern => "%5l %c %d: %m", :date_pattern => '%d/%m %T')
+
+log.debug "Running finishm with options: #{PP.pp(options, "").gsub(/\n$/,'')}" if log.debug?
 
 # Find where the Ns are
 n_region_start = nil
@@ -125,7 +128,7 @@ Bio::FlatFile.foreach(options[:contig_file]) do |seq|
   end
 end
 
-
+log.debug 'yes'
 
 # Do the assembly
 graph = nil
@@ -237,7 +240,7 @@ end
 
 log.info "Searching for trails between the nodes within the assembly graph"
 cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
-trails = cartographer.find_all_trails_between_nodes(graph, start_node, end_node, options[:graph_search_leash_length], start_node_forward)
+trails = cartographer.find_trails_between_nodes(graph, start_node, end_node, options[:graph_search_leash_length], start_node_forward)
 log.info "Found #{trails.length} trail(s) in total"
 
 

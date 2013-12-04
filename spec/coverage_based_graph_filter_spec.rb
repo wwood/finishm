@@ -39,4 +39,24 @@ describe "coverage based graph filter" do
     deleted_arcs.length.should == 0
     graph.nodes.length.should == 4
   end
+
+  it 'should filter by connectivity' do
+    graph = GraphTesting.emit([
+      [1,2],
+      [3,4]
+    ])
+    filter = Bio::AssemblyGraphAlgorithms::ConnectivityBasedGraphFilter.new
+    graph.nodes.length.should == 4
+    filter.remove_unconnected_nodes(graph,[graph.nodes[1]])
+    graph.nodes.length.should == 2
+    graph.arcs.length.should == 1
+
+    graph = GraphTesting.emit([
+      [1,2],
+      [2,3],
+      [3,4]
+    ])
+    filter.remove_unconnected_nodes(graph,[graph.nodes[1]])
+    graph.nodes.length.should == 4
+  end
 end
