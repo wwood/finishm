@@ -9,23 +9,23 @@ module Bio
       # relative to the node, or nil if no node could be found.
       # When multiple nodes contain the read, return the node that is closest to the beginning
       # of the read.
-      def find_unique_node_with_sequence_id(graph, sequence_id)
-        nodes_with_read = graph.nodes.select do |node|
-          node.short_reads.select{|r| r.read_id == sequence_id}.length > 0
-        end
-        log.debug "Found #{nodes_with_read.length} nodes with the anchor read in it: #{nodes_with_read.collect{|n| n.node_id}.sort.join(',')}"
-        return nil if nodes_with_read.empty?
-
-        # TODO: There is a slight bit of imperfection here - multiple nodes can be the minimum
-        # Hopefully won't be a bit problem
-        best_node = nodes_with_read.min do |n1, n2|
-          r1 = n1.short_reads.find{|r| r.read_id == sequence_id}
-          r2 = n2.short_reads.find{|r| r.read_id == sequence_id}
-          r1.start_coord <=> r2.start_coord
-        end
-        best_noded_read = best_node.short_reads.find{|r| r.read_id == sequence_id}
-        return best_node, best_noded_read.direction
-      end
+#      def find_unique_node_with_sequence_id(graph, sequence_id)
+#        nodes_with_read = graph.nodes.select do |node|
+#          node.short_reads.select{|r| r.read_id == sequence_id}.length > 0
+#        end
+#        log.debug "Found #{nodes_with_read.length} nodes with the anchor read in it: #{nodes_with_read.collect{|n| n.node_id}.sort.join(',')}"
+#        return nil if nodes_with_read.empty?
+#
+#        # TODO: There is a slight bit of imperfection here - multiple nodes can be the minimum
+#        # Hopefully won't be a bit problem
+#        best_node = nodes_with_read.min do |n1, n2|
+#          r1 = n1.short_reads.find{|r| r.read_id == sequence_id}
+#          r2 = n2.short_reads.find{|r| r.read_id == sequence_id}
+#          r1.start_coord <=> r2.start_coord
+#        end
+#        best_noded_read = best_node.short_reads.find{|r| r.read_id == sequence_id}
+#        return best_node, best_noded_read.direction
+#      end
 
       def find_unique_nodes_with_sequence_ids(graph, sequence_ids)
         # Create data structure
@@ -44,7 +44,7 @@ module Bio
         end
 
         # Pick the best node from each of the candidate nodes for each sequence_id
-        endings.collect do |sequence_id, nodes|
+        return endings.collect do |sequence_id, nodes|
           best_node = nodes.min do |n1, n2|
             r1 = n1.short_reads.find{|r| r.read_id == sequence_id}
             r2 = n2.short_reads.find{|r| r.read_id == sequence_id}
@@ -57,8 +57,6 @@ module Bio
             []
           end
         end
-
-        return endings
       end
 
       def find_unique_node_with_kmers(velvet_graph, kmers)

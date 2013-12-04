@@ -61,20 +61,9 @@ o = OptionParser.new do |opts|
   opts.on("--velvet-kmer KMER", "kmer size to use with velvet [default: #{options[:velvet_kmer_size]}]") do |arg|
     options[:velvet_kmer_size] = arg.to_i
   end
-  opts.on("--assembly-coverage-cutoff NUMBER", "Require this much coverage in each node, all other nodes are removed [default: #{options[:assembly_coverage_cutoff]}]") do |arg|
-    options[:assembly_coverage_cutoff] = arg.to_f
-  end
 
   opts.separator "\nDebug-related options:\n\n"
-  opts.on("--already-assembled-velvet-directory PATH", "Skip until after assembly in this process, and start from this assembly directory created during a previous run of this script [default: off]") do |arg|
-    options[:previous_assembly] = arg
-  end
-  opts.on("--serialize-velvet-graph FILE", "So that the velvet graph does not have to be reparsed, serialise the parsed object for later use in this file [default: off]") do |arg|
-    options[:serialize_parsed_graph_file] = arg
-  end
-  opts.on("--already-serialized-velvet-graph FILE", "Restore the parsed velvet graph from this file [default: off]") do |arg|
-    options[:previously_serialized_parsed_graph_file] = arg
-  end
+
 
 
   # logger options
@@ -127,8 +116,6 @@ Bio::FlatFile.foreach(options[:contig_file]) do |seq|
     raise "The gap is too close to the end of the contig, sorry"
   end
 end
-
-log.debug 'yes'
 
 # Do the assembly
 graph = nil

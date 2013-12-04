@@ -29,6 +29,7 @@ module Bio
       def graphviz(graph, options={})
         opts = {}
         opts[:type] = :digraph unless options[:digraph] == false
+        opts[:overlap] = :scale
         graphviz = GraphViz.new(:G, opts)
 
         # Add all the nodes
