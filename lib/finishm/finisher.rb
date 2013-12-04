@@ -2,6 +2,8 @@ class Bio::FinishM::Finisher
   include Bio::FinishM::Logging
 
   def add_options(opts, options)
+    opts.banner = "\nUsage: finishm finish <options>\n\n"
+
     options.merge!({
       :min_leftover_length => false,
       :kmer_coverage_target => 1,
@@ -9,7 +11,6 @@ class Bio::FinishM::Finisher
       :graph_search_leash_length => 20000,
       :reads_to_assemble => nil,
     })
-    opts.banner = "finishm finish <options>\n\n"
 
     # TODO: make a better interface for this. Maybe specify an entire genome, and then "Contig_1 end, Contig_3 start" or something
     # Look at the last 300bp of the first contig.

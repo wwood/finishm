@@ -32,19 +32,28 @@ module Bio
           '--fasta-gz' => :fasta_singles_gz,
           '--fastq-gz' => :fastq_singles_gz,
         }.each do |flag, sym|
-          option_parser.on("#{flag} PATH") do |arg|
-            send("#{sym.to_s}||=".to_sym, []) #initialise the instance variable as an empty array
-
-            # add entries to the instance variable array
-            attr_symbol = "#{sym.to_s}||=".to_sym
-            arg.split(/[^\\] /).each do |filename|
-              filename.strip
-              send(attr_symbol).push filename
-            end
+          option_parser.on("#{flag} PATH", Array, "Raw reads") do |arg|
+            options[sym] = arg
           end
         end
       end
 
+      # Require at least 1 set of reads to be given, of any type
+      def validate_options(options, argv)
+        [:fasta_singles, :fastq_singles, :fasta_singles_gz, :fastq_singles_gz].each do |sym|
+          return nil if options[sym]
+        end
+        return "No definition of reads for assembly was found"
+      end
+
+      # Parse options from options hash into instance variables for this object
+      def parse_options(options)
+        [:fasta_singles, :fastq_singles, :fasta_singles_gz, :fastq_singles_gz].each do |sym|
+          send("#{sym}=",options[sym]) if options[sym]
+        end
+      end
+
+      # Output a string to be used on the command line with velvet
       def velvet_read_arguments
         readset_index = 1
         args = ''
@@ -73,7 +82,7 @@ module Bio
       include Bio::FinishM::Logging
 
       def add_options(option_parser, options)
-        options.merge({
+        options.merge!({
           :velvet_kmer_size => 87,
           :assembly_coverage_cutoff => 3.5,
         })
