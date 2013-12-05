@@ -59,8 +59,9 @@ else
   opts.on("--logger filename",String,"Log to file [default #{options[:logger]}]") { |name| options[:logger] = name}
   opts.on("--trace options",String,"Set log level [default INFO]. e.g. '--trace debug' to set logging level to DEBUG"){|s| options[:log_level] = s}
   opts.parse!
+  Bio::Log::CLI.logger(options[:logger]); Bio::Log::CLI.trace(options[:log_level])
 
-  #log.info "Running FinishM #{subcommand} with these options: #{PP.pp(options, "").gsub(/\n$/,'')}"
+  log.info "Running FinishM #{subcommand} with these options: #{PP.pp(options, "").gsub(/\n$/,'')}"
 
   error_message = operator.validate_options(options, ARGV)
   if error_message.nil? or error_message == false
