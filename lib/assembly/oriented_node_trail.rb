@@ -4,6 +4,8 @@ module Bio
       # An ordered list of nodes, each with an orientation along that trail
       class OrientedNodeTrail
         include Enumerable
+        include Bio::Velvet::Logging
+
         attr_reader :trail
 
         START_IS_FIRST = :start_is_first
@@ -141,17 +143,14 @@ module Bio
               twin_nodes_sequence = onode.node.ends_of_kmers_of_node + twin_nodes_sequence
               fwd_nodes_sequence += onode.node.ends_of_kmers_of_twin_node
             end
-            puts
-            p fwd_nodes_sequence
-            p twin_nodes_sequence
           end
           missing_length_from_each_side = @trail[0].node.parent_graph.hash_length-1
           if twin_nodes_sequence.length < missing_length_from_each_side
             raise Bio::Velvet::NotImplementedException, "Not enough information to know the sequence of a node trail"
           else
             seq_length_required = @trail.collect{|n| n.node.length_alone}.reduce(:+) + missing_length_from_each_side - twin_nodes_sequence.length
-            puts "first part: #{twin_nodes_sequence}"
-            puts "second: #{fwd_nodes_sequence[-seq_length_required...fwd_nodes_sequence.length]}"
+            log.debug "first part: #{twin_nodes_sequence}"
+            log.debug "second: #{fwd_nodes_sequence[-seq_length_required...fwd_nodes_sequence.length]}"
             return revcom(twin_nodes_sequence)[0...(@trail[0].node.parent_graph.hash_length-1)]+fwd_nodes_sequence
             # calculating this way should be the same, but is somehow buggy in velvet?
             #return revcom(twin_nodes_sequence)+fwd_nodes_sequence[-seq_length_required...fwd_nodes_sequence.length]

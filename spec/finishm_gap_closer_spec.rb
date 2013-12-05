@@ -1,12 +1,14 @@
 require 'systemu'
+require 'tempfile'
 TEST_DATA_DIR = File.join(File.dirname(__FILE__),'data','gapfilling')
 
 describe 'finishm gap closer' do
-  path_to_script = File.join(File.dirname(__FILE__),'..','bin','finishm_gap_closer.rb')
+  path_to_script = File.join(File.dirname(__FILE__),'..','bin','finishm gapfill')
   it 'should scripting test ok' do
-    status, stdout, stderr = systemu "gem list bio"
-    p stdout
-    status, stdout, stderr = systemu "#{path_to_script} --reads #{TEST_DATA_DIR}/2/sammy_reads.fa.gz --contig #{TEST_DATA_DIR}/2/with_gaps.fa --output-trails-fasta /dev/stdout}"
+    command = "#{path_to_script} --trace quiet --fasta-gz #{TEST_DATA_DIR}/2/sammy_reads.fa.gz --contig #{TEST_DATA_DIR}/2/with_gaps.fa --output-trails-fasta /dev/stdout"
+    puts command
+    status, stdout, stderr = systemu command
+
     stderr.should eq("")
     status.exitstatus.should eq(0)
     stdout.should eq(">trail1

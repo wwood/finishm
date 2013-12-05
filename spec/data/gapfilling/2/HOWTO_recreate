@@ -3,15 +3,15 @@ Chopped 1 sequence(s)
 ben@u:~/git/priner/spec/data/gapfilling/2$ head -n2 /srv/db/gg/2013_05/gg_13_5_otus/rep_set/97_otus.fasta |sequenceChop.pl - 1 1000 >reference_part2.fa
 Chopped 1 sequence(s)
 
-ben@u:~/git/priner/spec/data/gapfilling/2$ head -n2 /srv/db/gg/2013_05/gg_13_5_otus/rep_set/97_otus.fasta |sequenceChop.pl - 1000 1100 
+ben@u:~/git/priner/spec/data/gapfilling/2$ head -n2 /srv/db/gg/2013_05/gg_13_5_otus/rep_set/97_otus.fasta |sequenceChop.pl - 1000 1100
 >1111883_chopped_1000-1100
 CAGGTGCTGCATGGCTGTCGTCAGCTCGTGTCGTGAGATGTTGGGTTAAGTCCCGCAACGAGCGCAACTCTCGCTCCCAGTTGCCAGCGGTTCGGCCGGGG
 Chopped 1 sequence(s)
 # inserted this sequence into part2, overwriting some bases in the middle
 
 # simulating reads with minilinium's sammy sequence simulator
-ben@u:~/git/priner/spec/data/gapfilling/2$ ~/git/sammy/sammy.pl -r <(cat reference_part1.fa reference_part2.fa) -n 200 -i 300 |pigz >sammy_reads.fa.gz
+ben@u:~/git/priner/spec/data/gapfilling/2$ ~/git/sammy/sammy.pl -r reference.fa -n 1000 -i 300 |pigz >sammy_reads.fa.gz
 ben@u:~/git/priner/spec/data/gapfilling/2$ zcat sammy_reads.fa.gz |seqmagick info -
-namealignment    min_len   max_len   avg_len  num_seqs
+name alignment    min_len   max_len   avg_len  num_seqs
 - TRUE             100       100    100.00       402
 

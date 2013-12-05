@@ -10,7 +10,7 @@ gem 'bio-samtools'
 gem 'systemu'
 gem 'ruby-graphviz'
 gem 'ds'
-gem 'ccsv', '=0.1.2.1.wwood'
+gem 'hopcsv', '>=0.4.3'
 
 #only needed temporarily until the bio-velvet gem is a proper dependency
 gem 'files'

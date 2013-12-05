@@ -22,6 +22,15 @@ class Bio::FinishM::GapFiller
     end
     optparse_object.separator "\nThere must be some definition of reads too:\n\n" #TODO improve this help
     Bio::FinishM::ReadInput.new.add_options(optparse_object, options)
+    optparse_object.on("--assembly-png PATH", "Output assembly as a PNG file [default: off]") do |arg|
+      options[:output_graph_png] = arg
+    end
+    optparse_object.on("--assembly-svg PATH", "Output assembly as an SVG file [default: off]") do |arg|
+      options[:output_graph_svg] = arg
+    end
+    optparse_object.on("--assembly-dot PATH", "Output assembly as an DOT file [default: off]") do |arg|
+      options[:output_graph_dot] = arg
+    end
 
     optparse_object.separator "\nOptional arguments:\n\n"
     optparse_object.on("--overhang NUM", "Start assembling this far from the gap [default: #{options[:contig_end_length]}]") do |arg|
@@ -104,23 +113,25 @@ class Bio::FinishM::GapFiller
     finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph(probe_sequences, read_input, options)
 
     # Output optional graphics. TODO: these should be abstracted because it is not DRY
-    if options[:output_graph_png]
-      log.info "Converting assembly to a graphviz PNG"
+    if options[:output_graph_png] or options[:output_graph_svg] or options[:output_graph_dot]
       viser = Bio::Assembly::ABVisualiser.new
-      gv = viser.graphviz(graph, {:start_node_id => start_node.node_id, :end_node_id => end_node.node_id})
-      gv.output :png => options[:output_graph_png], :use => :neato
-    end
-    if options[:output_graph_svg]
-      log.info "Converting assembly to a graphviz SVG"
-      viser = Bio::Assembly::ABVisualiser.new
-      gv = viser.graphviz(graph, {:start_node_id => start_node.node_id, :end_node_id => end_node.node_id})
-      gv.output :svg => options[:output_graph_svg], :use => :neato
-    end
-    if options[:output_graph_dot]
-      log.info "Converting assembly to a graphviz DOT"
-      viser = Bio::Assembly::ABVisualiser.new
-      gv = viser.graphviz(graph, {:start_node_id => start_node.node_id, :end_node_id => end_node.node_id, :digraph => false})
-      gv.output :dot => options[:output_graph_dot]
+      # TODO: make these visualise more than one join somehow
+      gv = viser.graphviz(finishm_graph.graph, {
+        :start_node_id => finishm_graph.probe_nodes[0].node_id,
+        :end_node_id => finishm_graph.probe_nodes[1].node_id})
+
+      if options[:output_graph_png]
+        log.info "Converting assembly to a graphviz PNG"
+        gv.output :png => options[:output_graph_png], :use => :neato
+      end
+      if options[:output_graph_svg]
+        log.info "Converting assembly to a graphviz SVG"
+        gv.output :svg => options[:output_graph_svg], :use => :neato
+      end
+      if options[:output_graph_dot]
+        log.info "Converting assembly to a graphviz DOT"
+        gv.output :dot => options[:output_graph_dot]
+      end
     end
 
 
@@ -136,7 +147,7 @@ class Bio::FinishM::GapFiller
         start_node_forward = finishm_graph.probe_node_directions[start_probe_index]
         end_node = finishm_graph.probe_nodes[start_probe_index+1]
         if start_node and end_node
-          trails = cartographer.find_all_trails_between_nodes(finishm_graph.graph, start_node, end_node, options[:graph_search_leash_length], start_node_forward)
+          trails = cartographer.find_trails_between_nodes(finishm_graph.graph, start_node, end_node, options[:graph_search_leash_length], start_node_forward)
 
           trails.each_with_index do |trail, i|
             #TODO: need to output this as something more sensible e.g. VCF format
