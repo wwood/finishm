@@ -189,7 +189,6 @@ module Bio
         endings = finder.find_unique_nodes_with_sequence_ids(graph, anchor_sequence_ids)
         finishm_graph = Bio::FinishM::ProbedGraph.new
         finishm_graph.graph = graph
-        p endings
         finishm_graph.probe_nodes = endings.collect{|array| array[0]}
         finishm_graph.probe_node_directions = endings.collect{|array| array[1]}
 

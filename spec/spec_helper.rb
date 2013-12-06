@@ -31,6 +31,7 @@ class GraphTesting
           node = Bio::Velvet::Graph::Node.new
           node.node_id = ident
           node_id_to_node[ident] = node
+          node.parent_graph = graph
         end
         nodes[ident] = node
       end

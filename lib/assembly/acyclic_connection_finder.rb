@@ -46,7 +46,7 @@ module Bio
         # Depth first searching
         # While there is paths that haven't been fully explored
         while current_path = stack.pop
-          #log.debug "Perhaps #{current_path}?" if log.debug?
+          log.debug "Perhaps #{current_path}?" if log.debug?
           if golden_onodes.include?(current_path.last.to_settable)
             # Found another golden path(s)
             log.debug "Ran into a golden node" if log.debug?
@@ -60,7 +60,11 @@ module Bio
             log.debug "Skipping #{current_path.last} since that has already been seen" if log.debug?
             next
           else
-            log.debug "That's a new node, #{current_path.last}" if log.debug?
+            if log.debug?
+              second_last_node = current_path[current_path.length-2]
+              second_last_node ||= 'initial_node'
+              log.debug "That's a new node, #{second_last_node}/#{current_path.last}"
+            end
 
             # if we aren't beyond the leash. Presumably this
             # doesn't happen much, but there is a possibility that the leash will
@@ -68,7 +72,7 @@ module Bio
             # and a path longer than the leash is discovered first, then all the
             # nodes on that leash will be marked as discovered when they really aren't
             # TODO: fix the above bug
-            if leash_length.nil? or path.length_in_bp < leash_length
+            if leash_length.nil? or current_path.length_in_bp < leash_length
               # Found a new node for the user to play with
               already_visited_nodes << current_path.last.to_settable
 
@@ -101,17 +105,21 @@ module Bio
                 stack.push path
               end
             else
-              log.debug "Giving up because this is beyond the leash" if log.debug?
+              if log.debug?
+                log.debug "Giving up because this is beyond the leash, with #{path.length_in_bp} vs leash length #{leash_length}"
+                log.debug "Path given up on: #{path}"
+                log.debug "Path sequence given up on: #{path.sequence}"
+                log.debug "Node lengths: #{path.collect{|n| n.node.length_alone}.join(',')}"
+              end
             end
           end
         end
         log.debug "Golden path: #{golden_path.to_s}" if log.debug?
         log.debug "found #{golden_path_fragments.length} golden fragments: #{golden_path_fragments.collect{|g| g.to_s}.join("\n")}" if log.debug?
-        log.debug '                 ' if log.debug?
         return [] if golden_path.nil?
 
         # OK, so we've transformed the data into a state where there is
-        # at least one path through the data (or it is nil if there is no path)
+        # at least one path through the data
         # and tentacles hanging off various golden nodes.
         # Now separate out the paths and return the array.
         # First transform the data so it can be referenced by the end node

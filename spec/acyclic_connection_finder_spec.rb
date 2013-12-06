@@ -272,6 +272,40 @@ describe "AcyclicConnectionFinder" do
       [1,4,8,9],
     ].sort
   end
+
+  it 'should not fail when there is one path beyond the leash (1st), and another not (2nd)' do
+    graph = GraphTesting.emit([
+      [1,2],
+      [2,3],
+      [1,3],
+      [3,4],
+    ])
+    graph.hash_length = 87
+    initial_node = graph.nodes[1]
+    terminal_node = graph.nodes[4]
+    graph.nodes[1].ends_of_kmers_of_node = 'A'*10
+    graph.nodes[2].ends_of_kmers_of_node = 'A'*100
+    graph.nodes[3].ends_of_kmers_of_node = 'A'*10
+    graph.nodes[4].ends_of_kmers_of_node = 'A'*10
+    (1..4).each do |node_id|
+      graph.nodes[node_id].ends_of_kmers_of_twin_node = graph.nodes[node_id].ends_of_kmers_of_node
+    end
+    cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
+    paths = cartographer.find_trails_between_nodes(graph, initial_node, terminal_node, 200, true)
+    GraphTesting.sorted_paths(paths).should == [
+      [1,2,3,4],
+      [1,3,4],
+    ].sort
+
+    paths = cartographer.find_trails_between_nodes(graph, initial_node, terminal_node, 100, true)
+    (1..4).each do |node_id|
+      graph.nodes[node_id].ends_of_kmers_of_twin_node = graph.nodes[node_id].ends_of_kmers_of_node
+    end
+    GraphTesting.sorted_paths(paths).should == [
+      [1,3,4],
+    ].sort
+
+  end
 end
 
 # Dead code below I think
