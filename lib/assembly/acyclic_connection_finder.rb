@@ -105,8 +105,8 @@ module Bio
                 stack.push path
               end
             else
+              log.warn "Giving up on this path because this is beyond the leash, with length #{path.length_in_bp} vs leash length #{leash_length}"
               if log.debug?
-                log.debug "Giving up because this is beyond the leash, with #{path.length_in_bp} vs leash length #{leash_length}"
                 log.debug "Path given up on: #{path}"
                 log.debug "Path sequence given up on: #{path.sequence}"
                 log.debug "Node lengths: #{path.collect{|n| n.node.length_alone}.join(',')}"
@@ -117,6 +117,11 @@ module Bio
         log.debug "Golden path: #{golden_path.to_s}" if log.debug?
         log.debug "found #{golden_path_fragments.length} golden fragments: #{golden_path_fragments.collect{|g| g.to_s}.join("\n")}" if log.debug?
         return [] if golden_path.nil?
+
+        if golden_path_fragments.length > 10
+          log.error "Too many paths found, not enumerating them because this would take too long"
+          return []
+        end
 
         # OK, so we've transformed the data into a state where there is
         # at least one path through the data

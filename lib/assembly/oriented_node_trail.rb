@@ -6,7 +6,7 @@ module Bio
         include Enumerable
         include Bio::Velvet::Logging
 
-        attr_reader :trail
+        attr_accessor :trail
 
         START_IS_FIRST = :start_is_first
         END_IS_FIRST = :end_is_first
@@ -159,9 +159,7 @@ module Bio
 
         def copy
           o = OrientedNodeTrail.new
-          each do |oriented|
-            o.add_node oriented.node, oriented.first_side
-          end
+          o.trail = Array.new(@trail)
           return o
         end
 

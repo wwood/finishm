@@ -142,13 +142,13 @@ class Bio::FinishM::GapFiller
         cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
         gap_number = start_probe_index/2
         gap = gaps[gap_number]
-        log.debug "Now working through gap number #{gap_number}"
+        log.info "Now working through gap number #{gap_number}: #{gap.coords}"
         start_node = finishm_graph.probe_nodes[start_probe_index]
         start_node_forward = finishm_graph.probe_node_directions[start_probe_index]
         end_node = finishm_graph.probe_nodes[start_probe_index+1]
         if start_node and end_node
           trails = cartographer.find_trails_between_nodes(finishm_graph.graph, start_node, end_node, options[:graph_search_leash_length], start_node_forward)
-
+          log.info "Found #{trails.length} trails for #{gap.coords}"
           trails.each_with_index do |trail, i|
             #TODO: need to output this as something more sensible e.g. VCF format
             f.puts ">#{gap.coords}_trail#{i+1}"
