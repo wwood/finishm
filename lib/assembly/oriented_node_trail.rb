@@ -1,3 +1,4 @@
+
 module Bio
   module Velvet
     class Graph
@@ -71,6 +72,24 @@ module Bio
           neighbours_with_orientation = []
           neighbour_nodes.each do |neighbour|
             arcs = graph.get_arcs_by_node last.node, neighbour
+            log.debug "arcs before if statement: #{arcs}" if log.debug?
+
+            # This if statement entered if two nodes are connected twice,
+            # in both directions. Remove one direction as it shouldn't be here
+            if arcs.length > 1
+              if last.first_side == START_IS_FIRST
+                arcs.select! do |arc|
+                  (arc.begin_node_id == last.node.node_id and arc.begin_node_direction) or
+                  (arc.end_node_id == last.node.node_id and !arc.end_node_direction)
+                end
+              else
+                arcs.select! do |arc|
+                  (arc.end_node_id == last.node.node_id and arc.end_node_direction) or
+                  (arc.begin_node_id == last.node.node_id and !arc.begin_node_direction)
+                end
+              end
+            end
+            log.debug "arcs after statement: #{arcs}" if log.debug?
 
             # Sometimes, but rarely, two nodes will be joined more than once, for whatever reason
             arcs.each do |arc|
@@ -124,6 +143,7 @@ module Bio
               neighbours_with_orientation.push oriented
             end
           end
+
           return neighbours_with_orientation
         end
 

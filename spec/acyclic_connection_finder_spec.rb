@@ -343,19 +343,55 @@ describe "AcyclicConnectionFinder" do
     ].sort
 
   end
-end
 
-# Dead code below I think
-#describe 'Trail' do
-#  it 'should give the right length' do
-#    graph = Bio::Velvet::Graph.parse_from_file File.join(TEST_DATA_DIR, 'velvet_test_trails','Assem','LastGraph')
-#
-#    trail = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder::Trail.new
-#    trail[0] = graph.nodes[1]
-#    trail.nucleotide_length.should == 228+30
-#    trail[1] = graph.nodes[2]
-#    trail.nucleotide_length.should == 228+29+30
-#    trail[2] = graph.nodes[4]
-#    trail.nucleotide_length.should == 228+29+224+30
-#  end
-#end
+  it 'should not get confused by a 1 node cycle' do
+    graph = GraphTesting.emit([
+      [1,2],
+      [2,2],
+      [2,3],
+    ])
+    initial_node = graph.nodes[1]
+    terminal_node = graph.nodes[3]
+    cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
+    paths = cartographer.find_trails_between_nodes(graph, initial_node, terminal_node, nil, true)
+    GraphTesting.sorted_paths(paths).should == [
+      [1,2,3],
+    ].sort
+  end
+
+  it 'should not get confused by a 2 node cycle' do
+    graph = GraphTesting.emit([
+      [1,2],
+      [2,4],
+      [4,2],
+      [2,3],
+    ])
+    initial_node = graph.nodes[1]
+    terminal_node = graph.nodes[3]
+    cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
+    paths = cartographer.find_trails_between_nodes(graph, initial_node, terminal_node, nil, true)
+    GraphTesting.sorted_paths(paths).should == [
+      [1,2,3],
+    ].sort
+  end
+
+  it 'should give the correct part1 for a 2 node cycle' do
+    graph = GraphTesting.emit([
+      [1,2],
+      [2,4],
+      [4,2],
+      [2,3],
+    ])
+    initial_node = graph.nodes[1]
+    terminal_node = graph.nodes[3]
+    cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
+
+    initial_path = Bio::Velvet::Graph::OrientedNodeTrail.new
+    way = Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
+    initial_path.add_node initial_node, way
+
+    half_result = cartographer.find_all_trails_squid_way_part1(graph, initial_path, terminal_node, nil)
+    half_result.golden_path.collect{|n| n.node.node_id}.should == [1,2,3]
+    half_result.golden_fragments.collect{|fragment| fragment.collect{|n| n.node.node_id}}.should == []
+  end
+end

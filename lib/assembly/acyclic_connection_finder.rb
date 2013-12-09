@@ -31,6 +31,21 @@ module Bio
       end
 
       def find_all_trails_squid_way(graph, path, terminal_node, leash_length)
+        half_result = find_all_trails_squid_way_part1(graph, path, terminal_node, leash_length)
+
+        log.debug "Golden path: #{half_result.golden_path.to_s}" if log.debug?
+        log.debug "found #{half_result.golden_fragments.length} golden fragments: #{half_result.golden_fragments.collect{|g| g.to_s}.join("\n")}" if log.debug?
+        return [] if half_result.golden_path.nil?
+
+        if half_result.golden_fragments.length > 10
+          log.error "Too many paths found, not enumerating them because this would take too long"
+          return []
+        end
+
+        return find_all_trails_squid_way_part2(half_result)
+      end
+
+      def find_all_trails_squid_way_part1(graph, path, terminal_node, leash_length)
         # do a depth first search, but keep track of which nodes are known to
         # to make it to the end. Then at the end work backwards to collect the paths
         # and separate them all.
@@ -48,11 +63,28 @@ module Bio
         while current_path = stack.pop
           log.debug "Perhaps #{current_path}?" if log.debug?
           if golden_onodes.include?(current_path.last.to_settable)
-            # Found another golden path(s)
-            log.debug "Ran into a golden node" if log.debug?
-            golden_path_fragments.push current_path
-            current_path.each do |onode|
-              golden_onodes << onode.to_settable
+            # Probably a golden fragment, unless the node found is in the current path.
+            # if that is true, that's a loop along a golden path.
+            first_index = nil
+            current_path.each_with_index do |directed_node, i|
+              if directed_node.node == current_path.last.node and
+                directed_node.first_side == current_path.last.first_side
+                first_index = i
+                break
+              end
+            end
+
+            if first_index == current_path.length-1
+              # Found another golden path(s)
+              log.debug "Ran into a golden node" if log.debug?
+              golden_path_fragments.push current_path
+              current_path.each do |onode|
+                golden_onodes << onode.to_settable
+              end
+            else
+              # Loop found along a golden path or fragment
+              log.debug "Found a loop along a golden path: #{current_path}" if log.debug?
+              next
             end
           elsif already_visited_nodes.include?(current_path.last.to_settable) and
             current_path.last.node.node_id != terminal_node.node_id
@@ -102,6 +134,7 @@ module Bio
               next_nodes.each do |n|
                 path = current_path.copy
                 path.add_oriented_node n
+                log.debug "Pushing a path yet to be explored: #{path}" if log.debug?
                 stack.push path
               end
             else
@@ -114,14 +147,15 @@ module Bio
             end
           end
         end
-        log.debug "Golden path: #{golden_path.to_s}" if log.debug?
-        log.debug "found #{golden_path_fragments.length} golden fragments: #{golden_path_fragments.collect{|g| g.to_s}.join("\n")}" if log.debug?
-        return [] if golden_path.nil?
+        half_result = HalfSquidResult.new
+        half_result.golden_path = golden_path
+        half_result.golden_fragments = golden_path_fragments
+        return half_result
+      end
 
-        if golden_path_fragments.length > 10
-          log.error "Too many paths found, not enumerating them because this would take too long"
-          return []
-        end
+      def find_all_trails_squid_way_part2(half_result)
+        golden_path = half_result.golden_path
+        golden_path_fragments = half_result.golden_fragments
 
         # OK, so we've transformed the data into a state where there is
         # at least one path through the data
@@ -564,6 +598,10 @@ module Bio
         def to_s
           "Trail #{self.object_id}: #{collect{|n| n.node_id}.join(',')}"
         end
+      end
+
+      class HalfSquidResult
+        attr_accessor :golden_path, :golden_fragments
       end
     end
   end
