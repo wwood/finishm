@@ -2,7 +2,7 @@ class Bio::FinishM::Wanderer
   include Bio::FinishM::Logging
 
   def add_options(optparse_object, options)
-    optparse_object.banner = "\nUsage: finishm gapfill --contig <contig_file> --fastq-gz <reads..> --output-trails-fasta <output.fa>
+    optparse_object.banner = "\nUsage: finishm gapfill --contig <contig_file> --fastq-gz <reads..> --output-connections <output.csv>
 
     Takes a set of reads and a contig that contains gap characters. Then it tries to fill in
     these N characters. It is possible that there is multiple ways to close the gap - in that case
@@ -24,8 +24,11 @@ class Bio::FinishM::Wanderer
     Bio::FinishM::ReadInput.new.add_options(optparse_object, options)
 
     optparse_object.separator "\nOptional arguments:\n\n"
-    optparse_object.on("--overhang NUM", "Start assembling this far from the ends of the contigs [default: #{options[:contig_end_length]}]") do |arg|
+    optparse_object.on("--overhang NUM", Integer, "Start assembling this far from the ends of the contigs [default: #{options[:contig_end_length]}]") do |arg|
       options[:contig_end_length] = arg.to_i
+    end
+    optparse_object.on("--leash-length NUM", Integer, "Don't explore too far in the graph, only this far and not much more [default: #{options[:graph_search_leash_length]}]") do |arg|
+      options[:graph_search_leash_length] = arg
     end
 
     Bio::FinishM::GraphGenerator.new.add_options optparse_object, options
@@ -66,7 +69,7 @@ class Bio::FinishM::Wanderer
       fwd2 = Bio::Sequence::NA.new(sequence[0...options[:contig_end_length]])
       probe_sequences.push fwd2.reverse_complement.to_s
 
-      probe_sequences.push sequence[options[:contig_end_length]...sequence.length]
+      probe_sequences.push sequence[(sequence.length-options[:contig_end_length])...sequence.length]
     end
     log.info "Searching from #{probe_sequences.length} different contig ends (#{probe_sequences.length/2} contigs)"
 
@@ -78,7 +81,7 @@ class Bio::FinishM::Wanderer
     # Loop over the ends, trying to make connections from each one
     cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
     num_total_connections = 0
-    probe_sequences.each_with_index do |start_probe_index|
+    probe_sequences.each_with_index do |probe, start_probe_index|
       start_node = finishm_graph.probe_nodes[start_probe_index]
       start_node_forward = finishm_graph.probe_node_directions[start_probe_index]
 
@@ -93,32 +96,34 @@ class Bio::FinishM::Wanderer
       end
 
       if start_node
-        probe_sequences.each_with_index do |terminal_probe_index|
+        probe_sequences.each_with_index do |probe2, terminal_probe_index|
           # Don't try to connect an end with itself
-          next if start_probe_index == terminal_probe_index
+          break if start_probe_index == terminal_probe_index
 
           end_node = finishm_graph.probe_nodes[terminal_probe_index]
           if end_node
-            paths = cartographer.find_all_trails_squid_way(
+            paths = cartographer.find_trails_between_nodes(
               finishm_graph.graph,
               start_node,
-              finishm_graph.probe_nodes,
               end_node,
               options[:graph_search_leash_length],
               start_node_forward
             )
 
+            terminal_node_sequence_name = nil
+            terminal_node_side = nil
+            if terminal_probe_index % 2 == 0
+              terminal_node_side = 'start'
+              terminal_node_sequence_name = sequence_names[terminal_probe_index/2]
+            else
+              terminal_node_side = 'end'
+              terminal_node_sequence_name = sequence_names[(terminal_probe_index-1)/2]
+            end
+            log.debug "Trying to connect #{start_node_sequence_name}/#{start_node_side} to #{terminal_node_sequence_name}/#{terminal_node_side}" if log.debug?
+
             unless paths.empty?
               num_total_connections += 1
-              terminal_node_sequence_name = nil
-              terminal_node_side = nil
-              if terminal_probe_index % 2 == 0
-                terminal_node_side = 'start'
-                terminal_node_sequence_name = sequence_names[terminal_probe_index/2]
-              else
-                terminal_node_side = 'end'
-                terminal_node_sequence_name = sequence_names[(terminal_probe_index-1)/2]
-              end
+
               puts [
                 start_node_sequence_name,
                 start_node_side,
@@ -136,6 +141,6 @@ class Bio::FinishM::Wanderer
         log.warn "Unable to retrieve probe sequences for probe index #{start_probe_index}, so cannot find connections from this contig side"
       end
     end
-    log.info "Found #{num_total_connections} gap filling(s) in total, out of a possible #{probe_sequences.length}"
+    log.info "Found #{num_total_connections} gap filling(s) in total, out of a possible #{probe_sequences.length*(probe_sequences.length-1)/2}"
   end
 end
