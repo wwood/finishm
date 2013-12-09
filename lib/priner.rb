@@ -29,3 +29,4 @@ require 'assembly/graph_generator'
 
 require 'finishm/finisher'
 require 'finishm/gapfiller'
+require 'finishm/wander'

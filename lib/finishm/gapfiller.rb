@@ -17,7 +17,7 @@ class Bio::FinishM::GapFiller
     optparse_object.on("--contigs FILE", "fasta file of single contig containing Ns that are to be closed [required]") do |arg|
       options[:contigs_file] = arg
     end
-    optparse_object.on("--output-trails-fasta PATH", "Output found paths to this file in fasta format [default: off]") do |arg|
+    optparse_object.on("--output-trails-fasta PATH", "Output overview of connections between contigs to this file [required]") do |arg|
       options[:overall_trail_output_fasta_file] = arg
     end
     optparse_object.separator "\nThere must be some definition of reads too:\n\n" #TODO improve this help

@@ -22,6 +22,7 @@ global = OptionParser.new do |opts|
 
     finish\tprocess results from multi-primer multi-lane PCR experimental setup
     gapfill\tFill assembly gaps (N characters)
+    wander\tTry to connect contigs
     \n\n"
 end
 global.order!
@@ -35,7 +36,11 @@ subcommands = {
   'gapfill' => lambda {OptionParser.new do |opts|
     operator = Bio::FinishM::GapFiller.new
     operator.add_options(opts, options)
-  end}
+  end},
+  'wander' => lambda {OptionParser.new do |opts|
+    operator = Bio::FinishM::Wanderer.new
+    operator.add_options(opts, options)
+  end},
 }
 
 
@@ -69,6 +74,9 @@ else
   else
     $stderr.puts
     $stderr.puts error_message
+    $stderr.puts
+    $stderr.puts opts
+    exit 1
   end
 end
 

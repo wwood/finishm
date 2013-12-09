@@ -603,6 +603,10 @@ module Bio
       class HalfSquidResult
         attr_accessor :golden_path, :golden_fragments
       end
+
+      class OneToManyHalfSquidResult
+        attr_accessor :golden_paths, :golden_fragment_sets
+      end
     end
   end
 end
