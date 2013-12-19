@@ -85,7 +85,7 @@ class Bio::FinishM::Fluff
 
     # Loop over the ends, trying to make connections from each one
     fluffer = Bio::AssemblyGraphAlgorithms::Fluffer.new
-    fluffings = fluffer.fluff(finishm_graph)
+    fluffings = fluffer.fluff(finishm_graph, options[:graph_search_leash_length])
 
     log.info "Found #{num_total_connections} gap filling(s) in total, out of a possible #{probe_sequences.length*(probe_sequences.length-1)/2}"
 
