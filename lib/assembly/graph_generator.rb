@@ -18,6 +18,32 @@ module Bio
         end
         return missings
       end
+
+      # Make a Bio::Velvet::Graph::OrientedNodeTrail with just one
+      # step in it - the node that corresponds to the probe_index
+      def initial_path_from_probe(probe_index)
+        initial_path = Bio::Velvet::Graph::OrientedNodeTrail.new
+        node = @probe_nodes[probe_index]
+        raise "No node found for probe #{probe_index}" if node.nil?
+        direction = @probe_node_directions[probe_index]
+
+        way = direction ?
+          Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST :
+          Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST
+        initial_path.add_node node, way
+        return initial_path
+      end
+
+      # Return a Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode
+      # corresponding to the index of the probe and its direction
+      def velvet_oriented_node(probe_index)
+        node = @probe_nodes[probe_index]
+        if node.nil?
+          return nil
+        else
+          return initial_path_from_probe(probe_index)[0]
+        end
+      end
     end
 
     # A class representing reads or sets of reads to be assembled
@@ -69,7 +95,7 @@ module Bio
             paths.each do |path|
               short_num = readset_index
               short_num = '' if readset_index == 1
-              args += " -short#{short_num} #{path}"
+              args += " -short #{path}"
               readset_index += 1
             end
           end
@@ -92,7 +118,7 @@ module Bio
         option_parser.on("--assembly-coverage-cutoff NUMBER", "Require this much coverage in each node, all other nodes are removed [default: #{options[:assembly_coverage_cutoff]}]") do |arg|
           options[:assembly_coverage_cutoff] = arg.to_f
         end
-        option_parser.on("--velvet-directory PATH", "Output assembly intermediate files to this directory [default: off]") do |arg|
+        option_parser.on("--velvet-directory PATH", "Output assembly intermediate files to this directory [default: use temporary directory, delete afterwards]") do |arg|
           options[:output_assembly_path] = arg
         end
         option_parser.on("--already-assembled-velvet-directory PATH", "Skip until after assembly in this process, and start from this assembly directory created during a previous run of this script [default: off]") do |arg|

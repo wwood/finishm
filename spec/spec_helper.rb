@@ -20,6 +20,7 @@ class GraphTesting
     graph.arcs = arc_array
     nodes = Bio::Velvet::Graph::NodeArray.new
     graph.nodes = nodes
+    graph.hash_length = 7
 
     arc_pairs.each do |node_ids|
       raise unless node_ids.length == 2
@@ -32,6 +33,8 @@ class GraphTesting
           node.node_id = ident
           node_id_to_node[ident] = node
           node.parent_graph = graph
+          node.ends_of_kmers_of_node = 'A'*10
+          node.ends_of_kmers_of_twin_node = 'T'*10
         end
         nodes[ident] = node
       end
@@ -48,9 +51,27 @@ class GraphTesting
     return graph
   end
 
+  def self.finishm_graph(arc_pairs, probes)
+    graph = emit(arc_pairs)
+    finishm_graph = Bio::FinishM::ProbedGraph.new
+    finishm_graph.graph = graph
+    finishm_graph.probe_nodes = probes.collect{|probe| graph.nodes[probe]}
+    finishm_graph.probe_node_directions = probes.collect{true}
+
+    return finishm_graph
+  end
+
   def self.sorted_paths(paths)
     paths.collect do |path|
       path.collect{|n| n.node_id}
     end.sort
+  end
+
+  def self.sorted_array_of_paths(path_array)
+    path_array.collect do |paths|
+      paths.collect do |path|
+        path.collect{|n| n.node_id}
+      end.sort
+    end
   end
 end

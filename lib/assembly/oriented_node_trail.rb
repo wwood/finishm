@@ -187,6 +187,10 @@ module Bio
           "OrientedNodeTrail: #{object_id}: #{collect{|n| [n.node.node_id,n.first_side].join(',')}.join(' ')}"
         end
 
+        def inspect
+          to_s
+        end
+
         def length_in_bp
           reduce(0){|total, onode| total+=onode.node.length_alone}
         end

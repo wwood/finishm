@@ -9,6 +9,7 @@ module Bio
       def find_trails_between_nodes(graph, initial_node, terminal_node, leash_length, start_looking_off_the_end_of_the_first_node)
         #find_trails_between_nodes_depth_first_search(graph, initial_node, terminal_node, leash_length, start_looking_off_the_end_of_the_first_node)
 
+        #TODO: this is now implemented in the finishm_graph object - just get it from there
         initial_path = Bio::Velvet::Graph::OrientedNodeTrail.new
         way = start_looking_off_the_end_of_the_first_node ?
           Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST :
@@ -83,7 +84,7 @@ module Bio
             if log.debug?
               second_last_node = current_path[current_path.length-2]
               second_last_node ||= 'initial_node'
-              log.debug "That's a new node, #{second_last_node}/#{current_path.last}"
+              log.debug "That's a new node, #{second_last_node}/#{current_path.last}" if log.debug?
             end
 
             # if we aren't beyond the leash. Presumably this
@@ -126,11 +127,11 @@ module Bio
                 stack.push path
               end
             else
-              log.warn "Giving up on this path because this is beyond the leash, with length #{path.length_in_bp} vs leash length #{leash_length}"
+              log.warn "Giving up on this path because this is beyond the leash, with length #{current_path.length_in_bp} vs leash length #{leash_length}"
               if log.debug?
-                log.debug "Path given up on: #{path}"
-                log.debug "Path sequence given up on: #{path.sequence}"
-                log.debug "Node lengths: #{path.collect{|n| n.node.length_alone}.join(',')}"
+                log.debug "Path given up on: #{current_path}"
+                log.debug "Path sequence given up on: #{current_path.sequence}"
+                log.debug "Node lengths: #{current_path.collect{|n| n.node.length_alone}.join(',')}"
               end
             end
           end

@@ -2,7 +2,7 @@ class Bio::FinishM::GapFiller
   include Bio::FinishM::Logging
 
   def add_options(optparse_object, options)
-    optparse_object.banner = "\nUsage: finishm gapfill --contig <contig_file> --fastq-gz <reads..> --output-trails-fasta <output.fa>
+    optparse_object.banner = "\nUsage: finishm gapfill --contigs <contigs_file> --fastq-gz <reads..> --output-trails-fasta <output.fa>
 
     Takes a set of reads and a contig that contains gap characters. Then it tries to fill in
     these N characters. It is possible that there is multiple ways to close the gap - in that case

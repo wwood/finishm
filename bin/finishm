@@ -23,6 +23,7 @@ global = OptionParser.new do |opts|
     finish\tprocess results from multi-primer multi-lane PCR experimental setup
     gapfill\tFill assembly gaps (N characters)
     wander\tTry to connect contigs
+    fluff\tTry to get a set of pan-genome contigs from a strain heterogenous coassembly
     \n\n"
 end
 global.order!
@@ -39,6 +40,10 @@ subcommands = {
   end},
   'wander' => lambda {OptionParser.new do |opts|
     operator = Bio::FinishM::Wanderer.new
+    operator.add_options(opts, options)
+  end},
+  'fluff' => lambda {OptionParser.new do |opts|
+    operator = Bio::FinishM::Fluff.new
     operator.add_options(opts, options)
   end},
 }
