@@ -1,0 +1,5 @@
+# seq1 and seq2 are greengenes sequences that are very similar, but not identical.
+
+ben@u:~/git/priner/spec/data/fluff/1$ ~/git/sammy/sammy.pl -r <(cat seq1.fa seq2.fa) -num_reads 3000 >2seqs.sammy.fa
+
+

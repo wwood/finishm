@@ -74,4 +74,17 @@ class GraphTesting
       end.sort
     end
   end
+
+  def self.sorted_fluffers(path_array)
+    path_array.collect do |fluffer_path_set|
+      paths_and_fates = []
+      fluffer_path_set.each_with_index do |path, i|
+        paths_and_fates.push [
+          path.collect{|n| n.node_id},
+          fluffer_path_set.fates[i]
+        ]
+      end
+      paths_and_fates.sort
+    end
+  end
 end

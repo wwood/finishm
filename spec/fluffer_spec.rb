@@ -14,10 +14,10 @@ describe "Fluffer" do
       [1,2],
     ], [1])
     fluffer = Bio::AssemblyGraphAlgorithms::Fluffer.new
-    paths = fluffer.fluff(finishm_graph, 100)
-    GraphTesting.sorted_array_of_paths(paths).should == [
+    path_sets = fluffer.fluff(finishm_graph, 100)
+    GraphTesting.sorted_fluffers(path_sets).should == [
       [
-        [1,2],
+        [[1,2], :dead_end]
       ],
     ]
   end
@@ -29,13 +29,13 @@ describe "Fluffer" do
       [3,4]
     ], [1,3])
     fluffer = Bio::AssemblyGraphAlgorithms::Fluffer.new
-    paths = fluffer.fluff(finishm_graph, 100)
-    GraphTesting.sorted_array_of_paths(paths).should == [
+    path_sets = fluffer.fluff(finishm_graph, 100)
+    GraphTesting.sorted_fluffers(path_sets).should == [
       [
-        [1,2,3],
+        [[1,2,3], :terminal_node]
       ],
       [
-        [3,4],
+        [[3,4], :dead_end]
       ]
     ]
   end
@@ -48,14 +48,14 @@ describe "Fluffer" do
       [2,5],
     ], [1,3])
     fluffer = Bio::AssemblyGraphAlgorithms::Fluffer.new
-    paths = fluffer.fluff(finishm_graph, 100)
-    GraphTesting.sorted_array_of_paths(paths).should == [
+    path_sets = fluffer.fluff(finishm_graph, 100)
+    GraphTesting.sorted_fluffers(path_sets).should == [
       [
-        [1,2,3],
-        [1,2,5],
+        [[1,2,3], :terminal_node],
+        [[1,2,5], :dead_end],
       ],
       [
-        [3,4],
+        [[3,4], :dead_end]
       ]
     ]
   end
@@ -68,13 +68,13 @@ describe "Fluffer" do
       [2,5],
     ], [1,3])
     fluffer = Bio::AssemblyGraphAlgorithms::Fluffer.new
-    paths = fluffer.fluff(finishm_graph, 5)
-    GraphTesting.sorted_array_of_paths(paths).should == [
+    path_sets = fluffer.fluff(finishm_graph, 5)
+    GraphTesting.sorted_fluffers(path_sets).should == [
       [
-        [1],
+        [[1], :beyond_leash_length]
       ],
       [
-        [3],
+        [[3], :beyond_leash_length]
       ]
     ]
   end
@@ -89,13 +89,13 @@ describe "Fluffer" do
     finishm_graph.probe_nodes[2] = nil
     finishm_graph.probe_node_directions[2] = nil
     fluffer = Bio::AssemblyGraphAlgorithms::Fluffer.new
-    paths = fluffer.fluff(finishm_graph, 5)
-    GraphTesting.sorted_array_of_paths(paths).should == [
+    path_sets = fluffer.fluff(finishm_graph, 5)
+    GraphTesting.sorted_fluffers(path_sets).should == [
       [
-        [1],
+        [[1], :beyond_leash_length]
       ],
       [
-        [3],
+        [[3], :beyond_leash_length]
       ],[
       ]
     ]
@@ -111,16 +111,51 @@ describe "Fluffer" do
     finishm_graph.probe_nodes[1] = nil
     finishm_graph.probe_node_directions[1] = nil
     fluffer = Bio::AssemblyGraphAlgorithms::Fluffer.new
-    paths = fluffer.fluff(finishm_graph, 5)
-    GraphTesting.sorted_array_of_paths(paths).should == [
+    path_sets = fluffer.fluff(finishm_graph, 5)
+    GraphTesting.sorted_fluffers(path_sets).should == [
       [
-        [1],
+        [[1], :beyond_leash_length]
       ],
       [
       ],
       [
-        [3],
+        [[3], :beyond_leash_length]
       ]
+    ]
+  end
+
+  it 'should deal with already seen nodes properly' do
+    finishm_graph = GraphTesting.finishm_graph([
+      [1,2],
+      [2,3],
+      [1,3],
+      [3,4]
+    ], [1])
+    fluffer = Bio::AssemblyGraphAlgorithms::Fluffer.new
+    path_sets = fluffer.fluff(finishm_graph, 100)
+    GraphTesting.sorted_fluffers(path_sets).should == [
+      [
+        [[1,2,3,4], :dead_end],
+        [[1,3,4], :dead_end],
+      ],
+    ]
+  end
+
+  it 'should mark beyond leash length paths as golden' do
+    finishm_graph = GraphTesting.finishm_graph([
+      [1,2],
+      [2,3],
+      [1,3],
+      [3,4],
+      [4,5],
+    ], [1])
+    fluffer = Bio::AssemblyGraphAlgorithms::Fluffer.new
+    path_sets = fluffer.fluff(finishm_graph, 25)
+    GraphTesting.sorted_fluffers(path_sets).should == [
+      [
+        [[1,2,3], :beyond_leash_length],
+        [[1,3], :beyond_leash_length],
+      ],
     ]
   end
 end

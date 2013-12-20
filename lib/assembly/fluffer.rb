@@ -5,13 +5,26 @@ module Bio
   module AssemblyGraphAlgorithms
     class Fluffer
       include Bio::FinishM::Logging
+      BEYOND_LEASH_LENGTH_FATE = :beyond_leash_length
+      TERMINAL_NODE_FATE = :terminal_node
+      DEAD_END_FATE = :dead_end
+
 
       class FlufferHalfResult
-        attr_accessor :golden_paths, :golden_path_fragments
+        attr_accessor :golden_paths, :golden_path_fragments, :golden_path_fates
 
         def initialize
           @golden_paths = []
           @golden_path_fragments = []
+        end
+      end
+
+      # Holds an array of paths, but also the fates of each of those paths - why were they halted?
+      class FlufferPathSet < Array
+        attr_accessor :fates
+
+        def initialize
+          @fates = []
         end
       end
 
@@ -43,6 +56,7 @@ module Bio
             golden_paths = [] #These is the full paths found
             golden_fragments = [] #paths to join up to the end
             already_visited_nodes = Set.new #Nodes that have already been explored
+            golden_path_fates = [] #An array of how each of the paths were halted
 
             golden_onodes = Set.new #Nodes that stop exploration
             terminal_nodes = Set.new
@@ -75,7 +89,7 @@ module Bio
                 if first_index == current_path.length-1
                   # Found another golden path(s)
                   log.debug "Ran into a golden node" if log.debug?
-                  golden_path_fragments.push current_path
+                  golden_fragments.push current_path
                   current_path.each do |onode|
                     golden_onodes << onode.to_settable
                   end
@@ -85,8 +99,8 @@ module Bio
                   next
                 end
               elsif already_visited_nodes.include?(current_path.last.to_settable) and
-                current_path.last.node.node_id != terminal_node.node_id
-                # Already seen this node, do nothing with it
+                !terminal_nodes.include?(current_path.last.to_settable)
+                # Already seen this (non-golden) node, do nothing with it
                 log.debug "Skipping #{current_path.last} since that has already been seen" if log.debug?
                 next
               else
@@ -110,6 +124,7 @@ module Bio
                   if terminal_nodes.include?(current_path.last.to_settable)
                     log.debug "Found the terminal node: #{current_path}" if log.debug?
                     golden_paths.push current_path
+                    golden_path_fates.push TERMINAL_NODE_FATE
 
                   else # Use an else statement here because we want exploration to stop when other probes are encountered
 
@@ -130,6 +145,10 @@ module Bio
                     if next_nodes.empty?
                       log.debug "Found a dead end path: #{current_path}" if log.debug?
                       golden_paths.push current_path
+                      golden_path_fates.push DEAD_END_FATE
+                      current_path.each do |onode|
+                        golden_onodes << onode.to_settable
+                      end
                     end
                   end
                 else
@@ -141,6 +160,10 @@ module Bio
                   end
                   # Record this past-leash-length path
                   golden_paths.push current_path
+                  golden_path_fates.push BEYOND_LEASH_LENGTH_FATE
+                  current_path.each do |onode|
+                    golden_onodes << onode.to_settable
+                  end
                 end
               end
             end
@@ -149,6 +172,7 @@ module Bio
             fluff_half_result = FlufferHalfResult.new
             fluff_half_result.golden_paths = golden_paths
             fluff_half_result.golden_path_fragments = golden_fragments
+            fluff_half_result.golden_path_fates = golden_path_fates
 
             half_results.push fluff_half_result
           end
@@ -175,19 +199,21 @@ module Bio
           # Next backtrack through the paths
           # Each path starts at the beginning and ends at a
           # golden node
-          all_paths = []
+          all_paths = FlufferPathSet.new
           stack = DS::Stack.new
           # Push the golden path and all paths that finish at the last node
-          segment_half_result.golden_paths.each do |golden_path|
-            stack.push [golden_path, 0]
+          segment_half_result.golden_paths.each_with_index do |golden_path, i|
+            stack.push [golden_path, 0, segment_half_result.golden_path_fates[i]]
           end
 
           while array = stack.pop
             current_path = array[0]
             num_to_ignore = array[1]
+            fate = array[2]
 
-            log.debug "Defragging #{current_path.to_s}, ignoring the last #{num_to_ignore} nodes" if log.debug?
+            log.debug "Defragging #{current_path.to_s}/#{fate}, ignoring the last #{num_to_ignore} nodes" if log.debug?
             all_paths.push current_path
+            all_paths.fates.push fate
 
             # Iterate down this path, spawning new paths if there
             # are paths that intersect
@@ -208,7 +234,7 @@ module Bio
                       new_golden.add_oriented_node onode
                     end
                     log.debug "Enqueueing: #{new_golden.to_s} ignoring the last #{i+1} nodes" if log.debug?
-                    stack.push [new_golden, i+1]
+                    stack.push [new_golden, i+1, fate]
                   end
                 end
               end

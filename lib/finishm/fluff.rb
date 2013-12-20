@@ -34,6 +34,15 @@ class Bio::FinishM::Fluff
     optparse_object.on("--leash-length NUM", Integer, "Don't explore too far in the graph, only this far and not much more [default: #{options[:graph_search_leash_length]}]") do |arg|
       options[:graph_search_leash_length] = arg
     end
+    optparse_object.on("--assembly-png PATH", "Output assembly as a PNG file [default: off]") do |arg|
+      options[:output_graph_png] = arg
+    end
+    optparse_object.on("--assembly-svg PATH", "Output assembly as an SVG file [default: off]") do |arg|
+      options[:output_graph_svg] = arg
+    end
+    optparse_object.on("--assembly-dot PATH", "Output assembly as an DOT file [default: off]") do |arg|
+      options[:output_graph_dot] = arg
+    end
 
     Bio::FinishM::GraphGenerator.new.add_options optparse_object, options
   end
@@ -76,7 +85,7 @@ class Bio::FinishM::Fluff
         probe_sequences.push probe_sequence
       end
     end
-    log.info "Searching from #{probe_sequences.length} different probes from (#{sequence_names.length}) contigs)"
+    log.info "Searching from #{probe_sequences.length} different probes from #{sequence_names.length} contigs)"
 
     # Generate the graph with the probe sequences in it.
     read_input = Bio::FinishM::ReadInput.new
@@ -86,14 +95,25 @@ class Bio::FinishM::Fluff
     # Loop over the ends, trying to make connections from each one
     fluffer = Bio::AssemblyGraphAlgorithms::Fluffer.new
     fluffings = fluffer.fluff(finishm_graph, options[:graph_search_leash_length])
+    log.debug "Found these fluffings: #{fluffings}" if log.debug?
+    log.info "Found #{fluffings.collect{|sets| sets.length}.reduce(:+)} paths in total" if log.info?
 
-    log.info "Found #{num_total_connections} gap filling(s) in total, out of a possible #{probe_sequences.length*(probe_sequences.length-1)/2}"
+    if options[:output_graph_png] or options[:output_graph_svg] or options[:output_graph_dot]
+      log.info "Converting assembly to a graphviz PNG"
+      viser = Bio::Assembly::ABVisualiser.new
+      gv = viser.graphviz(finishm_graph.graph, {:start_node_ids => finishm_graph.probe_nodes.collect{|node| node.node_id}})
+
+      gv.output :png => options[:output_graph_png], :use => :neato if options[:output_graph_png]
+      gv.output :svg => options[:output_graph_svg], :use => :neato if options[:output_graph_svg]
+      gv.output :dot => options[:output_graph_dot] if options[:output_graph_dot]
+    end
 
     # Print out the sequences
     File.open(options[:output_fluff_file], 'w') do |output|
       fluffings.each_with_index do |path_set, probe_number|
-        path_set.each do |path, path_number|
-          output.puts ">probe#{probe_number+1}_path#{path_number+1}"
+        path_set.each_with_index do |path, path_number|
+          fate = path_set.fates[path_number]
+          output.puts ">probe#{probe_number+1}_path#{path_number+1} #{fate}"
           output.puts path.sequence
         end
       end
