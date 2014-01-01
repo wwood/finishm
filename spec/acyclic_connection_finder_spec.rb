@@ -394,4 +394,87 @@ describe "AcyclicConnectionFinder" do
     half_result.golden_path.collect{|n| n.node.node_id}.should == [1,2,3]
     half_result.golden_fragments.collect{|fragment| fragment.collect{|n| n.node.node_id}}.should == []
   end
+
+  it 'should calculate connections using a simple depth first search' do
+    graph = GraphTesting.emit([
+      [1,2],
+      [2,3],
+    ])
+    finishm_graph = Bio::FinishM::ProbedGraph.new
+    finishm_graph.graph = graph
+    finishm_graph.probe_nodes = [graph.nodes[1],graph.nodes[2]]
+    finishm_graph.probe_node_directions = [true, false]
+
+    cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
+    cartographer.depth_first_search_with_leash(finishm_graph, 10000).should == {
+      [0,1] => 10
+    }
+  end
+
+  it 'should calculate connections using a simple depth first search multiple singly connected' do
+    graph = GraphTesting.emit([
+      [1,2],
+      [2,3],
+      [4,5]
+    ])
+    finishm_graph = Bio::FinishM::ProbedGraph.new
+    finishm_graph.graph = graph
+    finishm_graph.probe_nodes = [
+      graph.nodes[1],graph.nodes[3],
+      graph.nodes[4],graph.nodes[5],
+    ]
+    finishm_graph.probe_node_directions = [true, false, true, false]
+
+    cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
+    cartographer.depth_first_search_with_leash(finishm_graph, 10000).should == {
+      [0,1] => 20,
+      [2,3] => 10,
+    }
+  end
+
+  it 'should calculate connections using a simple depth first search multiply connected' do
+    graph = GraphTesting.emit([
+      [1,2],
+      [2,3],
+      [3,4],
+      [4,5],
+    ])
+    finishm_graph = Bio::FinishM::ProbedGraph.new
+    finishm_graph.graph = graph
+    finishm_graph.probe_nodes = [
+      graph.nodes[1],graph.nodes[3],
+      graph.nodes[4],graph.nodes[5],
+    ]
+    finishm_graph.probe_node_directions = [true, false, true, false]
+
+    cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
+    cartographer.depth_first_search_with_leash(finishm_graph, 10000).should == {
+      [0,1] => 20,
+      [0,3] => 40,
+      [2,3] => 10,
+    }
+  end
+
+  it 'should calculate connections using a simple depth first search respect leash' do
+    graph = GraphTesting.emit([
+      [1,2],
+      [2,3],
+      [3,4],
+      [4,5],
+    ])
+    finishm_graph = Bio::FinishM::ProbedGraph.new
+    finishm_graph.graph = graph
+    finishm_graph.probe_nodes = [
+      graph.nodes[1],graph.nodes[3],
+      graph.nodes[4],graph.nodes[5],
+    ]
+    finishm_graph.probe_node_directions = [true, false, true, false]
+
+    cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
+    cartographer.depth_first_search_with_leash(finishm_graph, 20).should == {
+      [0,1] => 20,
+      #[0,3] => 40,
+      [2,3] => 10,
+    }
+  end
 end

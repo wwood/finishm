@@ -11,6 +11,7 @@ gem 'systemu'
 gem 'ruby-graphviz'
 gem 'ds'
 gem 'hopcsv', '>=0.4.3'
+gem 'bio-velvet'
 
 #only needed temporarily until the bio-velvet gem is a proper dependency
 gem 'files'

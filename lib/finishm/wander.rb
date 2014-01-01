@@ -80,67 +80,31 @@ class Bio::FinishM::Wanderer
 
     # Loop over the ends, trying to make connections from each one
     cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
-    num_total_connections = 0
-    probe_sequences.each_with_index do |probe, start_probe_index|
-      start_node = finishm_graph.probe_nodes[start_probe_index]
-      start_node_forward = finishm_graph.probe_node_directions[start_probe_index]
 
-      start_node_sequence_name = nil
-      start_node_side = nil
-      if start_probe_index % 2 == 0
-        start_node_side = 'start'
-        start_node_sequence_name = sequence_names[start_probe_index/2]
-      else
-        start_node_side = 'end'
-        start_node_sequence_name = sequence_names[(start_probe_index-1)/2]
-      end
+    log.info "Finding possible connections with a depth first search"
+    first_connections = cartographer.depth_first_search_with_leash(finishm_graph, options[:graph_search_leash_length])
+    log.info "Found #{first_connections.length} connections with less distance than the leash length, out of a possible #{probe_sequences.length*(probe_sequences.length-1)/2}"
 
-      if start_node
-        probe_sequences.each_with_index do |probe2, terminal_probe_index|
-          # Don't try to connect an end with itself
-          break if start_probe_index == terminal_probe_index
+    first_connections.each do |node_indices, distance|
+      sequence_names_and_directions = node_indices.collect do |i|
+        node = finishm_graph.probe_nodes[i]
+        node_forward = finishm_graph.probe_node_directions[i]
 
-          end_node = finishm_graph.probe_nodes[terminal_probe_index]
-          if end_node
-            paths = cartographer.find_trails_between_nodes(
-              finishm_graph.graph,
-              start_node,
-              end_node,
-              options[:graph_search_leash_length],
-              start_node_forward
-            )
-
-            terminal_node_sequence_name = nil
-            terminal_node_side = nil
-            if terminal_probe_index % 2 == 0
-              terminal_node_side = 'start'
-              terminal_node_sequence_name = sequence_names[terminal_probe_index/2]
-            else
-              terminal_node_side = 'end'
-              terminal_node_sequence_name = sequence_names[(terminal_probe_index-1)/2]
-            end
-            log.debug "Trying to connect #{start_node_sequence_name}/#{start_node_side} to #{terminal_node_sequence_name}/#{terminal_node_side}" if log.debug?
-
-            unless paths.empty?
-              num_total_connections += 1
-
-              puts [
-                start_node_sequence_name,
-                start_node_side,
-                terminal_node_sequence_name,
-                terminal_node_side,
-                paths.length,
-              ].join("\t")
-            end
-          else
-            log.warn "Unable to retrieve probe sequences for probe index #{start_probe_index}, so cannot find connections towards this contig side"
-          end
+        sequence_name = nil
+        side = nil
+        if i % 2 == 0
+          side = 'start'
+          sequence_name = sequence_names[start_probe_index/2]
+        else
+          side = 'end'
+          sequence_name = sequence_names[(start_probe_index-1)/2]
         end
-      else
-        #TODO: the below error message should link up better with the contig names, to help users a bit more. Or maybe it is unlikely to happen much any more anyway.
-        log.warn "Unable to retrieve probe sequences for probe index #{start_probe_index}, so cannot find connections from this contig side"
+        [sequence_name, side]
       end
+      puts [
+        sequence_names_and_directions,
+        distance
+      ].flatten.join("\t")
     end
-    log.info "Found #{num_total_connections} gap filling(s) in total, out of a possible #{probe_sequences.length*(probe_sequences.length-1)/2}"
   end
 end
