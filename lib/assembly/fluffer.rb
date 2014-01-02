@@ -30,17 +30,17 @@ module Bio
 
       # Return an array of array of paths.
       def fluff(finishm_graph, leash_length, options={})
-        log.debug "Fluffing part 1.."
+        log.debug "Fluffing part 1.." if log.debug?
         half_results = fluff_part1(finishm_graph, leash_length, options)
 
         log.debug "Found fluff half results: #{half_results}" if log.debug?
-        log.debug "Fluffing part 2.."
+        log.debug "Fluffing part 2.." if log.debug?
         return fluff_part2(half_results)
       end
 
       def fluff_part1(finishm_graph, leash_length, options={})
         # Get a set of all probes so that they can be checked against
-        log.debug "Found #{finishm_graph.probe_nodes.reject{|node| node.nil?}.length} different probes that were in the final velvet graph"
+        log.debug "Found #{finishm_graph.probe_nodes.reject{|node| node.nil?}.length} different probes that were in the final velvet graph" if log.debug?
         half_results = []
         graph = finishm_graph.graph
 

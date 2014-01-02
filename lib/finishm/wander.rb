@@ -94,10 +94,10 @@ class Bio::FinishM::Wanderer
         side = nil
         if i % 2 == 0
           side = 'start'
-          sequence_name = sequence_names[start_probe_index/2]
+          sequence_name = sequence_names[i/2]
         else
           side = 'end'
-          sequence_name = sequence_names[(start_probe_index-1)/2]
+          sequence_name = sequence_names[(i-1)/2]
         end
         [sequence_name, side]
       end
