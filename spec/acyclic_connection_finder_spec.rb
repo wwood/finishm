@@ -344,6 +344,61 @@ describe "AcyclicConnectionFinder" do
 
   end
 
+  it 'should not fail in this special case I realised might trip up the algorithm' do
+    graph = GraphTesting.emit([
+      [1,2],
+      [2,3],
+      [3,4],
+      [4,5],
+
+      [1,6],
+      [6,3],
+      [6,5],
+    ])
+    initial_node = graph.nodes[1]
+    terminal_node = graph.nodes[5]
+    cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
+    paths = cartographer.find_trails_between_nodes(graph, initial_node, terminal_node, 99999, true)
+    GraphTesting.sorted_paths(paths).should == [
+      [1,2,3,4,5],
+      [1,2,3,4,6,5],
+      [1,6,3,4,5],
+      [1,6,5],
+    ].sort
+  end
+
+  it 'should not fail in another special case I realised might trip up the algorithm' do
+    #NOTE: to fix this, one must first fix the above graph problem. Argh.
+    # The problem is that a simple joining of the golden path 1,2,3,4,5 and the
+    # golden fragment 1,6,3 yields a circular path
+    graph = GraphTesting.emit([
+      [1,2],
+      [2,3],
+      [3,4],
+      [4,5],
+
+      [1,6],
+      [6,3],
+      [6,5],
+
+      [4,6],
+    ])
+    initial_node = graph.nodes[1]
+    terminal_node = graph.nodes[5]
+    cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
+    paths = cartographer.find_trails_between_nodes(graph, initial_node, terminal_node, 99999, true)
+    GraphTesting.sorted_paths(paths).should == [
+      [1,2,3,4,5],
+      [1,2,3,4,6,5],
+      [1,6,3,4,5],
+      [1,6,5],
+    ].sort
+  end
+
+  it 'should give the same answer as a more straightfoward (naive?) repeated depth first search style' do
+    raise "need to do some simulation work here to write the test"
+  end
+
   it 'should not get confused by a 1 node cycle' do
     graph = GraphTesting.emit([
       [1,2],
