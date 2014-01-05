@@ -27,6 +27,7 @@ require 'assembly/depth_first_search'
 require 'assembly/kmer_coverage_based_path_filter'
 require 'assembly/graph_generator'
 require 'assembly/fluffer'
+require 'assembly/scaffold_breaker'
 
 require 'finishm/finisher'
 require 'finishm/gapfiller'

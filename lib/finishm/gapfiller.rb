@@ -64,6 +64,7 @@ class Bio::FinishM::GapFiller
     # Read in all the contigs sequences and work out where the gaps are
     sequences = {}
     gaps = []
+    #TODO: refactor this code so that it uses ScaffoldBreaker, because DRY
     Bio::FlatFile.foreach(options[:contigs_file]) do |seq|
       seq_name = seq.definition
       sequences[seq_name] = seq.seq

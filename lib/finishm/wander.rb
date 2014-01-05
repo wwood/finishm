@@ -11,6 +11,7 @@ class Bio::FinishM::Wanderer
     options.merge!({
       :contig_end_length => 200,
       :graph_search_leash_length => 20000,
+      :unscaffold_first => false,
     })
 
     optparse_object.separator "\nRequired arguments:\n\n"
@@ -29,6 +30,9 @@ class Bio::FinishM::Wanderer
     end
     optparse_object.on("--leash-length NUM", Integer, "Don't explore too far in the graph, only this far and not much more [default: #{options[:graph_search_leash_length]}]") do |arg|
       options[:graph_search_leash_length] = arg
+    end
+    optparse_object.on("--unscaffold-first", "Break the scaffolds in the contigs file apart, and then wander between the resultant contigs[default: #{options[:unscaffold_first]}]") do |arg|
+      options[:unscaffold_first] = true
     end
 
     Bio::FinishM::GraphGenerator.new.add_options optparse_object, options
@@ -58,18 +62,34 @@ class Bio::FinishM::Wanderer
     # Read in all the contigs sequences, removing those that are too short
     probe_sequences = []
     sequence_names = []
-    Bio::FlatFile.foreach(options[:contigs_file]) do |seq|
-      if seq.seq.length < 2*options[:contig_end_length]
+    process_sequence = lambda do |name, seq|
+      if seq.length < 2*options[:contig_end_length]
         log.warn "Not attempting to make connections from this contig, as it is overly short: #{seq.definition}"
         next
       end
-      sequence_names.push seq.definition
+      sequence_names.push name
 
       sequence = seq.seq
       fwd2 = Bio::Sequence::NA.new(sequence[0...options[:contig_end_length]])
       probe_sequences.push fwd2.reverse_complement.to_s
 
       probe_sequences.push sequence[(sequence.length-options[:contig_end_length])...sequence.length]
+    end
+
+    scaffolds = nil #Array of Bio::FinishM::ScaffoldBreaker::Scaffold objects. Only set when options[:unscaffold_first] is true
+    if options[:unscaffold_first]
+      log.info "Unscaffolding scaffolds (before trying to connect them together again)"
+      scaffolds = Bio::FinishM::ScaffoldBreaker.new.break_scaffolds options[:contigs_file]
+      scaffolds.each do |scaffold|
+        scaffold.contigs.each do |contig|
+          process_sequence.call contig.name, contig.sequence
+        end
+      end
+    else
+      # Else don't split up any of the sequences
+      Bio::FlatFile.foreach(options[:contigs_file]) do |seq|
+        process_sequence seq.definition, seq.seq
+      end
     end
     log.info "Searching from #{probe_sequences.length} different contig ends (#{probe_sequences.length/2} contigs)"
 
@@ -85,26 +105,39 @@ class Bio::FinishM::Wanderer
     first_connections = cartographer.depth_first_search_with_leash(finishm_graph, options[:graph_search_leash_length])
     log.info "Found #{first_connections.length} connections with less distance than the leash length, out of a possible #{probe_sequences.length*(probe_sequences.length-1)/2}"
 
-    first_connections.each do |node_indices, distance|
-      sequence_names_and_directions = node_indices.collect do |i|
-        node = finishm_graph.probe_nodes[i]
-        node_forward = finishm_graph.probe_node_directions[i]
+    File.open(options[:output_connection_file], 'w') do |out|
+      first_connections.each do |node_indices, distance|
+        sequence_names_and_directions = node_indices.collect do |i|
+          node = finishm_graph.probe_nodes[i]
+          node_forward = finishm_graph.probe_node_directions[i]
 
-        sequence_name = nil
-        side = nil
-        if i % 2 == 0
-          side = 'start'
-          sequence_name = sequence_names[i/2]
-        else
-          side = 'end'
-          sequence_name = sequence_names[(i-1)/2]
+          sequence_name = nil
+          side = nil
+          if i % 2 == 0
+            side = 'start'
+            sequence_name = sequence_names[i/2]
+          else
+            side = 'end'
+            sequence_name = sequence_names[(i-1)/2]
+          end
+          [sequence_name, side]
         end
-        [sequence_name, side]
+        out.puts [
+          sequence_names_and_directions,
+          distance
+        ].flatten.join("\t")
       end
-      puts [
-        sequence_names_and_directions,
-        distance
-      ].flatten.join("\t")
     end
+
+    # While this may not happen much, when scaffolding a genome it would be good to know if there are any nodes that:
+    # 1. have no connections - possibly this indicates missing assembly
+    # 2. have exactly 1 connection - this probably indicates that the connection is the 'true' in the genome
+    # 3. if connections from #2 are true, then this may show that other connections are false, because
+    #    each node can only be connected to at most 1 other node, and this is true for both ends of the true edge.
+    #    After removing those true edges
+
+    #TODO: implemented this in repo hamiltonian_cycler, need to incorporate it here. See also a script in luca/bbbin that uses that library.
+    #TODO: look for hamiltonian paths as well as hamiltonian cycles
+
   end
 end

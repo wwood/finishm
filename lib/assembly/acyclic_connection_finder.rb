@@ -217,6 +217,10 @@ module Bio
       #     [probe_index1, probe_index2] => min_distance
       #
       # probe_index1 will always be less than probe_index2.
+      #
+      # TODO: the method used here is probably sub-optimal. It might be better implemented
+      # with Dijkstra's shortest path algorithm, or perhaps Johnson's algorithm if that can
+      # be modified to only find distances between a subset of nodes in the graph.
       def depth_first_search_with_leash(finishm_graph, leash_length)
         to_return = {}
 
