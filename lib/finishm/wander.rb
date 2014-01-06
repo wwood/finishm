@@ -64,7 +64,7 @@ class Bio::FinishM::Wanderer
     sequence_names = []
     process_sequence = lambda do |name, seq|
       if seq.length < 2*options[:contig_end_length]
-        log.warn "Not attempting to make connections from this contig, as it is overly short: #{seq.definition}"
+        log.warn "Not attempting to make connections from this contig, as it is overly short: #{name}"
         next
       end
       sequence_names.push name
@@ -88,7 +88,7 @@ class Bio::FinishM::Wanderer
     else
       # Else don't split up any of the sequences
       Bio::FlatFile.foreach(options[:contigs_file]) do |seq|
-        process_sequence seq.definition, seq.seq
+        process_sequence.call seq.definition, seq.seq
       end
     end
     log.info "Searching from #{probe_sequences.length} different contig ends (#{probe_sequences.length/2} contigs)"
