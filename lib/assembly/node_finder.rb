@@ -36,6 +36,7 @@ module Bio
 
         # Fill data structure with candidate nodes
         graph.nodes.each do |node|
+          next if node.short_reads.nil?
           node.short_reads.each do |read|
             if endings[read.read_id]
               endings[read.read_id].push node

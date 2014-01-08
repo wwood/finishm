@@ -293,7 +293,7 @@ module Bio
         return to_return
       end
 
-      # An oriented node some distance from the
+      # An oriented node some distance from the origin of exploration
       class DistancedOrientedNode
         attr_accessor :node, :first_side, :distance
 

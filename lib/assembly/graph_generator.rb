@@ -151,14 +151,14 @@ module Bio
         graph = nil
         if options[:previously_serialized_parsed_graph_file].nil?
           velvet_result = nil
+
+          probe_read_ids = Set.new((1..probe_sequences.length))
           if options[:previous_assembly].nil? #If assembly has not already been carried out
-            probe_read_ids = Set.new
             Tempfile.open('probes.fa') do |tempfile|
               50.times do # Do 50 times to make sure that velvet doesn't throw out parts of the graph that contain this contig
                 probe_sequences.each_with_index do |probe, i|
                   tempfile.puts ">probe#{i}"
                   tempfile.puts probe
-                  probe_read_ids << i+1
                 end
               end
               tempfile.close
@@ -195,7 +195,10 @@ module Bio
           log.info "Parsing the graph output from velvet"
           graph = Bio::Velvet::Graph.parse_from_file(
             File.join(velvet_result.result_directory, 'LastGraph'),
-            :interesting_read_ids => probe_read_ids #Ignore parsing reads that are not probes, as we don't care and this just takes up extra computational resources
+            {
+              :interesting_read_ids => probe_read_ids, #Ignore parsing reads that are not probes, as we don't care and this just takes up extra computational resources
+              :grep_hack => 500, #grepping the graph file is a bit of a hack, but makes things work much much faster
+            }
           )
           log.info "Finished parsing graph: found #{graph.nodes.length} nodes and #{graph.arcs.length} arcs"
 
