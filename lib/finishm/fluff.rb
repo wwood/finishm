@@ -2,7 +2,7 @@ class Bio::FinishM::Fluff
   include Bio::FinishM::Logging
 
   def add_options(optparse_object, options)
-    optparse_object.banner = "\nUsage: finishm fluff --contigs <contig_file> --fastq-gz <reads..> --output-fluff-file <output.csv>
+    optparse_object.banner = "\nUsage: finishm fluff --contigs <contig_file> --fastq-gz <reads..> --output-fluff-file <output.fa>
 
     Takes a set of contigs, and places probes across them (e.g. every 2kb), and then explores the
     graph from each of these probes, taking all paths within some leash length, including the 'fluff'

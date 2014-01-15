@@ -11,6 +11,7 @@ RSpec.configure do |config|
 
 end
 TEST_DATA_DIR = File.join(File.dirname(__FILE__),'data')
+FINISHM_SCRIPT_PATH = File.join(File.dirname(__FILE__),'..','bin','finishm')
 
 class GraphTesting
   def self.emit(arc_pairs)

@@ -147,7 +147,7 @@ module Bio
       # :previous_assembly: a velvet directory from a previous run of the same probe sequences and reads. (Don't re-assemble)
       # :serialize_parsed_graph_file: after assembly, parse the graph in, and serialize the ruby object for later. Value of this option is the path to the save file.
       # :previously_serialized_parsed_graph_file: read in a previously serialized graph file, and continue from there
-      def generate_graph(probe_sequences, read_inputs, options)
+      def generate_graph(probe_sequences, read_inputs, options={})
         graph = nil
         if options[:previously_serialized_parsed_graph_file].nil?
           velvet_result = nil

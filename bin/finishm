@@ -46,6 +46,14 @@ subcommands = {
     operator = Bio::FinishM::Fluff.new
     operator.add_options(opts, options)
   end},
+  'explore' => lambda {OptionParser.new do |opts|
+    operator = Bio::FinishM::Explorer.new
+    operator.add_options(opts, options)
+  end},
+  'visualise' => lambda {OptionParser.new do |opts|
+    operator = Bio::FinishM::Visualiser.new
+    operator.add_options(opts, options)
+  end},
 }
 
 
