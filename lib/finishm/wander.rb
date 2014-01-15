@@ -1,3 +1,5 @@
+require 'yargraph'
+
 class Bio::FinishM::Wanderer
   include Bio::FinishM::Logging
 
@@ -65,18 +67,23 @@ class Bio::FinishM::Wanderer
     process_sequence = lambda do |name, seq|
       if seq.length < 2*options[:contig_end_length]
         log.warn "Not attempting to make connections from this contig, as it is overly short: #{name}"
-        next
+        nil
+      else
+        sequence_names.push name
+
+        sequence = seq.seq
+        fwd2 = Bio::Sequence::NA.new(sequence[0...options[:contig_end_length]])
+        probe_sequences.push fwd2.reverse_complement.to_s
+
+        probe_sequences.push sequence[(sequence.length-options[:contig_end_length])...sequence.length]
+
+        # 'return' the probe indices that have been assigned
+        [probe_sequences.length-2, probe_sequences.length-1]
       end
-      sequence_names.push name
-
-      sequence = seq.seq
-      fwd2 = Bio::Sequence::NA.new(sequence[0...options[:contig_end_length]])
-      probe_sequences.push fwd2.reverse_complement.to_s
-
-      probe_sequences.push sequence[(sequence.length-options[:contig_end_length])...sequence.length]
     end
 
     scaffolds = nil #Array of Bio::FinishM::ScaffoldBreaker::Scaffold objects. Only set when options[:unscaffold_first] is true
+    scaffolded_contig_to_probe_ids = {}
     if options[:unscaffold_first]
       log.info "Unscaffolding scaffolds (before trying to connect them together again)"
       scaffolds = Bio::FinishM::ScaffoldBreaker.new.break_scaffolds options[:contigs_file]
@@ -105,22 +112,32 @@ class Bio::FinishM::Wanderer
     first_connections = cartographer.depth_first_search_with_leash(finishm_graph, options[:graph_search_leash_length])
     log.info "Found #{first_connections.length} connections with less distance than the leash length, out of a possible #{probe_sequences.length*(probe_sequences.length-1)/2}"
 
+    # Collect desciptions about the probes so that they can be inspected more easily given a probe index
+    class ProbeDescription
+      attr_accessor :sequence_name, :side
+
+      def to_s
+        "#{@sequence_name}.#{side}"
+      end
+    end
+    probe_descriptions = []
+    (0...finishm_graph.probe_nodes.length).each do |i|
+      desc = ProbeDescription.new
+      if i % 2 == 0
+        desc.side = 'start'
+        desc.sequence_name = sequence_names[i/2]
+      else
+        desc.side = 'end'
+        desc.sequence_name = sequence_names[(i-1)/2]
+      end
+    end
+
+    # Write out connections to the given file
     File.open(options[:output_connection_file], 'w') do |out|
       first_connections.each do |node_indices, distance|
         sequence_names_and_directions = node_indices.collect do |i|
-          node = finishm_graph.probe_nodes[i]
-          node_forward = finishm_graph.probe_node_directions[i]
-
-          sequence_name = nil
-          side = nil
-          if i % 2 == 0
-            side = 'start'
-            sequence_name = sequence_names[i/2]
-          else
-            side = 'end'
-            sequence_name = sequence_names[(i-1)/2]
-          end
-          [sequence_name, side]
+          desc = probe_descriptions[i]
+          desc.to_s
         end
         out.puts [
           sequence_names_and_directions,
@@ -129,12 +146,48 @@ class Bio::FinishM::Wanderer
       end
     end
 
-    # While this may not happen much, when scaffolding a genome it would be good to know if there are any nodes that:
-    # 1. have no connections - possibly this indicates missing assembly
-    # 2. have exactly 1 connection - this probably indicates that the connection is the 'true' in the genome
-    # 3. if connections from #2 are true, then this may show that other connections are false, because
-    #    each node can only be connected to at most 1 other node, and this is true for both ends of the true edge.
-    #    After removing those true edges
+    # Make an undirected graph to represent the connections so it is easier to work with
+    graph = Yargraph::UndirectedGraph.new
+    all_probe_indices = (0...finishm_graph.probe_nodes.length).to_a
+    all_probe_indices.each{|i| graph.add_vertex i}
+    first_connections.keys.each{|join| graph.add_edge join[0], join[1]}
+
+    # Print out which contig ends have no connections
+    unconnected_probe_indices = []
+    graph.vertices.each do |vertex_i|
+      unconnected_probe_indices.push vertex_i if graph.degree(vertex_i) == 0
+    end
+    log.info "Found #{unconnected_probe_indices.length} contig ends that had no connection to any other contig"
+    unless unconnected_probe_indices.empty?
+      log.warn "Unconnected contig ends such as this indicate an error with the assembly - perhaps it is incomplete or there has been a misassembly."
+    end
+    unconnected_probe_indices.each do |unconnected|
+      log.warn "#{probe_descriptions[i]} was not connected to any other contig ends"
+    end
+
+    # find probes with exactly one connection
+    singly_connected_indices = []
+    graph.vertices.each do |vertex_i|
+      singly_connected_indices.push vertex_i if graph.degree(vertex_i) == 1
+    end
+    log.info "Found #{singly_connected_indices.length} contig ends that connect to exactly one other contig ends, likely indicating that they can be scaffolded together:"
+    singly_connected_indices.each do |i|
+      neighbour = graph.neighbours[i][0] #there must be only 1 neighbour by the definition of degree
+      desc = probe_descriptions[i]
+      neighbour_desc = probe_descriptions[neighbour]
+      log.info "The connection between #{desc} and #{neighbour} appears to be a good one"
+    end
+
+    # If we are working with a scaffold, compare the original scaffolding with graph
+    # as it now is
+    if options[:unscaffold_first]
+      # Of each connection in the scaffold, is that also an edge here? One would expect so given a sensible leash length
+      scaffolds.each do |scaffold|
+        last_contig = nil
+        scaffolds.contigs.each_with_index do |contig, contig_index|
+        end
+      end
+    end
 
     #TODO: implemented this in repo hamiltonian_cycler, need to incorporate it here. See also a script in luca/bbbin that uses that library.
     #TODO: look for hamiltonian paths as well as hamiltonian cycles
