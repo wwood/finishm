@@ -29,6 +29,7 @@ require 'assembly/graph_generator'
 require 'assembly/fluffer'
 require 'assembly/scaffold_breaker'
 require 'assembly/graph_explorer'
+require 'assembly/all_orfs'
 
 require 'finishm/finisher'
 require 'finishm/gapfiller'
