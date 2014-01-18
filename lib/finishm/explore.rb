@@ -54,6 +54,9 @@ class Bio::FinishM::Explorer
     optparse_object.on("--overhang NUM", Integer, "Start assembling this far from the ends of the contigs [default: #{options[:contig_end_length]}]") do |arg|
       options[:contig_end_length] = arg.to_i
     end
+    optparse_object.on("--unscaffold-first", "Break the scaffolds in the contigs file apart, and then wander between the resultant contigs[default: #{options[:graph_search_leash_length]}]") do |arg|
+      options[:unscaffold_first] = true
+    end
     optparse_object.on("--leash-length NUM", Integer, "Don't explore too far in the graph, only this far and not much more [default: #{options[:graph_search_leash_length]}]") do |arg|
       options[:graph_search_leash_length] = arg
     end
@@ -77,8 +80,12 @@ class Bio::FinishM::Explorer
         end
       end
 
-      #if return nil from here, options all were parsed successfully
-      return Bio::FinishM::ReadInput.new.validate_options(options, [])
+      # Need reads unless there is already an assembly
+      unless options[:previous_assembly] or options[:previously_serialized_parsed_graph_file]
+        return Bio::FinishM::ReadInput.new.validate_options(options, [])
+      else
+        return nil
+      end
     end
   end
 
@@ -87,10 +94,7 @@ class Bio::FinishM::Explorer
     probe_sequences = []
     sequence_names = []
     interesting_place_probe_indices = []
-    Bio::FlatFile.foreach(options[:contigs_file]) do |s|
-      name = s.definition
-      seq = s.seq
-
+    process_sequence = lambda do |name,seq|
       if seq.length < 2*options[:contig_end_length]
         log.warn "Not attempting to make connections from this contig, as it is overly short: #{name}"
         next
@@ -106,6 +110,21 @@ class Bio::FinishM::Explorer
       probe_sequences.push fwd2.reverse_complement.to_s
 
       probe_sequences.push sequence[(sequence.length-options[:contig_end_length])...sequence.length]
+    end
+
+    scaffolds = nil
+    if options[:unscaffold_first]
+      log.info "Unscaffolding scaffolds (before trying to connect them together again)"
+      scaffolds = Bio::FinishM::ScaffoldBreaker.new.break_scaffolds options[:contigs_file]
+      scaffolds.each do |scaffold|
+        scaffold.contigs.each do |contig|
+          process_sequence.call contig.name, contig.sequence
+        end
+      end
+    else
+      Bio::FlatFile.foreach(options[:contigs_file]) do |s|
+        process_sequence.call s.definition, s.seq
+      end
     end
 
     # Collect the node IDs that I'm interested in before generating the graph so don't have to do a whole assembly before getting an argument error

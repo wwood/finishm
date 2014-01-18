@@ -1,6 +1,6 @@
 
-uqbwoodc@rudd:20140115:~/git/priner/spec/data/explore/1$ cat <(yes atgc |head -n400 |tr '\n' ' ' |sed 's/ //g'; echo) >a.fa
-uqbwoodc@rudd:20140115:~/git/priner/spec/data/explore/1$ cat ../../fluff/1/seq1.fa a.fa >seq1_and_a.fa
-uqbwoodc@rudd:20140115:~/git/priner/spec/data/explore/1$ ln -s ../../fluff/1/seq2.fa
+uqbwoodc@rudd:20140115:~/git/priner/spec/data/explore/1$ random_sequence.rb -l 500 >a.fa
+uqbwoodc@rudd:20140115:~/git/priner/spec/data/explore/1$ cat a.fa ../../fluff/1/seq1.fa |grep -v '>444' >seq1_and_a.fa
+
 uqbwoodc@rudd:20140115:~/git/priner/spec/data/explore/1$ ~/git/sammy/sammy.pl -r <(cat seq1_and_a.fa seq2.fa) -num_reads 3000 >2seqs.sammy.fa
 

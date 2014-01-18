@@ -3,6 +3,15 @@ require 'yargraph'
 class Bio::FinishM::Wanderer
   include Bio::FinishM::Logging
 
+  # Collect desciptions about the probes so that they can be inspected more easily given a probe index
+  class ProbeDescription
+    attr_accessor :sequence_name, :side
+
+    def to_s
+      "#{@sequence_name}.#{side}"
+    end
+  end
+
   def add_options(optparse_object, options)
     optparse_object.banner = "\nUsage: finishm gapfill --contig <contig_file> --fastq-gz <reads..> --output-connections <output.csv>
 
@@ -112,14 +121,6 @@ class Bio::FinishM::Wanderer
     first_connections = cartographer.depth_first_search_with_leash(finishm_graph, options[:graph_search_leash_length])
     log.info "Found #{first_connections.length} connections with less distance than the leash length, out of a possible #{probe_sequences.length*(probe_sequences.length-1)/2}"
 
-    # Collect desciptions about the probes so that they can be inspected more easily given a probe index
-    class ProbeDescription
-      attr_accessor :sequence_name, :side
-
-      def to_s
-        "#{@sequence_name}.#{side}"
-      end
-    end
     probe_descriptions = []
     (0...finishm_graph.probe_nodes.length).each do |i|
       desc = ProbeDescription.new
