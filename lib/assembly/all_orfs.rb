@@ -10,6 +10,10 @@ module Bio
       # an initial and a terminal node
       def find_foward_orfs_in_connection(graph, initial_path, terminal_node,
         minimum_orf_length=100, leash_length=nil)
+        raise "this method is not yet implemented properly. Need to write something to
+* take a path and last start points of ORFs, and update them, returning ORFs
+* find a way of hashing these kinds of objects so that they can be saved for dynamic programming purposes
+* test, of course"
 
         # Setup and add initial path to the stack
         stack = DS::Stack.new
