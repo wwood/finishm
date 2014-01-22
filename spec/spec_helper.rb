@@ -52,6 +52,20 @@ class GraphTesting
     return graph
   end
 
+  def self.emit_ss(arc_pairs, start_node_id, stop_node_id)
+    graph = emit(arc_pairs)
+    initial = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
+    initial.node = graph.nodes[start_node_id]
+    initial.first_side = Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
+    initial_path = Bio::Velvet::Graph::OrientedNodeTrail.new
+    initial_path.add_oriented_node initial
+    terminal = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
+    terminal.node = graph.nodes[stop_node_id]
+    terminal.first_side = Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
+
+    return graph, initial_path, terminal
+  end
+
   def self.finishm_graph(arc_pairs, probes)
     graph = emit(arc_pairs)
     finishm_graph = Bio::FinishM::ProbedGraph.new

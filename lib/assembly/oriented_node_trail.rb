@@ -187,6 +187,12 @@ module Bio
           "OrientedNodeTrail: #{object_id}: #{collect{|n| [n.node.node_id,n.first_side].join(',')}.join(' ')}"
         end
 
+        def to_short_s
+          collect do |onode|
+            onode.node.node_id
+          end.join(',').to_s
+        end
+
         def inspect
           to_s
         end
@@ -218,6 +224,10 @@ module Bio
 
           def node_id
             @node.node_id
+          end
+
+          def ==(another)
+            @node == another.node and @first_side == another.first_side
           end
         end
 
