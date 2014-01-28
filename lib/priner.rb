@@ -31,6 +31,7 @@ require 'assembly/fluffer'
 require 'assembly/scaffold_breaker'
 require 'assembly/graph_explorer'
 require 'assembly/all_orfs'
+require 'assembly/contig_printer'
 
 require 'finishm/finisher'
 require 'finishm/gapfiller'

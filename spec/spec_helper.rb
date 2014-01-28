@@ -102,4 +102,58 @@ class GraphTesting
       paths_and_fates.sort
     end
   end
+
+  def self.emit_paths(paths)
+    arcs = []
+    paths.each do |path|
+      (0...(path.length-1)).each do |i|
+        arcs << [path[i],path[i+1]]
+      end
+    end
+    graph = emit(arcs)
+
+    return graph, paths.collect do |path|
+      path.collect do |node_id|
+        onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
+        onode.node = graph.nodes[node_id]
+        onode.first_side = Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
+        onode
+      end
+    end
+  end
+
+  def self.emit_printer_connection(graph, ref, variants)
+    conn = Bio::AssemblyGraphAlgorithms::ContigPrinter::Connection.new
+    conn.reference_path = ref.collect do |node_id|
+      onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
+      onode.node = graph.nodes[node_id]
+      onode.first_side = Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
+      onode
+    end
+    conn.variants = variants.collect do |variant|
+      var = Bio::AssemblyGraphAlgorithms::ContigPrinter::Variant.new
+
+      start = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
+      start.node = graph.nodes[variant[0]]
+      start.first_side = Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
+      var.reference_oriented_node_before_variant = start
+
+      stop = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
+      stop.node = graph.nodes[variant[1]]
+      stop.first_side = Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
+      var.reference_oriented_node_after_variant = stop
+
+      var.variation_path = []
+      variant[2...variant.length].each do |node_id|
+        onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
+        onode.node = graph.nodes[node_id]
+        onode.first_side = Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
+        var.variation_path.push onode
+      end
+
+      var
+    end
+
+    return conn.comparable
+  end
 end
