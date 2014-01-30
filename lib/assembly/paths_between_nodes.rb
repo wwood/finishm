@@ -146,7 +146,7 @@ module Bio
 
         # With leash length considerations, sometimes we can get multiple paths leading to
         # duplications ie 1 -> 2 -> 3 -> 4, also 1->5->3->4 - if length of node 5 is less than length
-        # of node 2, then there'll be 2 paths attached
+        # of node 2, then there'll be 2 paths attached to 4.
         def remove_duplication_in_known_paths!
           second_to_last_node_observations = Set.new
           @known_paths.select! do |path|
