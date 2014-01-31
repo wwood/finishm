@@ -32,6 +32,8 @@ require 'assembly/scaffold_breaker'
 require 'assembly/graph_explorer'
 require 'assembly/all_orfs'
 require 'assembly/contig_printer'
+require 'assembly/bubbly_assembler'
+require 'assembly/dijkstra'
 
 require 'finishm/finisher'
 require 'finishm/gapfiller'

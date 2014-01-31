@@ -35,7 +35,10 @@ module Bio::AssemblyGraphAlgorithms
     include Bio::FinishM::Logging
 
     # Remove parts of the graph that are unconnected to any whitelisted nodes
-    def remove_unconnected_nodes(graph, whitelisted_nodes)
+    #
+    # options:
+    # :leash_length: don't explore more than this length away from each of the whitelisted_nodes. Defualt nil, no bounds
+    def remove_unconnected_nodes(graph, whitelisted_nodes, options={})
       # Copy the whitelist
       all_whitelisted_nodes = Set.new whitelisted_nodes
 
@@ -46,11 +49,20 @@ module Bio::AssemblyGraphAlgorithms
           onode.node = originally_whitelisted_node
           onode.first_side = direction
           log.debug "Testing for connectivity from #{onode.node.node_id}/#{onode.first_side}" if log.debug?
-          graph.depth_first_search(onode) do |path|
-            node = path.last
-            log.debug "Whitelisting node #{node.node.node_id}/#{node.first_side}" if log.debug?
-            all_whitelisted_nodes << node.node
-            true
+
+          if options[:leash_length]
+            dij = Bio::AssemblyGraphAlgorithms::Dijkstra.new
+            min_distances = dij.min_distances(graph, onode, :leash_length => options[:leash_length])
+            min_distances.each do |key, distance|
+              all_whitelisted_nodes << graph.nodes[key[0]]
+            end
+          else
+            graph.depth_first_search(onode) do |path|
+              node = path.last
+              log.debug "Whitelisting node #{node.node.node_id}/#{node.first_side}" if log.debug?
+              all_whitelisted_nodes << node.node
+              true
+            end
           end
         end
       end

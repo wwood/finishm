@@ -8,6 +8,8 @@ class Bio::FinishM::Visualiser
     \n\n"
 
     options.merge!({
+      :graph_search_leash_length => 20000,
+      :interesting_probes => []
     })
     optparse_object.separator "Output visualisation formats (one or more of these must be used)"
     optparse_object.on("--assembly-png PATH", "Output assembly as a PNG file [default: off]") do |arg|
@@ -24,13 +26,20 @@ class Bio::FinishM::Visualiser
     Bio::FinishM::ReadInput.new.add_options(optparse_object, options)
 
     optparse_object.separator "\nOptional arguments:\n\n"
-#    optparse_object.on("--contigs FILE", "Fasta file containing contigs to find the fluff on [required]") do |arg|
-#      options[:contigs_file] = arg
-#    end
-#    optparse_object.on("--overhang NUM", Integer, "Start assembling this far from the ends of the contigs [default: #{options[:contig_end_length]}]") do |arg|
-#      options[:contig_end_length] = arg.to_i
-#    end
+    optparse_object.on("--probe-ids PROBE_IDS", Array, "explore from these probe IDs in the graph. probe ID is the ID in the velvet Sequence file. See also --leash-length [default: don't start from a node, explore the entire graph]") do |arg|
+      options[:interesting_probes] = arg.collect do |read|
+        read_id = read.to_i
+        if read_id.to_s != read
+          raise "Unable to parse probe ID #{read}, from #{arg}, cannot continue"
+        end
+        read_id
+      end
+    end
+    optparse_object.on("--leash-length NUM", Integer, "Don't explore too far in the graph, only this far and not much more [default: unused unless --nodes is specified, otherwise #{options[:graph_search_leash_length]}]") do |arg|
+      options[:graph_search_leash_length] = arg
+    end
 
+    optparse_object.separator "\nOptional graph-related arguments:\n\n"
     Bio::FinishM::GraphGenerator.new.add_options optparse_object, options
   end
 
@@ -60,12 +69,36 @@ class Bio::FinishM::Visualiser
 
     # Generate the assembly graph
     log.info "Reading in or generating the assembly graph"
-    finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
+    finishm_graph = nil
+    if options[:interesting_probes]
+      dummy_probe_seqs = ['dummy']*options[:interesting_probes].max
+      finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph(dummy_probe_seqs, read_input, options)
+    else
+      finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
+    end
 
     # Display the output graph visualisation
     log.info "Converting assembly to a graphviz"
     viser = Bio::Assembly::ABVisualiser.new
-    gv = viser.graphviz(finishm_graph.graph, {:start_node_ids => finishm_graph.probe_nodes.collect{|node| node.node_id}})
+
+    gv = nil
+    if options[:interesting_probes].empty?
+      gv = viser.graphviz(finishm_graph.graph, {:start_node_ids => finishm_graph.probe_nodes.collect{|node| node.node_id}})
+    else
+      # Remove nodes unconnected from the interesting read nodes (with appropriate leash length)
+      filter = Bio::AssemblyGraphAlgorithms::ConnectivityBasedGraphFilter.new
+      log.info "Filtering the graph for clarity, removing nodes unconnected to probes #{options[:interesting_probes]}"
+      probe_node_ids = options[:interesting_probes].collect do |probe|
+        finishm_graph.probe_nodes[probe-1]
+      end
+      log.debug "ie. filtering velvet nodes unconnected to velvet nodes #{probe_node_ids}"
+      filter.remove_unconnected_nodes(finishm_graph.graph,
+        probe_node_ids,
+        :leash_length => options[:graph_search_leash_length]
+        )
+      log.info "Filtering finished, leaving #{finishm_graph.graph.nodes.length} nodes and #{finishm_graph.graph.arcs.length} arcs"
+      gv = viser.graphviz(finishm_graph.graph, {:start_node_ids => finishm_graph.probe_nodes.collect{|node| node.node_id}})
+    end
 
     if options[:output_graph_png]
       log.info "Writing PNG #{options[:output_graph_png]}"

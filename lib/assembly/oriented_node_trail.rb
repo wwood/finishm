@@ -229,6 +229,12 @@ module Bio
           def ==(another)
             @node == another.node and @first_side == another.first_side
           end
+
+          def next_neighbours(graph)
+            trail = OrientedNodeTrail.new
+            trail.add_oriented_node self
+            return trail.neighbours_of_last_node(graph)
+          end
         end
 
         private
