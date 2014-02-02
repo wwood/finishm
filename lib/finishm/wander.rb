@@ -13,11 +13,17 @@ class Bio::FinishM::Wanderer
   end
 
   def add_options(optparse_object, options)
-    optparse_object.banner = "\nUsage: finishm gapfill --contig <contig_file> --fastq-gz <reads..> --output-connections <output.csv>
+    optparse_object.banner = "\nUsage: finishm wander --contigs <contig_file> --fastq-gz <reads..> --output-connections <output.csv>
 
-    Takes a set of reads and a contig that contains gap characters. Then it tries to fill in
-    these N characters. It is possible that there is multiple ways to close the gap - in that case
-    each is reported. \n\n"
+    Takes a set of contigs/scaffolds and finds connections in the graph between them. A connection here is given as
+    the length of the shortest path between them, without actually computing all the paths.
+
+    This method can be used for 'pre-scaffolding', in the following sense. If the shortest path between
+    two contig ends is 10kb, and a mate pair library with insert size 2kb suggests a linkage
+    between the two ends, then the mate pair linkage is likely false (as long as there is sufficient
+    coverage in the reads, and not overwhelming amounts of strain heterogeneity, etc.).
+
+    \n\n"
 
     options.merge!({
       :contig_end_length => 200,
@@ -107,7 +113,7 @@ class Bio::FinishM::Wanderer
         process_sequence.call seq.definition, seq.seq
       end
     end
-    log.info "Searching from #{probe_sequences.length} different contig ends (#{probe_sequences.length/2} contigs)"
+    log.info "Searching from #{probe_sequences.length} different contig ends (#{probe_sequences.length / 2} contigs)"
 
     # Generate the graph with the probe sequences in it.
     read_input = Bio::FinishM::ReadInput.new
@@ -119,17 +125,17 @@ class Bio::FinishM::Wanderer
 
     log.info "Finding possible connections with a depth first search"
     first_connections = cartographer.depth_first_search_with_leash(finishm_graph, options[:graph_search_leash_length])
-    log.info "Found #{first_connections.length} connections with less distance than the leash length, out of a possible #{probe_sequences.length*(probe_sequences.length-1)/2}"
+    log.info "Found #{first_connections.length} connections with less distance than the leash length, out of a possible #{probe_sequences.length*(probe_sequences.length-1) / 2}"
 
     probe_descriptions = []
     (0...finishm_graph.probe_nodes.length).each do |i|
       desc = ProbeDescription.new
       if i % 2 == 0
         desc.side = 'start'
-        desc.sequence_name = sequence_names[i/2]
+        desc.sequence_name = sequence_names[i / 2]
       else
         desc.side = 'end'
-        desc.sequence_name = sequence_names[(i-1)/2]
+        desc.sequence_name = sequence_names[(i-1) / 2]
       end
     end
 

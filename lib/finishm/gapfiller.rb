@@ -135,13 +135,12 @@ class Bio::FinishM::GapFiller
       end
     end
 
-
+    cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
     num_total_trails = 0
     File.open(options[:overall_trail_output_fasta_file],'w') do |f|
       log.info "Searching for trails between the nodes within the assembly graph"
-      (0...(probe_sequences.length/2)).collect{|i| i*2}.each do |start_probe_index|
-        cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
-        gap_number = start_probe_index/2
+      (0...(probe_sequences.length / 2)).collect{|i| i*2}.each do |start_probe_index|
+        gap_number = start_probe_index / 2
         gap = gaps[gap_number]
         log.info "Now working through gap number #{gap_number}: #{gap.coords}"
         start_node = finishm_graph.probe_nodes[start_probe_index]
@@ -156,6 +155,8 @@ class Bio::FinishM::GapFiller
             f.puts trail.sequence
             num_total_trails += 1
           end
+          # TODO: If there is only 1 trail, then output scaffolding information
+
         else
           log.warn "Unable to retrieve both probes from the graph for gap #{gap_number} (#{gap.coords}), skipping"
         end

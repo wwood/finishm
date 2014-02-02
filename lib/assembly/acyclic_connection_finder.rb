@@ -239,6 +239,7 @@ module Bio
         finishm_graph.probe_nodes.each_with_index do |probe_node, probe_node_index|
           # Do a depth first search starting from this node. Go all the way to the leash length,
           # and then search to see if any of the other nodes have been come across
+          log.info "Exploring from probe node \##{probe_node}"
           known_nodes_set = Set.new #set of oriented nodes (but not distances - these are stored separately)
           depth_first_search_stack = DS::Stack.new
           initial = finishm_graph.initial_path_from_probe(probe_node_index)
@@ -286,7 +287,9 @@ module Bio
 
             finish = finishing_nodes[i]
             if minimum_node_distances.key?(finish)
-              to_return[[probe_node_index, i]] = minimum_node_distances[finish]
+              min_distance = minimum_node_distances[finish]
+              log.info "Found a connection between probes #{probe_node_index} and #{i}, distance: #{min_distance}"
+              to_return[[probe_node_index, i]] = min_distance
             end
           end
         end
