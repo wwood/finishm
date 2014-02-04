@@ -2,6 +2,99 @@
 module Bio
   module Velvet
     class Graph
+      # Return an Array of OrientedNode objects corresponding to all the nodes that are next
+      # in the graph.
+      def neighbours_of(node, first_side)
+        neighbour_nodes = nil
+        if first_side == OrientedNodeTrail::START_IS_FIRST
+          neighbour_nodes = neighbours_off_end(node)
+        else
+          neighbour_nodes = neighbours_into_start(node)
+        end
+
+        neighbours_with_orientation = []
+        neighbour_nodes.each do |neighbour|
+          arcs = get_arcs_by_node node, neighbour
+
+          # This if statement entered if two nodes are connected twice,
+          # in both directions. Remove one direction as it shouldn't be here
+          if arcs.length > 1
+            if first_side == OrientedNodeTrail::START_IS_FIRST
+              arcs.select! do |arc|
+                (arc.begin_node_id == node.node_id and arc.begin_node_direction) or
+                (arc.end_node_id == node.node_id and !arc.end_node_direction)
+              end
+            else
+              arcs.select! do |arc|
+                (arc.end_node_id == node.node_id and arc.end_node_direction) or
+                (arc.begin_node_id == node.node_id and !arc.begin_node_direction)
+              end
+            end
+          end
+
+          # Sometimes, but rarely, two nodes will be joined more than once, for whatever reason
+          arcs.each do |arc|
+            oriented = OrientedNodeTrail::OrientedNode.new
+            oriented.node = neighbour
+            if arc.begin_node_id == arc.end_node_id
+              # A node connecting to itself. Happens rarely.
+              if first_side == OrientedNodeTrail::START_IS_FIRST
+                if arc.begin_node_direction and arc.end_node_direction
+                  oriented.first_side = OrientedNodeTrail::START_IS_FIRST
+                elsif arc.begin_node_direction and !arc.end_node_direction
+                  oriented.first_side = OrientedNodeTrail::END_IS_FIRST
+                elsif !arc.begin_node_direction and arc.end_node_direction
+                  raise "I don't think this is supposed to be possible. Programming error?"
+                elsif !arc.begin_node_direction and !arc.end_node_direction
+                  oriented.first_side = OrientedNodeTrail::START_IS_FIRST
+                else
+                  raise "programming error"
+                end
+              else
+                # coming from the end of the original node
+                if arc.begin_node_direction and arc.end_node_direction
+                  oriented.first_side = OrientedNodeTrail::END_IS_FIRST
+                elsif arc.begin_node_direction and !arc.end_node_direction
+                  raise "I don't think this is supposed to be possible. Programming error?"
+                elsif !arc.begin_node_direction and arc.end_node_direction
+                  oriented.first_side = OrientedNodeTrail::START_IS_FIRST
+                elsif !arc.begin_node_direction and !arc.end_node_direction
+                  oriented.first_side = OrientedNodeTrail::END_IS_FIRST
+                else
+                  raise "programming error"
+                end
+              end
+
+            elsif arc.begin_node_id == neighbour.node_id
+              # connected to a different node, the 1st in the arc's pair
+              if arc.begin_node_direction
+                oriented.first_side = OrientedNodeTrail::END_IS_FIRST
+              else
+                oriented.first_side = OrientedNodeTrail::START_IS_FIRST
+              end
+            elsif arc.end_node_id == neighbour.node_id
+              # connected to a different node, the 2nd in the arc's pair
+              if arc.end_node_direction
+                oriented.first_side = OrientedNodeTrail::START_IS_FIRST
+              else
+                oriented.first_side = OrientedNodeTrail::END_IS_FIRST
+              end
+            end
+
+            neighbours_with_orientation.push oriented
+          end
+        end
+
+        return neighbours_with_orientation
+      end
+
+      # Like #neighbours_of, except takes a velvet node id rather than a node object
+      def neighbours_of_node_id(node_id, first_side)
+        neighbours_of(@nodes[node_id], first_side)
+      end
+
+
+
       # An ordered list of nodes, each with an orientation along that trail
       class OrientedNodeTrail
         include Enumerable
@@ -62,89 +155,7 @@ module Bio
         # Return a list of OrientedNode objects, one for each neighbour
         # of the last node in this path (in the correct direction)
         def neighbours_of_last_node(graph)
-          neighbour_nodes = nil
-          if last.first_side == START_IS_FIRST
-            neighbour_nodes = graph.neighbours_off_end(last.node)
-          else
-            neighbour_nodes = graph.neighbours_into_start(last.node)
-          end
-
-          neighbours_with_orientation = []
-          neighbour_nodes.each do |neighbour|
-            arcs = graph.get_arcs_by_node last.node, neighbour
-            log.debug "arcs before if statement: #{arcs}" if log.debug?
-
-            # This if statement entered if two nodes are connected twice,
-            # in both directions. Remove one direction as it shouldn't be here
-            if arcs.length > 1
-              if last.first_side == START_IS_FIRST
-                arcs.select! do |arc|
-                  (arc.begin_node_id == last.node.node_id and arc.begin_node_direction) or
-                  (arc.end_node_id == last.node.node_id and !arc.end_node_direction)
-                end
-              else
-                arcs.select! do |arc|
-                  (arc.end_node_id == last.node.node_id and arc.end_node_direction) or
-                  (arc.begin_node_id == last.node.node_id and !arc.begin_node_direction)
-                end
-              end
-            end
-            log.debug "arcs after statement: #{arcs}" if log.debug?
-
-            # Sometimes, but rarely, two nodes will be joined more than once, for whatever reason
-            arcs.each do |arc|
-              oriented = OrientedNode.new
-              oriented.node = neighbour
-              if arc.begin_node_id == arc.end_node_id
-                # A node connecting to itself. Happens rarely.
-                if last.first_side == START_IS_FIRST
-                  if arc.begin_node_direction and arc.end_node_direction
-                    oriented.first_side = START_IS_FIRST
-                  elsif arc.begin_node_direction and !arc.end_node_direction
-                    oriented.first_side = END_IS_FIRST
-                  elsif !arc.begin_node_direction and arc.end_node_direction
-                    raise "I don't think this is supposed to be possible. Programming error?"
-                  elsif !arc.begin_node_direction and !arc.end_node_direction
-                    oriented.first_side = START_IS_FIRST
-                  else
-                    raise "programming error"
-                  end
-                else
-                  # coming from the end of the original node
-                  if arc.begin_node_direction and arc.end_node_direction
-                    oriented.first_side = END_IS_FIRST
-                  elsif arc.begin_node_direction and !arc.end_node_direction
-                    raise "I don't think this is supposed to be possible. Programming error?"
-                  elsif !arc.begin_node_direction and arc.end_node_direction
-                    oriented.first_side = START_IS_FIRST
-                  elsif !arc.begin_node_direction and !arc.end_node_direction
-                    oriented.first_side = END_IS_FIRST
-                  else
-                    raise "programming error"
-                  end
-                end
-
-              elsif arc.begin_node_id == neighbour.node_id
-                # connected to a different node, the 1st in the arc's pair
-                if arc.begin_node_direction
-                  oriented.first_side = END_IS_FIRST
-                else
-                  oriented.first_side = START_IS_FIRST
-                end
-              elsif arc.end_node_id == neighbour.node_id
-                # connected to a different node, the 2nd in the arc's pair
-                if arc.end_node_direction
-                  oriented.first_side = START_IS_FIRST
-                else
-                  oriented.first_side = END_IS_FIRST
-                end
-              end
-
-              neighbours_with_orientation.push oriented
-            end
-          end
-
-          return neighbours_with_orientation
+          graph.neighbours_of(last.node, last.first_side)
         end
 
         # Return the sequence of the entire trail, or an empty string if there is no
@@ -231,9 +242,7 @@ module Bio
           end
 
           def next_neighbours(graph)
-            trail = OrientedNodeTrail.new
-            trail.add_oriented_node self
-            return trail.neighbours_of_last_node(graph)
+            graph.neighbours_of @node, @first_side
           end
         end
 
