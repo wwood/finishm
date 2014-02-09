@@ -9,7 +9,7 @@ class Bio::FinishM::Visualiser
 
     options.merge!({
       :graph_search_leash_length => 20000,
-      :interesting_probes => []
+      :interesting_probes => nil
     })
     optparse_object.separator "Output visualisation formats (one or more of these must be used)"
     optparse_object.on("--assembly-png PATH", "Output assembly as a PNG file [default: off]") do |arg|
@@ -70,6 +70,7 @@ class Bio::FinishM::Visualiser
     # Generate the assembly graph
     log.info "Reading in or generating the assembly graph"
     finishm_graph = nil
+    p options[:interesting_probes]
     if options[:interesting_probes]
       dummy_probe_seqs = ['dummy']*options[:interesting_probes].max
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph(dummy_probe_seqs, read_input, options)
@@ -82,7 +83,7 @@ class Bio::FinishM::Visualiser
     viser = Bio::Assembly::ABVisualiser.new
 
     gv = nil
-    if options[:interesting_probes].empty?
+    if options[:interesting_probes].nil?
       gv = viser.graphviz(finishm_graph.graph, {:start_node_ids => finishm_graph.probe_nodes.collect{|node| node.node_id}})
     else
       # Remove nodes unconnected from the interesting read nodes (with appropriate leash length)

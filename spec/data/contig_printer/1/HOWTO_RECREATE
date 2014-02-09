@@ -1,0 +1,7 @@
+# seq1 and seq2 are from greengenes (2012_05?)	
+
+ben@u:~/git/priner/spec/data/contig_printer/1$ sequenceChop.pl ../../fluff/1/seq1.fa 1 550 >seq1_1to550.fa
+Chopped 1 sequence(s)
+ben@u:~/git/priner/spec/data/contig_printer/1$ sequenceChop.pl ../../fluff/1/seq2.fa 1 550 >seq2_1to550.fa
+Chopped 1 sequence(s)
+

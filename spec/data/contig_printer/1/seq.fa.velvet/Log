@@ -1,0 +1,21 @@
+Sat Feb  8 15:15:44 2014
+ velveth seq.fa.velvet 31 -fasta -short /tmp/probes.fa20140208-5636-rbot15 -short seq.fa
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Sat Feb  8 15:15:44 2014
+ velvetg seq.fa.velvet -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 13 nodes and n50 of 59, max 247, total 694, using 1204/1204 reads

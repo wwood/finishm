@@ -156,4 +156,29 @@ class GraphTesting
 
     return conn.comparable
   end
+
+  def self.make_onodes(graph, array)
+    trail = Bio::Velvet::Graph::OrientedNodeTrail.new
+
+    array.each do |e|
+      raise unless e.kind_of?(String)
+      node_i = e.to_i
+      node_str = node_i.to_s
+      node = graph.nodes[node_i]
+      dir = nil
+      if e[node_str.length] == 's'
+        dir = Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
+      elsif e[node_str.length] == 'e'
+        dir = dir = Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST
+      else
+        raise
+      end
+      onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
+      onode.node = node
+      onode.first_side = dir
+      trail.add_oriented_node onode
+    end
+
+    return trail
+  end
 end

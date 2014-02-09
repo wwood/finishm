@@ -60,6 +60,7 @@ module Bio
         # In the velvet graph, this is where the read first starts on the first node
         begin_node = anchored_connection.start_probe_node
         begin_node_read = begin_node.short_reads.find{|noded_read| noded_read.read_id == anchored_connection.start_probe_read_id}
+        log.debug "begin noded read: #{begin_node_read.inspect}" if log.debug?
         # class NodedRead
         #   attr_accessor :read_id, :offset_from_start_of_node, :start_coord, :direction
         # end
@@ -68,7 +69,9 @@ module Bio
         first_bite = contig1[first_bite_start..(first_bite_start+first_bite_length)]
         log.debug "Adding first bite #{first_bite}" if log.debug?
         to_return = contig1[0...first_bite_start] #up until the first bite
+        log.debug "Before first bite, sequence is #{to_return}" if log.debug?
         to_return += first_bite #the first bite
+        log.debug "Adding first bite sequence `#{first_bite}'" if log.debug?
 
         # then add the path itself
         path = nil
@@ -76,25 +79,32 @@ module Bio
           raise "Found multiple paths - can't yet handle this" unless path.nil?
           path = pat
         end
+        pp path
         raise "path not valid - wrong start node" unless path[0].node == anchored_connection.start_probe_node
         raise "path not valid - wrong end node" unless path[path.length-1].node == anchored_connection.end_probe_node
         whole_seq = path.sequence
+        log.debug "Found whole sequence of path #{whole_seq}" if log.debug?
         end_node = anchored_connection.end_probe_node
-        end_node_read = end_node.short_reads.find{|noded_read| noded_read.read_id == anchored_connection.end_probe_read_id}
+        end_probe_read = end_node.short_reads.find{|noded_read| noded_read.read_id == anchored_connection.end_probe_read_id}
+
 
         # TODO: add some notion of direction to this check
         raise "unhandled 1 node path with confusing start and stop" if end_node == begin_node and
-          end_node_read.offset_from_start_of_node < begin_node_read.offset_from_start_of_node
-        path_seq_start = begin_node_read.offset_from_start_of_node-1
-        path_seq_end = whole_seq.length - (end_node.length - end_probe_read.offset_from_start_of_node)
+          end_probe_read.offset_from_start_of_node < begin_node_read.offset_from_start_of_node
+        path_seq_start = begin_node_read.offset_from_start_of_node
+        path_seq_end = whole_seq.length - end_probe_read.offset_from_start_of_node
+        log.debug "path_seq_start=#{path_seq_start}, path_seq_end=#{path_seq_end}, end_probe_read.offset_from_start_of_node=#{end_probe_read.offset_from_start_of_node}"
         to_return += whole_seq[path_seq_start...path_seq_end]
+        log.debug "after adding the path's sequence, now have #{to_return}" if log.debug?
 
         # then add the bits after
-        second_bite_start = anchored_connection.end_probe_contig_offset-end_probe_read_id.offset_from_start_of_node
-        to_return += contig2[second_bite_start..anchored_connection.end_probe_contig_offset]
+        second_bite_start = anchored_connection.end_probe_contig_offset-end_probe_read.offset_from_start_of_node
+        to_return += contig2[second_bite_start...anchored_connection.end_probe_contig_offset]
+        log.debug "after adding second bite, sequence is #{to_return}" if log.debug?
 
         # then add the second contig, which will be a chopped in at both ends
         to_return += contig2[anchored_connection.end_probe_contig_offset...contig2.length]
+        log.debug "after adding second contig, sequence is #{to_return}" if log.debug?
 
         return to_return
       end
