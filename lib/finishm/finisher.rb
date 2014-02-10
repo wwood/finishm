@@ -59,9 +59,6 @@ class Bio::FinishM::Finisher
     opts.on("--already-patterned-reads FILE", "Attempt to assemble the reads in the specified file, useful for re-assembly [default: off]") do |arg|
       options[:already_patterned_reads] = arg
     end
-    opts.on("--output-assembly PATH", "Output assembly intermediate files to this directory [default: off]") do |arg|
-      options[:output_assembly_path] = arg
-    end
     opts.on("--assembly-png PATH", "Output assembly as a PNG file [default: off]") do |arg|
       options[:output_graph_png] = arg
     end
@@ -85,6 +82,7 @@ class Bio::FinishM::Finisher
     #TODO: give a better description of the error that has occurred
     if argv.length != 0
       return "Dangling argument(s) found e.g. #{argv[0]}"
+    elsif options[:already_patterned_reads]
     else
       [:upper_threshold,
       :lower_threshold,
@@ -176,7 +174,7 @@ class Bio::FinishM::Finisher
             sampled = File.basename(file)+'.sampled_reads.fasta'
             sampled_read_files.push sampled
 
-            grep_path = "#{ENV['HOME']}/git/priner/bin/read_selection_by_kmer "
+            grep_path = "#{ ENV['HOME'] }/git/priner/bin/read_selection_by_kmer "
             if options[:min_leftover_length]
               grep_path += "--min-leftover-length #{options[:min_leftover_length]} "
             end
@@ -281,12 +279,22 @@ class Bio::FinishM::Finisher
 #    trails = kmer_path_filter.filter(trails, kmer_hash, thresholds, :exclude_ending_length => options[:kmer_path_end_exclusion_length])
 #    log.info "After filtering remained #{trails.length} trails"
 
-    log.debug "Found trails: #{trails.collect{|t| t.to_s}.join("\n")}"
-
-    # TODO: actually output the trails somehow
-#    trails.each_with_index do |trail, i|
-#      puts ">trail#{i+1}"
-#      puts trail.sequence
-#    end
+    printer = Bio::AssemblyGraphAlgorithms::ContigPrinter.new
+    trails.each_with_index do |trail, i|
+      acon = Bio::AssemblyGraphAlgorithms::ContigPrinter::AnchoredConnection.new
+      acon.start_probe_read_id = 1
+      acon.end_probe_read_id = 2
+      acon.start_probe_node = start_node
+      acon.end_probe_node = end_node
+      acon.start_probe_contig_offset = options[:contig_end_length]
+      acon.end_probe_contig_offset = options[:contig_end_length]
+      acon.paths = [trail]
+      puts ">trail#{i+1}"
+      puts printer.one_connection_between_two_contigs(
+        finishm_graph.graph,
+        probe_sequences[0],
+        acon,
+        probe_sequences[1])
+    end
   end
 end

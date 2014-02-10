@@ -79,7 +79,6 @@ module Bio
           raise "Found multiple paths - can't yet handle this" unless path.nil?
           path = pat
         end
-        pp path
         raise "path not valid - wrong start node" unless path[0].node == anchored_connection.start_probe_node
         raise "path not valid - wrong end node" unless path[path.length-1].node == anchored_connection.end_probe_node
         whole_seq = path.sequence
