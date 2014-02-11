@@ -64,9 +64,10 @@ module Bio
         # class NodedRead
         #   attr_accessor :read_id, :offset_from_start_of_node, :start_coord, :direction
         # end
-        first_bite_length = begin_node_read.start_coord - 1
+        first_bite_length = begin_node_read.start_coord
         first_bite_start = contig1.length-anchored_connection.start_probe_contig_offset
-        first_bite = contig1[first_bite_start..(first_bite_start+first_bite_length)]
+        log.debug "First bite start=#{first_bite_start}, first_bite_length=#{first_bite_length}" if log.debug?
+        first_bite = contig1[first_bite_start...(first_bite_start+first_bite_length)]
         log.debug "Adding first bite #{first_bite}" if log.debug?
         to_return = contig1[0...first_bite_start] #up until the first bite
         log.debug "Before first bite, sequence is #{to_return}" if log.debug?

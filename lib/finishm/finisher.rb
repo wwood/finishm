@@ -234,23 +234,23 @@ class Bio::FinishM::Finisher
     filter.remove_unconnected_nodes(graph, [start_node, end_node])
     log.info "Removed #{original_num_nodes-graph.nodes.length} nodes and #{original_num_arcs-graph.arcs.length} arcs"
 
-    if options[:output_graph_png]
-      log.info "Converting assembly to a graphviz PNG"
+    if options[:output_graph_png] or options[:output_graph_svg] or options[:output_graph_dot]
       viser = Bio::Assembly::ABVisualiser.new
+      log.info "Preparing GraphViz object for output"
       gv = viser.graphviz(graph, {:start_node_id => start_node.node_id, :end_node_id => end_node.node_id})
-      gv.output :png => options[:output_graph_png], :use => :neato
-    end
-    if options[:output_graph_svg]
-      log.info "Converting assembly to a graphviz SVG"
-      viser = Bio::Assembly::ABVisualiser.new
-      gv = viser.graphviz(graph, {:start_node_id => start_node.node_id, :end_node_id => end_node.node_id})
-      gv.output :svg => options[:output_graph_svg], :use => :neato
-    end
-    if options[:output_graph_dot]
-      log.info "Converting assembly to a graphviz DOT"
-      viser = Bio::Assembly::ABVisualiser.new
-      gv = viser.graphviz(graph, {:start_node_id => start_node.node_id, :end_node_id => end_node.node_id})
-      gv.output :dot => options[:output_graph_dot]
+
+      if options[:output_graph_png]
+        log.info "Converting assembly to a graphviz PNG #{options[:output_graph_png] }"
+        gv.output :png => options[:output_graph_png], :use => :neato
+      end
+      if options[:output_graph_svg]
+        log.info "Converting assembly to a graphviz SVG #{options[:output_graph_svg] }"
+        gv.output :svg => options[:output_graph_svg], :use => :neato
+      end
+      if options[:output_graph_dot]
+        log.info "Converting assembly to a graphviz DOT #{options[:output_graph_dot] }"
+        gv.output :dot => options[:output_graph_dot]
+      end
     end
 
     log.info "Searching for trails between the initial and terminal nodes, within the assembly graph"
@@ -281,6 +281,7 @@ class Bio::FinishM::Finisher
 
     printer = Bio::AssemblyGraphAlgorithms::ContigPrinter.new
     trails.each_with_index do |trail, i|
+      log.debug "Before attachment to the contig, sequence of the trail was #{trail.sequence}" if log.debug?
       acon = Bio::AssemblyGraphAlgorithms::ContigPrinter::AnchoredConnection.new
       acon.start_probe_read_id = 1
       acon.end_probe_read_id = 2
@@ -289,6 +290,8 @@ class Bio::FinishM::Finisher
       acon.start_probe_contig_offset = options[:contig_end_length]
       acon.end_probe_contig_offset = options[:contig_end_length]
       acon.paths = [trail]
+      log.debug "AnchoredConnection object to print for this trail: #{acon.inspect}" if log.debug?
+
       puts ">trail#{i+1}"
       puts printer.one_connection_between_two_contigs(
         finishm_graph.graph,
