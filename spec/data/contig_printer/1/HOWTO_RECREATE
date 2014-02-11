@@ -5,3 +5,13 @@ Chopped 1 sequence(s)
 ben@u:~/git/priner/spec/data/contig_printer/1$ sequenceChop.pl ../../fluff/1/seq2.fa 1 550 >seq2_1to550.fa
 Chopped 1 sequence(s)
 
+ben@u:~/git/priner/spec/data/contig_printer/1$ ~/git/sammy/sammy.pl -r <(cat seq1_1to550.fa seq2_1to550.fa) -i 202 -n 300 -c 30 >seq.fa
+
+
+ben@u:~/git/priner/spec/data/contig_printer/1$ sequenceChop.pl seq1_1to550.fa 1 90 >contigs.fa
+Chopped 1 sequence(s)
+ben@u:~/git/priner/spec/data/contig_printer/1$ sequenceChop.pl seq1_1to550.fa 400 490 >>contigs.fa
+Chopped 1 sequence(s)
+
+
+
