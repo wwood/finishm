@@ -32,6 +32,55 @@ class Bio::FinishM::ScaffoldBreaker
 
     # Name of sequence found in the fasta file
     attr_accessor :name
+
+    # Return an array of Gap objects
+    def gaps
+      gaps = []
+      last_contig = nil
+      @contigs.each_with_index do |contig, i|
+        if i==0
+          last_contig = contig
+        else
+          gap = Bio::FinishM::ScaffoldBreaker::Gap.new
+          gap.scaffold = self
+          gap.start = last_contig.scaffold_position_end + 1
+          gap.stop = contig.scaffold_position_start - 1
+          gap.number = i-1
+          gaps.push gap
+        end
+      end
+      return gaps
+    end
+
+    def sequence
+      to_return = []
+      last_contig = nil
+      @contigs.each_with_index do |contig, i|
+        if i==0
+          last_contig = contig
+        else
+          gap_start = last_contig.scaffold_position_end + 1
+          gap_stop = contig.scaffold_position_start - 1
+          to_return.push 'N'*(gap_stop-gap_start)
+          to_return.push last_contig.sequence
+        end
+      end
+      to_return.push last_contig.sequence
+      return to_return.join
+    end
+  end
+
+  class Gap
+    attr_accessor :scaffold, :start, :stop, :number
+
+    def coords
+      @scaffold.name+':'+(@start+1).to_s+'-'+(@stop).to_s
+    end
+
+    #i.e. the number of N characters that would represent this gap
+    def length
+      @stop-@start+1
+    end
   end
 
   # Given a path to a scaffold fasta file, read in the scaffolds, and break them apart

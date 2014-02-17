@@ -105,8 +105,28 @@ module Bio
         START_IS_FIRST = :start_is_first
         END_IS_FIRST = :end_is_first
 
-        def initialize
+        # initialize a new path. If an array is given, each element should be a pair:
+        # first element of the pair is a node, and the second true/false or
+        # START_IS_FIRST/END_IS_FIRST
+        def initialize(node_pairs=[])
           @trail = []
+          node_pairs.each do |pair|
+            node = pair[0]
+            dir = pair[1]
+            unless node.kind_of?(Bio::Velvet::Graph::Node) and [true, false, START_IS_FIRST, END_IS_FIRST].include?(dir)
+              raise "Bad initialisation of OrientedNodeTrail, with #{node_pairs.inspect}, particularly #{pair.inspect}"
+            end
+            onode = OrientedNode.new
+            onode.node = node
+            if dir==true
+              onode.first_side = START_IS_FIRST
+            elsif dir==false
+              onode.first_side = END_IS_FIRST
+            else
+              onode.first_side = dir
+            end
+            @trail.push onode
+          end
         end
 
         # Add a node to the trail. start_or_end is either
