@@ -8,7 +8,10 @@ module Bio
 
       # Return an array of DistancedOrientedNode objects, those reachable from
       # the initial_oriented_node. options[:leash_length] => max distance explored,
-      # can be set to nil to search indefinitely.
+      # can be set to nil to search indefinitely. options[:ignore_directions] =>
+      # true or false (default). If true, explore direction-independently.
+      # i.e. if 1s->3s and 2s->3s, then include 2s in the returned set of min_distances
+      # and continue exploring from 2s.
       #
       # Returns a Hash of [node, first_side] => distance
       def min_distances(graph, initial_oriented_node, options={})
@@ -30,23 +33,41 @@ module Bio
 
           if options[:leash_length] and min_distanced_node.distance > options[:leash_length]
             # we are passed leash length, and this is the nearest node. So we are finito.
+            log.debug "passed the leash length, cutting short our travels" if log.debug?
             break
           end
 
           # Queue nodes after this one
           current_distance = min_distanced_node.distance
-          min_distanced_node.next_neighbours(graph).each do |onode|
-            new_distance = current_distance+onode.node.length_alone
-            log.debug "New distance for neighbour: #{onode}: #{new_distance}"
-            if to_return[onode.to_settable] and to_return[onode.to_settable] < new_distance
-              # We already know a shorter path to this neighbour, so ignore it
-            else
-              # new shortest distance found. queue it up
-              distanced_node = DistancedOrientedNode.new
-              distanced_node.node = onode.node
-              distanced_node.first_side = onode.first_side
-              distanced_node.distance = new_distance
-              pqueue.push distanced_node, new_distance
+          min_distanced_node.next_neighbours(graph).each do |neigh|
+            onodes = [neigh]
+            if options[:ignore_directions]
+              onode2 = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
+              onode2.node = neigh.node
+              if neigh.first_side == Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
+                onode2.first_side = Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST
+              elsif neigh.first_side == Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST
+                onode2.first_side = Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
+              else
+                raise "programming error: unexpected oriented node first_side: #{oriented_node}"
+              end
+              onodes = [neigh, onode2]
+            end
+            onodes.each do |onode|
+              new_distance = current_distance+onode.node.length_alone
+              if to_return[onode.to_settable] and to_return[onode.to_settable] <= new_distance
+                # We already know a shorter path to this neighbour, so ignore it
+                log.debug "Already seen this node at the same or shorter distance, going to further" if log.debug?
+              else
+                log.debug "New distance for neighbour: #{onode}: #{new_distance}" if log.debug?
+                # new shortest distance found. queue it up
+                distanced_node = DistancedOrientedNode.new
+                distanced_node.node = onode.node
+                distanced_node.first_side = onode.first_side
+                distanced_node.distance = new_distance
+                to_return[onode.to_settable] = new_distance
+                pqueue.push distanced_node, new_distance
+              end
             end
           end
         end

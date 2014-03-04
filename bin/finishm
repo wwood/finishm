@@ -18,11 +18,20 @@ global = OptionParser.new do |opts|
   opts.banner = "
     Usage: #{SCRIPT_NAME} <command> [<arguments>]
 
-    FinishM is a collection of related tasks. Available commands:
+  FinishM is a collection of tasks related to assembly and metagenome assembly. Available commands:
 
-    finish\tprocess results from multi-primer multi-lane PCR experimental setup
-    gapfill\tFill assembly gaps (N characters)
-    wander\tTry to connect contigs
+    finish\tprocess results from multi-primer multi-lane PCR experimental setup (experimental)
+    gapfill\tFill assembly gaps (N characters) (experimental)
+    wander\tTry to connect contigs (experimental)
+    explore\tWhat happens in the graph beyond the end of my contig(s)? (experimental)
+    visualise\tVisualise the DeBruijn graph (experimental)
+
+  Utility modes:
+
+    sequence\tGiven a defined sequence of nodes, what is the corresponding sequence?
+
+  Ideas that failed on a conceptual level, why am I even listing them?:
+
     fluff\tTry to get a set of pan-genome contigs from a strain heterogenous coassembly
     \n\n"
 end
@@ -54,6 +63,10 @@ subcommands = {
     operator = Bio::FinishM::Visualiser.new
     operator.add_options(opts, options)
   end},
+  'sequence' => lambda {OptionParser.new do |opts|
+    operator = Bio::FinishM::Sequence.new
+    operator.add_options(opts, options)
+  end},
 }
 
 
@@ -62,7 +75,7 @@ if subcommand.nil?
   $stderr.puts global
   exit 1
 elsif !subcommands[subcommand]
-  log.error "Unrecognized subcommand: #{subcommand}"
+  $stderr.puts "Unrecognized subcommand: #{subcommand}"
   exit 1
 else
   # Add options specific for subcommand

@@ -229,12 +229,22 @@ module Bio
         # Check to make sure the probe sequences map to nodes in the graph
         if finishm_graph.completely_probed?
           if log.info?
+            found_all = true
             probe_descriptions = ''
             finishm_graph.probe_nodes.each_with_index do |probe,i|
-              probe_descriptions += ' ' unless i==0
-              probe_descriptions += "#{probe.node_id}/#{finishm_graph.probe_node_directions[i]}"
+              if probe.nil?
+                found_all = false
+                log.warn "Unable to recover probe ##{i}, perhaps this will cause problems, but proceding optimistically"
+              else
+                probe_descriptions += ' ' unless i==0
+                probe_descriptions += "#{probe.node_id}/#{finishm_graph.probe_node_directions[i]}"
+              end
             end.join(', ')
-            log.info "Found all anchoring nodes in the graph: #{probe_descriptions}"
+            if found_all
+              log.info "Found all anchoring nodes in the graph: #{probe_descriptions}"
+            else
+              log.info "Found some but not all anchoring nodes in the graph: #{probe_descriptions}"
+            end
           end
         else
           raise "Unable to find both anchor reads from the assembly, cannot continue. This is probably an error with this script, not you. Probes not found: #{finishm_graph.missing_probe_indices.inspect}"

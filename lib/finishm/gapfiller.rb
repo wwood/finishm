@@ -150,7 +150,7 @@ each can be reported. \n\n"
       output_fasta_file.puts gapfilled_sequence
     end
     # Lambda to add a gap the the String representing the scaffold
-    filler = lambda do |trails, following_contig|
+    filler = lambda do |trails, following_contig, start_node, end_node, start_probe_index, gapfilled_sequence|
       if trails.length == 1
         # If there is only 1 trail, then output scaffolding information
         acon = Bio::AssemblyGraphAlgorithms::ContigPrinter::AnchoredConnection.new
@@ -164,6 +164,7 @@ each can be reported. \n\n"
         gapfilled_sequence = printer.one_connection_between_two_contigs(
           finishm_graph.graph,
           gapfilled_sequence,
+          acon,
           following_contig.sequence
           )
         num_singly_filled += 1
@@ -176,7 +177,7 @@ each can be reported. \n\n"
     end
 
     log.info "Searching for trails between the nodes within the assembly graph"
-    gapfilled_sequence =
+    gapfilled_sequence = ''
     last_scaffold = nil
     (0...(probe_sequences.length / 2)).collect{|i| i*2}.each do |start_probe_index|
       gap_number = start_probe_index / 2
@@ -201,19 +202,19 @@ each can be reported. \n\n"
 
         # Output the updated sequence. Fill in the sequence if there is only 1 trail
         if gap.scaffold == last_scaffold
-          gapfilled_sequence.push scaffold.contigs[gap.number]
-          filler.call trails, scaffold.contigs[gap.number+1]
+          gapfilled_sequence.push gap.scaffold.contigs[gap.number]
+          filler.call trails, gap.scaffold.contigs[gap.number+1], start_node, end_node, start_probe_index, gapfilled_sequence
         else
           unless last_scaffold.nil?
             # print the gapfilled (or not) scaffold.
             print_scaffold.call(last_scaffold, gapfilled_sequence)
           end
           #reset
-          last_scaffold = scaffold
+          last_scaffold = gap.scaffold
 
           #add the current gap (and the contig before it)
-          gapfilled_sequence = scaffold.contigs[gap.number]
-          filler.call trails, scaffold.contigs[gap.number+1]
+          gapfilled_sequence = gap.scaffold.contigs[gap.number].sequence
+          filler.call trails, gap.scaffold.contigs[gap.number+1], start_node, end_node, start_probe_index, gapfilled_sequence
         end
       else
         raise "Unable to retrieve both probes from the graph for gap #{gap_number} (#{gap.coords}), fail"

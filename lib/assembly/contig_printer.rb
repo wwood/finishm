@@ -52,7 +52,7 @@ module Bio
       # that there is only 1 path between the two contigs.
       #TODO: this method will almost certainly fail because it takes no notice of NodedRead.direction
       def one_connection_between_two_contigs(graph,contig1,anchored_connection,contig2)
-        to_return = nil
+        to_return = ''
 
         # add the contig up until the probe read begins
         # then add the bits of the probe that are before the path beginning (if this is non-zero perhaps it indicates a mistake?, or sequencing error in read)
@@ -99,6 +99,7 @@ module Bio
 
         # then add the bits after
         second_bite_start = anchored_connection.end_probe_contig_offset-end_probe_read.offset_from_start_of_node
+        log.debug "second_bite_start #{second_bite_start}, end_probe_contig_offset=#{anchored_connection.end_probe_contig_offset}, end_probe_read.offset_from_start_of_node=#{end_probe_read.offset_from_start_of_node}" if log.debug?
         to_return += contig2[second_bite_start...anchored_connection.end_probe_contig_offset]
         log.debug "after adding second bite, sequence is #{to_return}" if log.debug?
 

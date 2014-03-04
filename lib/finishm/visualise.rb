@@ -70,8 +70,8 @@ class Bio::FinishM::Visualiser
     # Generate the assembly graph
     log.info "Reading in or generating the assembly graph"
     finishm_graph = nil
-    p options[:interesting_probes]
     if options[:interesting_probes]
+      log.info "Targeting probes #{options[:interesting_probes].inspect}"
       dummy_probe_seqs = ['dummy']*options[:interesting_probes].max
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph(dummy_probe_seqs, read_input, options)
     else
