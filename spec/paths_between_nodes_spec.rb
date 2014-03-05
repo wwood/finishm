@@ -227,11 +227,11 @@ describe "PathsBetweenNodes" do
 
   it 'probably fails with the nasty leash bug, which is hard to fix' do
     graph = GraphTesting.emit([
+      [1,3],
       [1,2],
       [2,3],
       [3,4],
       [4,5],
-      [1,3],
     ])
     graph.hash_length = 87
     initial_node = graph.nodes[1]
@@ -251,7 +251,7 @@ describe "PathsBetweenNodes" do
       [1,3,4,5],
     ].sort
 
-    paths = cartographer.find_all_connections_between_two_nodes_adapter(graph, initial_node, terminal_node, 100, true)
+    paths = cartographer.find_all_connections_between_two_nodes_adapter(graph, initial_node, terminal_node, 80, true)
     (1..4).each do |node_id|
       graph.nodes[node_id].ends_of_kmers_of_twin_node = graph.nodes[node_id].ends_of_kmers_of_node
     end
@@ -345,108 +345,5 @@ describe "PathsBetweenNodes" do
     GraphTesting.sorted_paths(paths).should == [
       [1,2,3],
     ].sort
-  end
-
-  it 'should give the correct part1 for a 2 node cycle' do
-    graph = GraphTesting.emit([
-      [1,2],
-      [2,4],
-      [4,2],
-      [2,3],
-    ])
-    initial_node = graph.nodes[1]
-    terminal_node = graph.nodes[3]
-    cartographer = Bio::AssemblyGraphAlgorithms::PathsBetweenNodesFinder.new
-
-    initial_path = Bio::Velvet::Graph::OrientedNodeTrail.new
-    way = Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
-    initial_path.add_node initial_node, way
-
-    half_result = cartographer.find_all_trails_squid_way_part1(graph, initial_path, terminal_node, nil)
-    half_result.golden_path.collect{|n| n.node.node_id}.should == [1,2,3]
-    half_result.golden_fragments.collect{|fragment| fragment.collect{|n| n.node.node_id}}.should == []
-  end
-
-  it 'should calculate connections using a simple depth first search' do
-    graph = GraphTesting.emit([
-      [1,2],
-      [2,3],
-    ])
-    finishm_graph = Bio::FinishM::ProbedGraph.new
-    finishm_graph.graph = graph
-    finishm_graph.probe_nodes = [graph.nodes[1],graph.nodes[2]]
-    finishm_graph.probe_node_directions = [true, false]
-
-    cartographer = Bio::AssemblyGraphAlgorithms::PathsBetweenNodesFinder.new
-    cartographer.depth_first_search_with_leash(finishm_graph, 10000).should == {
-      [0,1] => 10
-    }
-  end
-
-  it 'should calculate connections using a simple depth first search multiple singly connected' do
-    graph = GraphTesting.emit([
-      [1,2],
-      [2,3],
-      [4,5]
-    ])
-    finishm_graph = Bio::FinishM::ProbedGraph.new
-    finishm_graph.graph = graph
-    finishm_graph.probe_nodes = [
-      graph.nodes[1],graph.nodes[3],
-      graph.nodes[4],graph.nodes[5],
-    ]
-    finishm_graph.probe_node_directions = [true, false, true, false]
-
-    cartographer = Bio::AssemblyGraphAlgorithms::PathsBetweenNodesFinder.new
-    cartographer.depth_first_search_with_leash(finishm_graph, 10000).should == {
-      [0,1] => 20,
-      [2,3] => 10,
-    }
-  end
-
-  it 'should calculate connections using a simple depth first search multiply connected' do
-    graph = GraphTesting.emit([
-      [1,2],
-      [2,3],
-      [3,4],
-      [4,5],
-    ])
-    finishm_graph = Bio::FinishM::ProbedGraph.new
-    finishm_graph.graph = graph
-    finishm_graph.probe_nodes = [
-      graph.nodes[1],graph.nodes[3],
-      graph.nodes[4],graph.nodes[5],
-    ]
-    finishm_graph.probe_node_directions = [true, false, true, false]
-
-    cartographer = Bio::AssemblyGraphAlgorithms::PathsBetweenNodesFinder.new
-    cartographer.depth_first_search_with_leash(finishm_graph, 10000).should == {
-      [0,1] => 20,
-      [0,3] => 40,
-      [2,3] => 10,
-    }
-  end
-
-  it 'should calculate connections using a simple depth first search respect leash' do
-    graph = GraphTesting.emit([
-      [1,2],
-      [2,3],
-      [3,4],
-      [4,5],
-    ])
-    finishm_graph = Bio::FinishM::ProbedGraph.new
-    finishm_graph.graph = graph
-    finishm_graph.probe_nodes = [
-      graph.nodes[1],graph.nodes[3],
-      graph.nodes[4],graph.nodes[5],
-    ]
-    finishm_graph.probe_node_directions = [true, false, true, false]
-
-    cartographer = Bio::AssemblyGraphAlgorithms::PathsBetweenNodesFinder.new
-    cartographer.depth_first_search_with_leash(finishm_graph, 20).should == {
-      [0,1] => 20,
-      #[0,3] => 40,
-      [2,3] => 10,
-    }
   end
 end

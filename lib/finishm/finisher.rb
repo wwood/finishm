@@ -99,7 +99,7 @@ class Bio::FinishM::Finisher
 
   #TODO: this method is too long - split it up by refactoring
   def run(options, argv)
-    pooled_reads_filename = 'pooled_sampled_reads.fasta'
+    pooled_reads_filename = 'pooled_sampled_reads.fasta' #TODO: remove this constant into a tempfile or something.
     if options[:already_patterned_reads] #If skipping read extraction
       pooled_reads_filename = options[:already_patterned_reads]
 
@@ -156,7 +156,7 @@ class Bio::FinishM::Finisher
 
       # grep the pattern out from the raw reads, subsampling so as to not overwhelm the assembler
       #Tempfile.open('whitelist') do |white|
-      File.open 'whitelist', 'w' do |white|
+      File.open 'whitelist', 'w' do |white| #TODO: remove 'whitelist' file as a constant
         white.puts whitelist_kmers.join("\n")
         white.close
 
@@ -174,7 +174,7 @@ class Bio::FinishM::Finisher
             sampled = File.basename(file)+'.sampled_reads.fasta'
             sampled_read_files.push sampled
 
-            grep_path = "#{ ENV['HOME'] }/git/priner/bin/read_selection_by_kmer "
+            grep_path = "#{ ENV['HOME'] }/git/priner/bin/read_selection_by_kmer " #TODO: this won't work on other people's systems.
             if options[:min_leftover_length]
               grep_path += "--min-leftover-length #{options[:min_leftover_length]} "
             end

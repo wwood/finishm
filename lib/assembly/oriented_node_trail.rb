@@ -20,12 +20,12 @@ module Bio
           # in both directions. Remove one direction as it shouldn't be here
           if arcs.length > 1
             if first_side == OrientedNodeTrail::START_IS_FIRST
-              arcs.select! do |arc|
+              arcs = arcs.select do |arc|
                 (arc.begin_node_id == node.node_id and arc.begin_node_direction) or
                 (arc.end_node_id == node.node_id and !arc.end_node_direction)
               end
             else
-              arcs.select! do |arc|
+              arcs = arcs.select do |arc|
                 (arc.end_node_id == node.node_id and arc.end_node_direction) or
                 (arc.begin_node_id == node.node_id and !arc.begin_node_direction)
               end
@@ -234,6 +234,17 @@ module Bio
 
         class OrientedNode
           attr_accessor :node, :first_side
+
+          def initialize(node=nil, first_side=nil)
+            @node = node
+            if first_side == true
+              @first_side = OrientedNodeTrail::START_IS_FIRST
+            elsif first_side == false
+              @first_side = OrientedNodeTrail::END_IS_FIRST
+            else
+              @first_side = first_side
+            end
+          end
 
           def starts_at_start?
             @first_side == OrientedNodeTrail::START_IS_FIRST

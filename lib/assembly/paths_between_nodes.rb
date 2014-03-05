@@ -7,22 +7,22 @@ module Bio
       include Bio::FinishM::Logging
 
 
-      def find_all_connections_between_two_nodes(graph, initial_path, terminal_node, leash_length)
-        problems = find_all_problems(graph, initial_path, terminal_node, leash_length)
+      def find_all_connections_between_two_nodes(graph, initial_path, terminal_oriented_node, leash_length)
+        problems = find_all_problems(graph, initial_path, terminal_oriented_node, leash_length)
         #pp problems
         problems.each do |key, dynprob|
           dynprob.remove_duplication_in_known_paths!
         end
-        puts problems.collect{|key, dynprob|
-          [
-            key[0],
-            dynprob.min_distance,
-            dynprob.known_paths.collect{|path| path.to_short_s}.join(' = ')
-          ].join(' ')
-        }.join("\n")
+#         puts problems.collect{|key, dynprob|
+#           [
+#             key[0],
+#             dynprob.min_distance,
+#             dynprob.known_paths.collect{|path| path.to_short_s}.join(' = ')
+#           ].join(' ')
+#         }.join("\n")
 
         #exit
-        return find_paths_from_problems(problems, terminal_node)
+        return find_paths_from_problems(problems, terminal_oriented_node)
       end
 
       def find_all_problems(graph, initial_path, terminal_node, leash_length)
@@ -35,9 +35,8 @@ module Bio
 
         push_next_neighbours = lambda do |current_path, last|
           next_nodes = current_path.neighbours_of_last_node(graph)
-
+          log.debug "Pushing #{next_nodes.length} new neighbours of #{current_path.last}" if log.debug?
           #TODO: not neccessary to copy all paths, can just continue one of them
-
           next_nodes.each do |n|
             path = current_path.copy
             path.add_oriented_node n
@@ -49,31 +48,32 @@ module Bio
           # Have we solved this before? If so, add this path to that solved problem.
           last = current_path.last
           path_length = current_path.length_in_bp
-          log.debug "considering #{current_path}"
-          log.debug "considering last: #{last}"
+          log.debug "considering #{current_path}, path length: #{path_length}" if log.debug?
+          log.debug "considering last: #{last}" if log.debug?
 
           if last == terminal_node
-          log.debug "last is terminal"
-            # we are done, go no further
-            # the problem of getting to the last node is already recorded, so don't need to do anything
+            log.debug "last is terminal" if log.debug?
             problems[last.to_settable] ||= DynamicProgrammingProblem.new
             problems[last.to_settable].known_paths ||= []
             problems[last.to_settable].known_paths.push current_path
 
           elsif problems[last.to_settable]
+            log.debug "Already seen this problem" if log.debug?
             prob = problems[last.to_settable]
             prob.known_paths.push current_path
 
             # If a lesser min distance is found, then we need to start exploring from the
             # current place again
             if path_length < prob.min_distance
-              log.debug "Found a node with min_distance greater than path length.."
+              log.debug "Found a node with min_distance greater than path length.." if log.debug?
               prob.min_distance = path_length
               push_next_neighbours.call current_path, last
             end
           elsif !leash_length.nil? and path_length > leash_length
             # we are past the leash length, give up
+            log.debug "Past leash length, giving up" if log.debug?
           else
+            log.debug "New dynamic problem being solved" if log.debug?
             # new problem being solved here
             problem = DynamicProgrammingProblem.new
             problem.min_distance = path_length
@@ -83,14 +83,16 @@ module Bio
             # explore the forward neighbours
             push_next_neighbours.call current_path, last
           end
+          log.debug "Stack size: #{stack.size}" if log.debug?
         end
-        puts problems.collect{|key, dynprob|
-          [
-            key[0],
-            dynprob.min_distance,
-            dynprob.known_paths.collect{|path| path.to_short_s}.join(' = ')
-          ].join(' ')
-        }.join("\n")
+
+#         puts problems.collect{|key, dynprob|
+#           [
+#             key[0],
+#             dynprob.min_distance,
+#             dynprob.known_paths.collect{|path| path.to_short_s}.join(' = ')
+#           ].join(' ')
+#         }.join("\n")
 
         return problems
       end
@@ -100,15 +102,12 @@ module Bio
 
         # push all solutions to the "ending in the final node" solutions to the stack
         overall_solution = problems[terminal_node.to_settable]
-        pp overall_solution
-        pp terminal_node
         return [] if overall_solution.nil? # if there is no solutions to the overall problem then there is no solution at all
         stack.push [
           overall_solution.known_paths[0].to_a,
           []
         ]
         all_paths = []
-        pp stack
 
         while path_halves = stack.pop
           log.debug path_halves.collect{|half| half.collect{|onode| onode.node.node_id}.join(',')}.join(' and ')
@@ -121,17 +120,17 @@ module Bio
             last = first_half.last
             if second_half.include?(last)
               # Ignore - this is a cycle, which rarely happens
+              log.warn "Cycle detected!"
             else
               paths_to_last = problems[last.to_settable].known_paths
               paths_to_last.each do |path|
                 to_push = [path[0...(path.length-1)],[last,second_half].flatten]
-                log.debug "Pushing #{to_push.collect{|half| half.collect{|onode| onode.node.node_id}.join(',')}.join(' and ')}"
+                log.debug "Pushing #{to_push.collect{|half| half.collect{|onode| onode.node.node_id}.join(',')}.join(' and ')}" if log.debug?
                 stack.push to_push
               end
             end
           end
         end
-        pp all_paths
 
         return all_paths
       end
