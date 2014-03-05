@@ -23,6 +23,8 @@ each can be reported. \n\n"
 
     optparse_object.separator "\nThere must be some definition of reads too:\n\n" #TODO improve this help
     Bio::FinishM::ReadInput.new.add_options(optparse_object, options)
+
+    optparse_object.separator "\nVisualisation options:\n\n" #TODO improve this help
     optparse_object.on("--assembly-png PATH", "Output assembly as a PNG file [default: off]") do |arg|
       options[:output_graph_png] = arg
     end
@@ -81,7 +83,7 @@ each can be reported. \n\n"
       end
     end
     gaps.flatten!
-    log.info "Detected #{gaps.length} gaps from #{scaffolds.length} different sequence(s). #{num_without_gaps } sequences were gap-free"
+    log.info "Detected #{gaps.length} gaps from #{scaffolds.length} different sequence(s). #{num_without_gaps } sequences were gap-free."
 
     # Create probe sequences
     probe_sequences = gaps.collect do |gap|

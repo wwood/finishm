@@ -87,4 +87,22 @@ describe "ReadInput" do
       c.length.should == 3
     end
   end
+
+  it 'should give back good gap objects' do
+     breaker = Bio::FinishM::ScaffoldBreaker.new
+
+    Tempfile.open('a') do |tmp|
+      tmp.puts '>ab'
+      tmp.puts 'AAAAANNNGGG'
+      tmp.close
+
+      brokes = breaker.break_scaffolds(tmp.path)
+      brokes.length.should == 1
+      gaps = brokes[0].gaps
+      gaps.length.should == 1
+      gaps[0].start.should == 6
+      gaps[0].stop.should == 8
+      gaps[0].number.should == 0
+    end
+  end
 end
