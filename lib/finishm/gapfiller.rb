@@ -24,7 +24,7 @@ each can be reported. \n\n"
     optparse_object.separator "\nThere must be some definition of reads too:\n\n" #TODO improve this help
     Bio::FinishM::ReadInput.new.add_options(optparse_object, options)
 
-    optparse_object.separator "\nVisualisation options:\n\n" #TODO improve this help
+    optparse_object.separator "\nVisualisation options (of all joins):\n\n" #TODO improve this help
     optparse_object.on("--assembly-png PATH", "Output assembly as a PNG file [default: off]") do |arg|
       options[:output_graph_png] = arg
     end
@@ -93,12 +93,22 @@ each can be reported. \n\n"
         log.warn "Found a gap that was too close to the end of a contig - you might have problems: #{gap.coords}"
       end
 
-      fwd2 = Bio::Sequence::NA.new(sequence[gap.stop..(gap.stop+options[:contig_end_length])])
+      log.debug "Processing gap number #{gap.number}, #{gap.coords}"
+      first_coords = [
+        gap.start-options[:contig_end_length]-1,
+        gap.start-1,
+        ]
+      second_coords = [
+        gap.stop,
+        (gap.stop+options[:contig_end_length]),
+        ]
+      log.debug "Coordinates of the probes are #{first_coords} and #{second_coords}"
+      fwd2 = Bio::Sequence::NA.new(sequence[second_coords[0]..second_coords[1]])
       probes = [
-        sequence[gap.start-options[:contig_end_length]-1...gap.start],
+        sequence[first_coords[0]...first_coords[1]],
         fwd2.reverse_complement.to_s
         ]
-      #TODO: this could probably be handled better.. e.g. make sure the kmer is less than the amount of seq on the end, etc.
+      #TODO: this could probably be handled better.. e.g. if the amount of sequence is too small, just throw it out and make one big gap
       if probes[0].match(/N/i) or probes[1].match(/N/i)
         log.warn "Noticed gap that was too close together, not sure if things will work out for #{gap.coords}"
       end
@@ -148,16 +158,16 @@ each can be reported. \n\n"
     # Print the fasta output for the scaffold
     print_scaffold = lambda do |last_scaffold, gapfilled_sequence|
       output_fasta_file.puts ">#{last_scaffold.name }"
-      gapfilled_sequence.push last_scaffold.contigs[last_scaffold.contigs.length-1] #add last contig
+      gapfilled_sequence += last_scaffold.contigs[last_scaffold.contigs.length-1].sequence #add last contig
       output_fasta_file.puts gapfilled_sequence
     end
     # Lambda to add a gap the the String representing the scaffold
-    filler = lambda do |trails, following_contig, start_node, end_node, start_probe_index, gapfilled_sequence|
+    filler = lambda do |trails, following_contig, start_node, end_node, start_probe_index, gapfilled_sequence, gap|
       if trails.length == 1
         # If there is only 1 trail, then output scaffolding information
         acon = Bio::AssemblyGraphAlgorithms::ContigPrinter::AnchoredConnection.new
-        acon.start_probe_node = start_node
-        acon.end_probe_node = end_node
+        acon.start_probe_node = start_node.node
+        acon.end_probe_node = end_node.node
         acon.start_probe_read_id = start_probe_index+1
         acon.end_probe_read_id = start_probe_index+2
         acon.start_probe_contig_offset = options[:contig_end_length]
@@ -185,11 +195,16 @@ each can be reported. \n\n"
       gap_number = start_probe_index / 2
       gap = gaps[gap_number]
       log.info "Now working through gap number #{gap_number}: #{gap.coords}"
-      start_node = finishm_graph.probe_nodes[start_probe_index]
-      start_node_forward = finishm_graph.probe_node_directions[start_probe_index]
-      end_node = finishm_graph.probe_nodes[start_probe_index+1]
-      if start_node and end_node
-        trails = cartographer.find_trails_between_nodes(finishm_graph.graph, start_node, end_node, options[:graph_search_leash_length], start_node_forward)
+      start_onode = finishm_graph.velvet_oriented_node(start_probe_index)
+      end_onode = finishm_graph.velvet_oriented_node(start_probe_index+1)
+      if start_onode and end_onode
+        trails = cartographer.find_trails_between_nodes(finishm_graph.graph, start_onode, end_onode, options[:graph_search_leash_length])
+        # Convert the trails into OrientedNodePaths
+        trails.collect! do |trail|
+          path = Bio::Velvet::Graph::OrientedNodeTrail.new
+          path.trail = trail
+          path
+        end
         log.info "Found #{trails.length} trails for #{gap.coords}"
 
         # print the sequences of the trails if asked for:
@@ -204,8 +219,8 @@ each can be reported. \n\n"
 
         # Output the updated sequence. Fill in the sequence if there is only 1 trail
         if gap.scaffold == last_scaffold
-          gapfilled_sequence.push gap.scaffold.contigs[gap.number]
-          filler.call trails, gap.scaffold.contigs[gap.number+1], start_node, end_node, start_probe_index, gapfilled_sequence
+          gapfilled_sequence += gap.scaffold.contigs[gap.number].sequence
+          filler.call trails, gap.scaffold.contigs[gap.number+1], start_onode, end_onode, start_probe_index, gapfilled_sequence, gap
         else
           unless last_scaffold.nil?
             # print the gapfilled (or not) scaffold.
@@ -216,7 +231,7 @@ each can be reported. \n\n"
 
           #add the current gap (and the contig before it)
           gapfilled_sequence = gap.scaffold.contigs[gap.number].sequence
-          filler.call trails, gap.scaffold.contigs[gap.number+1], start_node, end_node, start_probe_index, gapfilled_sequence
+          filler.call trails, gap.scaffold.contigs[gap.number+1], start_onode, end_onode, start_probe_index, gapfilled_sequence, gap
         end
       else
         raise "Unable to retrieve both probes from the graph for gap #{gap_number} (#{gap.coords}), fail"

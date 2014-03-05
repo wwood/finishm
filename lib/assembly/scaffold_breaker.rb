@@ -38,9 +38,7 @@ class Bio::FinishM::ScaffoldBreaker
       gaps = []
       last_contig = nil
       @contigs.each_with_index do |contig, i|
-        if i==0
-          last_contig = contig
-        else
+        if i!=0
           gap = Bio::FinishM::ScaffoldBreaker::Gap.new
           gap.scaffold = self
           gap.start = last_contig.scaffold_position_end + 1
@@ -48,6 +46,7 @@ class Bio::FinishM::ScaffoldBreaker
           gap.number = i-1
           gaps.push gap
         end
+        last_contig = contig
       end
       return gaps
     end
@@ -57,15 +56,15 @@ class Bio::FinishM::ScaffoldBreaker
       last_contig = nil
       @contigs.each_with_index do |contig, i|
         if i==0
-          last_contig = contig
+          to_return.push contig.sequence
         else
           gap_start = last_contig.scaffold_position_end + 1
           gap_stop = contig.scaffold_position_start - 1
-          to_return.push 'N'*(gap_stop-gap_start)
-          to_return.push last_contig.sequence
+          to_return.push 'N'*(gap_stop-gap_start+1)
+          to_return.push contig.sequence
         end
+        last_contig = contig
       end
-      to_return.push last_contig.sequence
       return to_return.join
     end
   end

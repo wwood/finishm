@@ -22,12 +22,28 @@ module Bio
 #         }.join("\n")
 
         #exit
-        return find_paths_from_problems(problems, terminal_oriented_node)
+        paths = find_paths_from_problems(problems, terminal_oriented_node)
+        if initial_path.last == terminal_oriented_node
+          # Reject a special case where initial == terminal - that isn't a path
+          paths.reject!{|trail| trail.length == 1}
+        end
+        return paths
       end
 
       def find_all_problems(graph, initial_path, terminal_node, leash_length)
         # setup dynamic programming cache
         problems = {}
+
+        # There's a special case, when initial == terminal, like when the genome is in one node.
+        # Add it to the pile, but there may be more e.g. in a cycle, so don't cut the process
+        # off at the knees.
+        if initial_path.last.node_id == terminal_node.node_id and
+          log.debug "Initial is the terminal!"
+          initial_path.last.first_side != terminal_node.first_side
+          prob = DynamicProgrammingProblem.new
+          prob.known_paths = [initial_path]
+          problems[terminal_node.to_settable] = prob
+        end
 
         # setup stack to keep track of initial nodes
         stack = DS::Stack.new
@@ -52,10 +68,17 @@ module Bio
           log.debug "considering last: #{last}" if log.debug?
 
           if last == terminal_node
-            log.debug "last is terminal" if log.debug?
-            problems[last.to_settable] ||= DynamicProgrammingProblem.new
-            problems[last.to_settable].known_paths ||= []
-            problems[last.to_settable].known_paths.push current_path
+            if current_path.length > 1
+              log.debug "last is terminal" if log.debug?
+              problems[last.to_settable] ||= DynamicProgrammingProblem.new
+              problems[last.to_settable].known_paths ||= []
+              problems[last.to_settable].known_paths.push current_path
+            else
+              # This is a special case where the initial == terminal, but in opposing directions
+              # No path is thus proven, and the path should be ignored
+              log.debug "Ignoring false hit where initial==terminal but in the wrong direction"
+            end
+
 
           elsif problems[last.to_settable]
             log.debug "Already seen this problem" if log.debug?
@@ -89,6 +112,7 @@ module Bio
 #         puts problems.collect{|key, dynprob|
 #           [
 #             key[0],
+#             key[1],
 #             dynprob.min_distance,
 #             dynprob.known_paths.collect{|path| path.to_short_s}.join(' = ')
 #           ].join(' ')

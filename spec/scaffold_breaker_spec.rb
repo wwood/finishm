@@ -105,4 +105,43 @@ describe "ReadInput" do
       gaps[0].number.should == 0
     end
   end
+
+  it 'should give back good 3 gap objects' do
+     breaker = Bio::FinishM::ScaffoldBreaker.new
+
+    Tempfile.open('a') do |tmp|
+      tmp.puts '>ab'
+      tmp.puts 'AAAAANNNGGGNNTTNNAA'
+      #         1234567890123456789
+      tmp.close
+
+      brokes = breaker.break_scaffolds(tmp.path)
+      brokes.length.should == 1
+      gaps = brokes[0].gaps
+      gaps.length.should == 3
+      gaps[0].start.should == 6
+      gaps[0].stop.should == 8
+      gaps[0].number.should == 0
+      gaps[1].start.should == 12
+      gaps[1].stop.should == 13
+      gaps[1].number.should == 1
+      gaps[2].start.should == 16
+      gaps[2].stop.should == 17
+      gaps[2].number.should == 2
+    end
+  end
+
+  it 'should give back the correct sequence' do
+    breaker = Bio::FinishM::ScaffoldBreaker.new
+    Tempfile.open('a') do |tmp|
+      tmp.puts '>ab'
+      seq = 'AAAAANNNGGGNNTTNNAA'
+      tmp.puts seq
+      #         1234567890123456789
+      tmp.close
+
+      brokes = breaker.break_scaffolds(tmp.path)
+      brokes[0].sequence.should == seq
+    end
+  end
 end

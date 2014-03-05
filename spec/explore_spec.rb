@@ -10,6 +10,7 @@ describe "FinishM explore" do
     Dir.chdir(data_path) do
       trails = Bio::Commandeer.run "#{FINISHM_SCRIPT_PATH} explore --quiet --contigs a.fa --interesting-ends random:end --output-explored-paths - --fasta 2seqs.sammy.fa"
     end
+    p trails
     splits = trails.split("\n").to_a.sort
     splits.length.should == 128
     splits[0].match(/>random:end Dead end \/ coverage nodes:(\d),[\d,]+/)[1] == '1'

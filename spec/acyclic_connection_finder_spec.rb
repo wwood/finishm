@@ -26,7 +26,7 @@ describe "AcyclicConnectionFinder" do
 
     log = nil
     initial_node = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(graph.nodes[1], true)
-    terminal_node = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(graph.nodes[1], true)
+    terminal_node = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(graph.nodes[1], false)
     trails = cartographer.find_trails_between_nodes(graph, initial_node, terminal_node, 99999999)
     trails.length.should == 1
     trails[0].length.should == 1
@@ -78,7 +78,7 @@ describe "AcyclicConnectionFinder" do
     log = nil
     #Bio::Log::CLI.logger('stderr'); Bio::Log::CLI.trace('debug'); log = Bio::Log::LoggerPlus.new('finishm'); Bio::Log::CLI.configure('finishm')
     initial_node = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(graph.nodes[1], true)
-    terminal_node = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(graph.nodes[1], true)
+    terminal_node = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(graph.nodes[1], false)
     trails = cartographer.find_trails_between_nodes(graph, initial_node, terminal_node, 99999999)
     trails.length.should == 1
     trails[0].length.should == 1
@@ -511,4 +511,30 @@ describe "AcyclicConnectionFinder" do
       [2,3] => 10,
     }
   end
+
+it 'should find a path when the initial is the terminal' do
+    graph = GraphTesting.emit([
+      [1,2],
+    ])
+    initial_node = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(graph.nodes[1], true)
+  terminal_node = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(graph.nodes[1], false)
+    cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
+    paths = cartographer.find_trails_between_nodes(graph, initial_node, terminal_node, 99999)
+    GraphTesting.sorted_paths(paths).should == [
+      [1],
+      ].sort
+end
+
+it 'should not find a path when the initial is the terminal but the directions do not match' do
+    graph = GraphTesting.emit([
+      [1,2],
+    ])
+    initial_node = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(graph.nodes[1], true)
+    terminal_node = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(graph.nodes[1], true)
+    cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
+    paths = cartographer.find_trails_between_nodes(graph, initial_node, terminal_node, 99999)
+    GraphTesting.sorted_paths(paths).should == [
+      ].sort
+end
+
 end

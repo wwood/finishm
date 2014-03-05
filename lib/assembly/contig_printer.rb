@@ -1,4 +1,14 @@
-
+class Bio::Velvet::Graph::NodedRead
+  def adjusted_position(parent_node)
+    if @direction == true
+      return @offset_from_start_of_node
+    elsif @direction == false
+      return parent_node.length - @offset_from_start_of_node
+    else
+      raise "programming error"
+    end
+  end
+end
 
 module Bio
   module AssemblyGraphAlgorithms
@@ -88,9 +98,12 @@ module Bio
         end_probe_read = end_node.short_reads.find{|noded_read| noded_read.read_id == anchored_connection.end_probe_read_id}
 
 
-        # TODO: add some notion of direction to this check
-        raise "unhandled 1 node path with confusing start and stop" if end_node == begin_node and
-          end_probe_read.offset_from_start_of_node < begin_node_read.offset_from_start_of_node
+        # read positions are given as the distance from the start of the node
+        # if read is in the fwd direction, or distance from the end of the read
+        # if the read is in the rev direction
+        #TODO: need to handle reverse direction of node from the probes?
+        raise "unhandled 1 node path with confusing start and stop. Start was #{begin_node_read.inspect} and end was #{end_probe_read.inspect}" if end_node == begin_node and
+          end_probe_read.adjusted_position(begin_node) < begin_node_read.adjusted_position(begin_node)
         path_seq_start = begin_node_read.offset_from_start_of_node
         path_seq_end = whole_seq.length - end_probe_read.offset_from_start_of_node
         log.debug "path_seq_start=#{path_seq_start}, path_seq_end=#{path_seq_end}, end_probe_read.offset_from_start_of_node=#{end_probe_read.offset_from_start_of_node}"
