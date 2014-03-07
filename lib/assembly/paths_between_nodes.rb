@@ -23,10 +23,6 @@ module Bio
 
         #exit
         paths = find_paths_from_problems(problems, terminal_oriented_node)
-        if initial_path.last == terminal_oriented_node
-          # Reject a special case where initial == terminal - that isn't a path
-          paths.reject!{|trail| trail.length == 1}
-        end
         return paths
       end
 
@@ -38,6 +34,7 @@ module Bio
         # Add it to the pile, but there may be more e.g. in a cycle, so don't cut the process
         # off at the knees.
         if initial_path.last.node_id == terminal_node.node_id and
+          initial_path.last.first_side != terminal_node.first_side
           log.debug "Initial is the terminal!"
           initial_path.last.first_side != terminal_node.first_side
           prob = DynamicProgrammingProblem.new
@@ -125,9 +122,13 @@ module Bio
       def find_paths_from_problems(problems, terminal_node)
         stack = DS::Stack.new
 
+        to_return = Bio::AssemblyGraphAlgorithms::TrailSet.new
+        to_return.circular_paths_detected = false
+        to_return.trails = []
+
         # push all solutions to the "ending in the final node" solutions to the stack
         overall_solution = problems[terminal_node.to_settable]
-        return [] if overall_solution.nil? # if there is no solutions to the overall problem then there is no solution at all
+        return to_return if overall_solution.nil? # if there is no solutions to the overall problem then there is no solution at all
         stack.push [
           overall_solution.known_paths[0].to_a,
           []
@@ -145,19 +146,24 @@ module Bio
             last = first_half.last
             if second_half.include?(last)
               # Ignore - this is a cycle, which rarely happens
-              log.warn "Cycle detected!"
+              #TODO: circular paths should be dealt with in some manner. Really no simple solution, however,
+              # particularly when there is more than one connected circuit detected.
+              log.warn "Linking path(s) detected, but cycle also detected. Giving up on this link."
+              to_return.circular_paths_detected = true
+              return to_return
             else
               paths_to_last = problems[last.to_settable].known_paths
               paths_to_last.each do |path|
                 to_push = [path[0...(path.length-1)],[last,second_half].flatten]
-                log.debug "Pushing #{to_push.collect{|half| half.collect{|onode| onode.node.node_id}.join(',')}.join(' and ')}" if log.debug?
+                log.debug "Pushing #{to_push.collect{|half| half.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') }" if log.debug?
                 stack.push to_push
               end
             end
           end
         end
 
-        return all_paths
+        to_return.trails = all_paths
+        return to_return
       end
 
 

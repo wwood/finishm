@@ -3,6 +3,18 @@ require 'set'
 
 module Bio
   module AssemblyGraphAlgorithms
+
+    # Represents a set of trails, and whether or not circularity has been detected.
+    class TrailSet
+      attr_accessor :trails
+      attr_accessor :circular_paths_detected
+      include Enumerable
+
+      def each
+        @trails.each{|t| yield t}
+      end
+    end
+
     class AcyclicConnectionFinder
       include Bio::FinishM::Logging
 

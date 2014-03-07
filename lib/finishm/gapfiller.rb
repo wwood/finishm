@@ -83,7 +83,7 @@ each can be reported. \n\n"
       end
     end
     gaps.flatten!
-    log.info "Detected #{gaps.length} gaps from #{scaffolds.length} different sequence(s). #{num_without_gaps } sequences were gap-free."
+    log.info "Detected #{gaps.length} gap(s) from #{scaffolds.length} different contig(s). #{num_without_gaps } contig(s) were gap-free."
 
     # Create probe sequences
     probe_sequences = gaps.collect do |gap|
@@ -199,6 +199,7 @@ each can be reported. \n\n"
       end_onode = finishm_graph.velvet_oriented_node(start_probe_index+1)
       if start_onode and end_onode
         trails = cartographer.find_trails_between_nodes(finishm_graph.graph, start_onode, end_onode, options[:graph_search_leash_length])
+        log.info "Before conversion, found #{trails.length} trails for #{gap.coords}" if log.debug?
         # Convert the trails into OrientedNodePaths
         trails.collect! do |trail|
           path = Bio::Velvet::Graph::OrientedNodeTrail.new
