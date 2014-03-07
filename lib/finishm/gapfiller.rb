@@ -36,8 +36,11 @@ each can be reported. \n\n"
     end
 
     optparse_object.separator "\nOptional arguments:\n\n"
-    optparse_object.on("--overhang NUM", "Start assembling this far from the gap [default: #{options[:contig_end_length] }]") do |arg|
-      options[:contig_end_length] = arg.to_i
+    optparse_object.on("--overhang NUM", Integer, "Start assembling this far from the gap [default: #{options[:contig_end_length] }]") do |arg|
+      options[:contig_end_length] = arg
+    end
+    optparse_object.on("--leash-length NUM", Integer, "Don't explore too far in the graph, only this many base pairs and not much more [default: #{options[:graph_search_leash_length]}]") do |arg|
+      options[:graph_search_leash_length] = arg
     end
     optparse_object.on("--output-trails-fasta PATH", "Output all connections between contigs to this file [default: don't output]") do |arg|
       options[:overall_trail_output_fasta_file] = arg
