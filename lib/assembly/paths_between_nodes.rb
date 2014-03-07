@@ -54,6 +54,7 @@ module Bio
           log.debug "Pushing #{next_nodes.length} new neighbours of #{current_path.last}" if log.debug?
           #TODO: not neccessary to copy all paths, can just continue one of them
           next_nodes.each do |n|
+            log.debug "Pushing neighbour to stack: #{n}" if log.debug?
             path = current_path.copy
             path.add_oriented_node n
             stack.push path
