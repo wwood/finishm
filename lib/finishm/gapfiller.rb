@@ -199,14 +199,16 @@ each can be reported. \n\n"
       end_onode = finishm_graph.velvet_oriented_node(start_probe_index+1)
       if start_onode and end_onode
         trails = cartographer.find_trails_between_nodes(finishm_graph.graph, start_onode, end_onode, options[:graph_search_leash_length])
-        log.info "Before conversion, found #{trails.length} trails for #{gap.coords}" if log.debug?
+        log.info "Found #{trails.trails.length} trails for #{gap.coords}"
+        if trails.circular_paths_detected
+          log.warn "Circular path detected here, not attempting to gapfill"
+        end
         # Convert the trails into OrientedNodePaths
-        trails.collect! do |trail|
+        trails = trails.collect do |trail|
           path = Bio::Velvet::Graph::OrientedNodeTrail.new
           path.trail = trail
           path
         end
-        log.info "Found #{trails.length} trails for #{gap.coords}"
 
         # print the sequences of the trails if asked for:
         trails.each_with_index do |trail, i|
@@ -240,7 +242,7 @@ each can be reported. \n\n"
     end
     print_scaffold.call(last_scaffold, gapfilled_sequence) # print the last scaffold
 
-    log.info "#{num_unbridgable } had no bridging paths in the graph within the leash, and found #{num_total_trails} trails in total."
+    log.info "#{num_unbridgable } gaps had no bridging paths in the graph within the leash, and found #{num_total_trails} trails in total."
     log.info "Filled #{num_singly_filled } out of #{gaps.length } gaps."
 
     output_trails_file.close unless output_trails_file.nil?
