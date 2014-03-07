@@ -30,18 +30,6 @@ module Bio
         # setup dynamic programming cache
         problems = {}
 
-        # There's a special case, when initial == terminal, like when the genome is in one node.
-        # Add it to the pile, but there may be more e.g. in a cycle, so don't cut the process
-        # off at the knees.
-        if initial_path.last.node_id == terminal_node.node_id and
-          initial_path.last.first_side != terminal_node.first_side
-          log.debug "Initial is the terminal!"
-          initial_path.last.first_side != terminal_node.first_side
-          prob = DynamicProgrammingProblem.new
-          prob.known_paths = [initial_path]
-          problems[terminal_node.to_settable] = prob
-        end
-
         # setup stack to keep track of initial nodes
         stack = DS::Stack.new
         stack.push initial_path.copy
@@ -66,17 +54,10 @@ module Bio
           log.debug "considering last: #{last}" if log.debug?
 
           if last == terminal_node
-            if current_path.length > 1
-              log.debug "last is terminal" if log.debug?
-              problems[last.to_settable] ||= DynamicProgrammingProblem.new
-              problems[last.to_settable].known_paths ||= []
-              problems[last.to_settable].known_paths.push current_path
-            else
-              # This is a special case where the initial == terminal, but in opposing directions
-              # No path is thus proven, and the path should be ignored
-              log.debug "Ignoring false hit where initial==terminal but in the wrong direction"
-            end
-
+            log.debug "last is terminal" if log.debug?
+            problems[last.to_settable] ||= DynamicProgrammingProblem.new
+            problems[last.to_settable].known_paths ||= []
+            problems[last.to_settable].known_paths.push current_path
 
           elsif problems[last.to_settable]
             log.debug "Already seen this problem" if log.debug?

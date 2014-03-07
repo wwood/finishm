@@ -103,10 +103,9 @@ each can be reported. \n\n"
         (gap.stop+options[:contig_end_length]),
         ]
       log.debug "Coordinates of the probes are #{first_coords} and #{second_coords}"
-      fwd2 = Bio::Sequence::NA.new(sequence[second_coords[0]..second_coords[1]])
       probes = [
         sequence[first_coords[0]...first_coords[1]],
-        fwd2.reverse_complement.to_s
+        sequence[second_coords[0]..second_coords[1]],
         ]
       #TODO: this could probably be handled better.. e.g. if the amount of sequence is too small, just throw it out and make one big gap
       if probes[0].match(/N/i) or probes[1].match(/N/i)
@@ -242,7 +241,7 @@ each can be reported. \n\n"
     end
     print_scaffold.call(last_scaffold, gapfilled_sequence) # print the last scaffold
 
-    log.info "#{num_unbridgable } gaps had no bridging paths in the graph within the leash, and found #{num_total_trails} trails in total."
+    log.info "#{num_unbridgable } gaps had no suitable bridging paths in the graph within the leash, and found #{num_total_trails} trails in total."
     log.info "Filled #{num_singly_filled } out of #{gaps.length } gaps."
 
     output_trails_file.close unless output_trails_file.nil?
