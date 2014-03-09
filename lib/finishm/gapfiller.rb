@@ -106,9 +106,10 @@ each can be reported. \n\n"
         (gap.stop+options[:contig_end_length]),
         ]
       log.debug "Coordinates of the probes are #{first_coords} and #{second_coords}"
+      second = sequence[second_coords[0]..second_coords[1]]
       probes = [
         sequence[first_coords[0]...first_coords[1]],
-        sequence[second_coords[0]..second_coords[1]],
+        Bio::Sequence::NA.new(second).reverse_complement.to_s,
         ]
       #TODO: this could probably be handled better.. e.g. if the amount of sequence is too small, just throw it out and make one big gap
       if probes[0].match(/N/i) or probes[1].match(/N/i)
@@ -164,6 +165,7 @@ each can be reported. \n\n"
       output_fasta_file.puts gapfilled_sequence
     end
     # Lambda to add a gap the the String representing the scaffold
+    #TODO: if the trail is not filled then the wrong sequence is currently printed. BUG???
     filler = lambda do |trails, following_contig, start_node, end_node, start_probe_index, gapfilled_sequence, gap|
       if trails.length == 1
         # If there is only 1 trail, then output scaffolding information
@@ -182,6 +184,8 @@ each can be reported. \n\n"
           following_contig.sequence
           )
         num_singly_filled += 1
+        puts ">gapfilled"
+        puts gapfilled_sequence
       else
         # Otherwise don't make any assumptions
         num_unbridgable += 1 if trails.empty?
@@ -198,8 +202,13 @@ each can be reported. \n\n"
       gap = gaps[gap_number]
       log.info "Now working through gap number #{gap_number}: #{gap.coords}"
       start_onode = finishm_graph.velvet_oriented_node(start_probe_index)
-      end_onode = finishm_graph.velvet_oriented_node(start_probe_index+1)
-      if start_onode and end_onode
+      end_onode_inward = finishm_graph.velvet_oriented_node(start_probe_index+1)
+      if start_onode and end_onode_inward
+        # The probe from finishm_graph points in the wrong direction for path finding
+        end_onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
+        end_onode.node = end_onode_inward.node
+        end_onode.first_side = end_onode_inward.starts_at_start? ? Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST : Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
+
         trails = cartographer.find_trails_between_nodes(finishm_graph.graph, start_onode, end_onode, options[:graph_search_leash_length])
         log.info "Found #{trails.trails.length} trails for #{gap.coords}"
         if trails.circular_paths_detected

@@ -22,11 +22,15 @@ module Bio
         # The nodes in the graph that contain the start_probe_read_id and end_probe_read_id
         attr_accessor :start_probe_node, :end_probe_node
 
-        # number of nucleotides between the start of the probe read and the start of the end of the contig
+        # number of nucleotides between the start of the start probe read and the start of the end of the contig
         attr_accessor :start_probe_contig_offset
 
-        # number of nucleotides until the start of the probe read in the start of the second contig
+        # number of nucleotides until the end of the end probe read in the start of the second contig
         attr_accessor :end_probe_contig_offset
+
+        # Length of the start and end probe sequences
+        attr_accessor :start_probe_read_length
+        attr_accessor :end_probe_read_length
 
         # Enumerable of Enumerables of OrientedNode objects, each list of OrientedNode objects
         # corresponds to a path that forms the connection
@@ -60,65 +64,89 @@ module Bio
 
       # Given two contigs, return a String representing the new contig. Assumes
       # that there is only 1 path between the two contigs.
-      #TODO: this method will almost certainly fail because it takes no notice of NodedRead.direction
-      def one_connection_between_two_contigs(graph,contig1,anchored_connection,contig2)
+      #
+      #          ---------->         <--------           start and end probes (ends of probe sequences may not form part of final path). Directions not variable.
+      #  --------------------->NNNN------------------->  original sequence to be gapfilled (contig1, NNNN, contig2). Directions not variable
+      #      -----------                 ------->        path across the gap. Direction not variable
+      #                 \               /
+      #                  --------------
+      #      ---------->|<-----|----->|--------->        nodes that make up the path (directions and boundaries variable)
+      #    stage1|           stage2           |stage3    stages of sequence construction in this method
+      def one_connection_between_two_contigs(graph, contig1, anchored_connection, contig2)
         to_return = ''
 
-        # add the contig up until the probe read begins
-        # then add the bits of the probe that are before the path beginning (if this is non-zero perhaps it indicates a mistake?, or sequencing error in read)
-        # add the nucleotides up until the first probe bites in
-        # In the velvet graph, this is where the read first starts on the first node
-        begin_node = anchored_connection.start_probe_node
-        begin_node_read = begin_node.short_reads.find{|noded_read| noded_read.read_id == anchored_connection.start_probe_read_id}
-        log.debug "begin noded read: #{begin_node_read.inspect}" if log.debug?
-        # class NodedRead
-        #   attr_accessor :read_id, :offset_from_start_of_node, :start_coord, :direction
-        # end
-        first_bite_length = begin_node_read.start_coord
-        first_bite_start = contig1.length-anchored_connection.start_probe_contig_offset
-        log.debug "First bite start=#{first_bite_start}, first_bite_length=#{first_bite_length}" if log.debug?
-        first_bite = contig1[first_bite_start...(first_bite_start+first_bite_length)]
-        log.debug "Adding first bite #{first_bite}" if log.debug?
-        to_return = contig1[0...first_bite_start] #up until the first bite
-        log.debug "Before first bite, sequence is #{to_return}" if log.debug?
-        to_return += first_bite #the first bite
-        log.debug "Adding first bite sequence `#{first_bite}'" if log.debug?
+        log.debug "Working with anchored_connection: #{anchored_connection.inspect}" if log.debug?
 
-        # then add the path itself
-        path = nil
-        anchored_connection.paths.each do |pat|
-          raise "Found multiple paths - can't yet handle this" unless path.nil?
-          path = pat
-        end
-        raise "path not valid - wrong start node" unless path[0].node == anchored_connection.start_probe_node
-        raise "path not valid - wrong end node" unless path[path.length-1].node == anchored_connection.end_probe_node
-        whole_seq = path.sequence
-        log.debug "Found whole sequence of path #{whole_seq}" if log.debug?
-        end_node = anchored_connection.end_probe_node
-        end_probe_read = end_node.short_reads.find{|noded_read| noded_read.read_id == anchored_connection.end_probe_read_id}
+        # Stage1 - contig1 before the path begins
+        to_return = contig1[0...-(anchored_connection.start_probe_contig_offset)]
+        log.debug "After first chunk of sequence added, sequence is #{to_return.length}bp long" if log.debug?
 
+        # Stage2 - path sequence, beginning and ending with
+        # beginning and ending probes
+        begin
+          path = nil
+          anchored_connection.paths.each do |pat|
+            raise "Found multiple paths - can't (yet?) handle this" unless path.nil?
+            path = pat
+          end
 
-        # read positions are given as the distance from the start of the node
-        # if read is in the fwd direction, or distance from the end of the read
-        # if the read is in the rev direction
-        #TODO: need to handle reverse direction of node from the probes?
-        raise "unhandled 1 node path with confusing start and stop. Start was #{begin_node_read.inspect} and end was #{end_probe_read.inspect}" if end_node == begin_node and
-          end_probe_read.adjusted_position(begin_node) < begin_node_read.adjusted_position(begin_node)
-        path_seq_start = begin_node_read.offset_from_start_of_node
-        path_seq_end = whole_seq.length - end_probe_read.offset_from_start_of_node
-        log.debug "path_seq_start=#{path_seq_start}, path_seq_end=#{path_seq_end}, end_probe_read.offset_from_start_of_node=#{end_probe_read.offset_from_start_of_node}"
-        to_return += whole_seq[path_seq_start...path_seq_end]
-        log.debug "after adding the path's sequence, now have #{to_return}" if log.debug?
+          # Find start index
+          begin_node = path[0]
+          begin_noded_read = begin_node.node.short_reads.find{|noded_read| noded_read.read_id == anchored_connection.start_probe_read_id}
+          raise if begin_noded_read.nil?
+          if begin_noded_read.start_coord != 0
+            log.error "Unexpectedly the start of the begin probe not did not form part of the path, possibly indicating misassembly and use of untested code: #{anchored_connection.begin_node_read}"
+            raise "some kind of error"
+            #   to_return += contig1[-(anchored_connection.start_probe_contig_offset)...-(anchored_connection.start_probe_contig_offset+1)]
+          end
+          offset_of_begin_probe_on_path = nil
+          if begin_node.starts_at_start?
+            if begin_noded_read.direction == true
+              offset_of_begin_probe_on_path = begin_noded_read.offset_from_start_of_node
+            else
+              raise "programming error - start probe not in same direction as path (error 1)"
+            end
+          else
+            if begin_node_read.direction == true
+              raise "programming error - start probe not in same direction as path (error 2)"
+            else
+              offset_of_begin_probe_on_path = begin_noded_read.offset_from_start_of_node
+            end
+          end
 
-        # then add the bits after
-        second_bite_start = anchored_connection.end_probe_contig_offset-end_probe_read.offset_from_start_of_node
-        log.debug "second_bite_start #{second_bite_start}, end_probe_contig_offset=#{anchored_connection.end_probe_contig_offset}, end_probe_read.offset_from_start_of_node=#{end_probe_read.offset_from_start_of_node}" if log.debug?
-        to_return += contig2[second_bite_start...anchored_connection.end_probe_contig_offset]
-        log.debug "after adding second bite, sequence is #{to_return}" if log.debug?
+          # Find end index
+          end_node = path[-1]
+          end_noded_read = end_node.node.short_reads.find{|noded_read| noded_read.read_id == anchored_connection.end_probe_read_id}
+          raise if end_noded_read.nil?
+          if end_noded_read.start_coord != 0
+            log.error "Unexpectedly the start of the begin probe not did not form part of the path, possibly indicating misassembly and use of untested code: #{anchored_connection.begin_node_read}"
+            raise "some kind of error"
+          end
+          offset_of_end_node_on_path = nil
+          if end_node.starts_at_start?
+            if end_noded_read.direction == true
+              raise "programming error - end probe not in same direction as path (error 1)"
+            else
+              offset_of_end_node_on_path = end_noded_read.offset_from_start_of_node
+            end
+          else
+            if end_noded_read.direction == true
+              offset_of_end_node_on_path = end_noded_read.offset_from_start_of_node
+            else
+              raise "programming error - end probe not in same direction as path (error 2)"
+            end
+          end
 
-        # then add the second contig, which will be a chopped in at both ends
-        to_return += contig2[anchored_connection.end_probe_contig_offset...contig2.length]
-        log.debug "after adding second contig, sequence is #{to_return}" if log.debug?
+          log.debug "Found start index #{offset_of_begin_probe_on_path} and end index #{offset_of_end_node_on_path}" if log.debug?
+          path_sequence = path.sequence
+          log.debug "Path has a sequence length #{path_sequence.length}" if log.debug?
+          to_return += path_sequence[offset_of_begin_probe_on_path...-(offset_of_end_node_on_path)]
+          log.debug "After path chunk of sequence added, sequence is #{to_return.length}bp long" if log.debug?
+        end #end stage 2
+
+        # Stage 3
+        to_return += contig2[(anchored_connection.end_probe_contig_offset+1)..-1]
+        log.debug "After last chunk of sequence added, sequence is #{to_return.length}bp long" if log.debug?
 
         return to_return
       end
