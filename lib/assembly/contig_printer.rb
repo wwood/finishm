@@ -91,51 +91,27 @@ module Bio
           end
 
           # Find start index
-          begin_node = path[0]
-          begin_noded_read = begin_node.node.short_reads.find{|noded_read| noded_read.read_id == anchored_connection.start_probe_read_id}
+          begin_node = anchored_connection.start_probe_node
+          begin_noded_read = begin_node.short_reads.find{|noded_read| noded_read.read_id == anchored_connection.start_probe_read_id}
           raise if begin_noded_read.nil?
           if begin_noded_read.start_coord != 0
-            log.error "Unexpectedly the start of the begin probe not did not form part of the path, possibly indicating misassembly and use of untested code: #{anchored_connection.begin_node_read}"
+            log.error "Unexpectedly the start of the begin probe not did not form part of the path, possibly indicating misassembly and use of untested code: #{begin_noded_read.inspect}"
+            log.error "Anchored connection was: #{anchored_connection.inspect}"
             raise "some kind of error"
             #   to_return += contig1[-(anchored_connection.start_probe_contig_offset)...-(anchored_connection.start_probe_contig_offset+1)]
           end
-          offset_of_begin_probe_on_path = nil
-          if begin_node.starts_at_start?
-            if begin_noded_read.direction == true
-              offset_of_begin_probe_on_path = begin_noded_read.offset_from_start_of_node
-            else
-              raise "programming error - start probe not in same direction as path (error 1)"
-            end
-          else
-            if begin_node_read.direction == true
-              raise "programming error - start probe not in same direction as path (error 2)"
-            else
-              offset_of_begin_probe_on_path = begin_noded_read.offset_from_start_of_node
-            end
-          end
+          offset_of_begin_probe_on_path = begin_noded_read.offset_from_start_of_node
 
           # Find end index
-          end_node = path[-1]
-          end_noded_read = end_node.node.short_reads.find{|noded_read| noded_read.read_id == anchored_connection.end_probe_read_id}
+          end_node = anchored_connection.end_probe_node
+          end_noded_read = end_node.short_reads.find{|noded_read| noded_read.read_id == anchored_connection.end_probe_read_id}
           raise if end_noded_read.nil?
           if end_noded_read.start_coord != 0
-            log.error "Unexpectedly the start of the begin probe not did not form part of the path, possibly indicating misassembly and use of untested code: #{anchored_connection.begin_node_read}"
+            log.error "Unexpectedly the start of the begin probe not did not form part of the path, possibly indicating misassembly and use of untested code: #{end_noded_read.inspect}"
+            log.error "Anchored connection was: #{anchored_connection.inspect}"
             raise "some kind of error"
           end
-          offset_of_end_node_on_path = nil
-          if end_node.starts_at_start?
-            if end_noded_read.direction == true
-              raise "programming error - end probe not in same direction as path (error 1)"
-            else
-              offset_of_end_node_on_path = end_noded_read.offset_from_start_of_node
-            end
-          else
-            if end_noded_read.direction == true
-              offset_of_end_node_on_path = end_noded_read.offset_from_start_of_node
-            else
-              raise "programming error - end probe not in same direction as path (error 2)"
-            end
-          end
+          offset_of_end_node_on_path = end_noded_read.offset_from_start_of_node
 
           log.debug "Found start index #{offset_of_begin_probe_on_path} and end index #{offset_of_end_node_on_path}" if log.debug?
           path_sequence = path.sequence

@@ -49,7 +49,7 @@ module Bio
           best_node = nodes.min do |n1, n2|
             r1 = n1.short_reads.find{|r| r.read_id == sequence_id}
             r2 = n2.short_reads.find{|r| r.read_id == sequence_id}
-            r1.offset_from_start_of_node <=> r2.offset_from_start_of_node
+            r1.start_coord <=> r2.start_coord
           end
           if best_node
             best_noded_read = best_node.short_reads.find{|r| r.read_id == sequence_id}
