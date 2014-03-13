@@ -238,9 +238,9 @@ each can be reported. \n\n"
         if gap.scaffold == last_scaffold
           # We are still building the current scaffold
           #gapfilled_sequence += gap.scaffold.contigs[gap.number].sequence
-          log.debug "Before adding next chunk of contig, length of scaffold being built is #{gapfilled_sequence.length}"
+          log.debug "Before adding next chunk of contig, length of scaffold being built is #{gapfilled_sequence.length}" if log.debug?
           gapfilled_sequence = filler.call trails, gap.scaffold.contigs[gap.number+1], start_onode, end_onode_inward, start_probe_index, gapfilled_sequence, gap
-          log.debug "After adding next chunk of contig, length of scaffold being built is #{gapfilled_sequence.length}"
+          log.debug "After adding next chunk of contig, length of scaffold being built is #{gapfilled_sequence.length}" if log.debug?
         else
           # We are onto a new scaffold. Print the previous one (unless this the first one)
           unless last_scaffold.nil?

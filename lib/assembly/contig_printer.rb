@@ -116,6 +116,7 @@ module Bio
           log.debug "Found start index #{offset_of_begin_probe_on_path} and end index #{offset_of_end_node_on_path}" if log.debug?
           path_sequence = path.sequence
           log.debug "Path has a sequence length #{path_sequence.length}" if log.debug?
+          log.debug "Returned path sequence will be #{path_sequence.length-offset_of_begin_probe_on_path-offset_of_end_node_on_path} long" if log.debug?
           to_return += path_sequence[offset_of_begin_probe_on_path...-(offset_of_end_node_on_path)]
           log.debug "After path chunk of sequence added, sequence is #{to_return.length}bp long" if log.debug?
         end #end stage 2
