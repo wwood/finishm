@@ -35,6 +35,7 @@ require 'assembly/contig_printer'
 require 'assembly/bubbly_assembler'
 require 'assembly/dijkstra'
 
+require 'finishm/primers'
 require 'finishm/finisher'
 require 'finishm/gapfiller'
 require 'finishm/wander'

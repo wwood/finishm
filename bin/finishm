@@ -20,6 +20,7 @@ global = OptionParser.new do |opts|
 
   FinishM is a collection of tasks related to assembly and metagenome assembly. Available commands:
 
+    primers\tdesign primers for multi-primer multi-lane PCR experimental setup (experimental)
     finish\tprocess results from multi-primer multi-lane PCR experimental setup (experimental)
     gapfill\tFill assembly gaps (N characters) (experimental)
     wander\tTry to connect contigs (experimental)
@@ -30,7 +31,7 @@ global = OptionParser.new do |opts|
 
     sequence\tGiven a defined sequence of nodes, what is the corresponding sequence?
 
-  Ideas that failed on a conceptual level, why am I even listing them?:
+  Ideas that failed on a conceptual level. Why am I even listing them?:
 
     fluff\tTry to get a set of pan-genome contigs from a strain heterogenous coassembly
     \n\n"
@@ -39,6 +40,10 @@ global.order!
 
 operator = nil
 subcommands = {
+  'primers' => lambda {OptionParser.new do |opts|
+    operator = Bio::FinishM::Primers.new
+    operator.add_options(opts, options)
+  end},
   'finish' => lambda {OptionParser.new do |opts|
     operator = Bio::FinishM::Finisher.new
     operator.add_options(opts, options)
