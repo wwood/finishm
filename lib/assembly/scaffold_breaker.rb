@@ -92,7 +92,8 @@ class Bio::FinishM::ScaffoldBreaker
       scaffold.name = seq.definition
 
       unless seq.seq.match(/^[ATGCN]+$/i)
-        log.warn "Found unexpected characters in the sequence, continuing optimistically, but not quite sure what will happen.. good luck"
+        example = seq.seq.match(/^([ATGCN])+$/i)[1]
+        log.warn "Found unexpected characters in the sequence #{seq.definition} e.g. #{example}, continuing optimistically, but not quite sure what will happen.. good luck"
       end
 
       if seq.seq.match(/^N+$/i)
