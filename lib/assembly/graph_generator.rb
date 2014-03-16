@@ -174,7 +174,7 @@ module Bio
               # Bit of a hack, but have to use -short1 as the anchors because then start and end anchors will have node IDs 1,2,... etc.
               velvet_result = Bio::Velvet::Runner.new.velvet(
                 options[:velvet_kmer_size],
-                read_inputs.velvet_read_arguments,
+                "-create_binary #{read_inputs.velvet_read_arguments}",
                 "-read_trkg yes -cov_cutoff #{options[:assembly_coverage_cutoff]} -tour_bus no",
                 :output_assembly_path => options[:output_assembly_path]
               )
