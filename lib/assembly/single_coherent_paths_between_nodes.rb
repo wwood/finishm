@@ -10,8 +10,8 @@ module Bio
       # Find all paths between the initial and terminal node in the graph.
       # Don't search in the graph when the distance in base pairs exceeds the leash length.
       # Recohere reads (singled ended only) in an attempt to remove bubbles.
-      def find_all_connections_between_two_nodes(graph, initial_path, terminal_oriented_node, leash_length, max_bases_between_read_starts)
-        problems = find_all_problems(graph, initial_path, terminal_oriented_node, leash_length)
+      def find_all_connections_between_two_nodes(graph, initial_path, terminal_oriented_node, leash_length, recoherence_kmer)
+        problems = find_all_problems(graph, initial_path, terminal_oriented_node, leash_length, recoherence_kmer)
         #pp problems
         problems.each do |key, dynprob|
           dynprob.remove_duplication_in_known_paths!
@@ -69,7 +69,7 @@ module Bio
           log.debug "considering last: #{last}" if log.debug?
 
           # Unless the path validates, forget it.
-          next if !validate_last_node_of_path_by_recoherence(current_path, max_bases_between_read_starts, min_bridging_read_length)
+          next if !validate_last_node_of_path_by_recoherence(current_path, recoherence_kmer)
 
           if current_path.last == terminal_node
             log.debug "last is terminal" if log.debug?
@@ -118,19 +118,40 @@ module Bio
         return problems
       end
 
-      def validate_last_node_of_path_by_recoherence(path, max_bases_between_read_starts, min_bridging_read_length)
-        #TODO: will need to change the approach of this algorithm because now only need to validate the last node.
-        # Might be as simple as requiring a read to stretch back in the path
-        # from the last node at least min_bridging_read_length back along the path.
+      # Given an OrientedNodeTrail, and an expected number of
+      def validate_last_node_of_path_by_recoherence(path, recoherence_kmer)
+        #not possible to fail on a 1 or 2 node path, by debruijn graph definition.
+        return true if path.length < 3
 
-        # Build sub-path at the beginning that is at least max_bases_between_read_starts long
-        # Gather the nodes that are at most min_bridging_read_length from the end of the subpath.
-        # These are the scout nodes
-        # If there is only 1 scout node, no need for read validation
-        # Find at least 1 read that spans the last node of the known chunk, and each of the scout nodes
-        # else path fails validation.
-        # Add the next node to the known chunk, and repeat
-        # If it makes it through the gauntlet, then the path is validated
+        # Walk backwards along the path from the 2nd last node,
+        # collecting nodes until the length in bp of the nodes is > recoherence_kmer
+        collected_nodes = []
+        length_of_nodes = lambda do |nodes|
+          nodes.reduce(0) do |sum, node|
+            sum += node.node.length_alone
+          end
+        end
+        i = path.trail.length-2
+        while length_of_nodes.call(collected_nodes) < recoherence_kmer and i >= 0
+          collected_nodes.push path.trail[i]
+          i -= 1
+        end
+        log.debug "validate: Collected nodes: #{collected_nodes}" if log.debug?
+
+        # There should be at least 1 read that spans the collected nodes and the last node
+        # The trail validates iff the above statement is true.
+        #TODO: there's a possible 'bug' here in that there's garauntee that the read is overlays the
+        # nodes in a consecutive and gapless manner. But I suspect that is unlikely to be a problem in practice.
+        possible_reads = path.trail[-1].node.short_reads.collect{|nr| nr.read_id}
+        log.debug "validate: Initial short reads: #{possible_reads.join(',')}" if log.debug?
+        collected_nodes.each do |node|
+          current_set = Set.new node.node.short_reads.collect{|nr| nr.read_id}
+          possible_reads.select! do |r|
+            current_set.include? r
+          end
+          return false if possible_reads.empty?
+        end
+        return true
       end
 
       def find_paths_from_problems(problems, terminal_node)
