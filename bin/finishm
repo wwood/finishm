@@ -21,6 +21,7 @@ global = OptionParser.new do |opts|
   FinishM is a collection of tasks related to assembly and metagenome assembly. Available commands:
 
     primers\tdesign primers for multi-primer multi-lane PCR experimental setup (experimental)
+    primers_check\ttest a set of primers for incompatibility (experimental)
     finish\tprocess results from multi-primer multi-lane PCR experimental setup (experimental)
     gapfill\tFill assembly gaps (N characters) (experimental)
     wander\tTry to connect contigs (experimental)
@@ -42,6 +43,10 @@ operator = nil
 subcommands = {
   'primers' => lambda {OptionParser.new do |opts|
     operator = Bio::FinishM::Primers.new
+    operator.add_options(opts, options)
+  end},
+  'primers_check' => lambda {OptionParser.new do |opts|
+    operator = Bio::FinishM::Primers::Checker.new
     operator.add_options(opts, options)
   end},
   'finish' => lambda {OptionParser.new do |opts|
