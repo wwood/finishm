@@ -30,6 +30,7 @@ module Bio
       def find_unique_nodes_with_sequence_ids(graph, sequence_ids)
         # Create data structure
         endings = {}
+        p endings
         sequence_ids.each do |seq_id|
           endings[seq_id] = []
         end

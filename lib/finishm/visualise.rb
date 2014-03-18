@@ -26,14 +26,29 @@ class Bio::FinishM::Visualiser
     Bio::FinishM::ReadInput.new.add_options(optparse_object, options)
 
     optparse_object.separator "\nOptional arguments:\n\n"
-    optparse_object.on("--probe-ids PROBE_IDS", Array, "explore from these probe IDs in the graph. probe ID is the ID in the velvet Sequence file. See also --leash-length [default: don't start from a node, explore the entire graph]") do |arg|
+    optparse_object.on("--probe-ids PROBE_IDS", Array, "explore from these probe IDs in the graph (comma separated). probe ID is the ID in the velvet Sequence file. See also --leash-length [default: don't start from a node, explore the entire graph]") do |arg|
       options[:interesting_probes] = arg.collect do |read|
         read_id = read.to_i
-        if read_id.to_s != read
+        if read_id.to_s != read or read_id.nil? or read_id < 1
           raise "Unable to parse probe ID #{read}, from #{arg}, cannot continue"
         end
         read_id
       end
+    end
+    optparse_object.on("--probe-ids-file PROBE_IDS", String, "explore from the probe IDs given in the file (1 probe ID per line). See also --leash-length [default: don't start from a node, explore the entire graph]") do |arg|
+      raise "Cannot specify both --probe-ids and --probe-ids-file sorry" if options[:interesting_probes]
+      options[:interesting_probes] = []
+      log.info "Reading probe IDs from file: `#{arg}'"
+      File.foreach(arg) do |line|
+        line.strip!
+        next if line == '' or line.nil?
+        read_id = line.to_i
+        if read_id.to_s != line or read_id < 1 or read_id.nil?
+          raise "Unable to parse probe ID #{line}, from file #{arg}, cannot continue"
+        end
+        options[:interesting_probes].push read_id
+      end
+      log.info "Read #{options[:interesting_probes].length} probes in"
     end
     optparse_object.on("--leash-length NUM", Integer, "Don't explore too far in the graph, only this far and not much more [default: unused unless --nodes is specified, otherwise #{options[:graph_search_leash_length]}]") do |arg|
       options[:graph_search_leash_length] = arg
@@ -49,7 +64,7 @@ class Bio::FinishM::Visualiser
     if argv.length != 0
       return "Dangling argument(s) found e.g. #{argv[0]}"
     else
-      if options[:output_graph_png].nil? and options[:output_graph_svg].nil? and options[:output_graph_dot]
+      if options[:output_graph_png].nil? and options[:output_graph_svg].nil? and options[:output_graph_dot].nil?
         return "No visualisation output format/file given, don't know how to visualise"
       end
       #TODO: this needs to be improved.
@@ -71,9 +86,14 @@ class Bio::FinishM::Visualiser
     log.info "Reading in or generating the assembly graph"
     finishm_graph = nil
     if options[:interesting_probes]
-      log.info "Targeting probes #{options[:interesting_probes].inspect}"
+      if options[:interesting_probes].length > 5
+        log.info "Targeting #{options[:interesting_probes].length} probes #{options[:interesting_probes][0..4].join(', ') }, ..."
+      else
+        log.info "Targeting #{options[:interesting_probes].length} probes #{options[:interesting_probes].inspect}"
+      end
+      options[:probe_reads] = options[:interesting_probes]
       dummy_probe_seqs = ['dummy']*options[:interesting_probes].max
-      finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph(dummy_probe_seqs, read_input, options)
+      finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
     else
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
     end

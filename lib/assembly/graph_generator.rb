@@ -112,10 +112,10 @@ module Bio
           :velvet_kmer_size => 87,
           :assembly_coverage_cutoff => 3.5,
         })
-        option_parser.on("--assembly-kmer NUMBER", "when assembling, use this kmer length [default: #{options[:velvet_kmer_size]}]") do |arg|
+        option_parser.on("--assembly-kmer NUMBER", "when assembling, use this kmer length [default: #{options[:velvet_kmer_size] }]") do |arg|
           options[:velvet_kmer_size] = arg.to_i
         end
-        option_parser.on("--assembly-coverage-cutoff NUMBER", "Require this much coverage in each node, all other nodes are removed [default: #{options[:assembly_coverage_cutoff]}]") do |arg|
+        option_parser.on("--assembly-coverage-cutoff NUMBER", "Require this much coverage in each node, all other nodes are removed [default: #{options[:assembly_coverage_cutoff] }]") do |arg|
           options[:assembly_coverage_cutoff] = arg.to_f
         end
         option_parser.on("--velvet-directory PATH", "Output assembly intermediate files to this directory [default: use temporary directory, delete afterwards]") do |arg|
@@ -141,6 +141,7 @@ module Bio
       # read_inputs: a ReadInput object, containing the information to feed to velveth
       #
       # options:
+      # :probe_reads: a list of sequence numbers (numbering as per velvet Sequence file)
       # :velvet_kmer_size: kmer
       # :assembly_coverage_cutoff: coverage cutoff for nodes
       # :output_assembly_path: write assembly to this directory
@@ -152,7 +153,12 @@ module Bio
         if options[:previously_serialized_parsed_graph_file].nil?
           velvet_result = nil
 
-          probe_read_ids = Set.new((1..probe_sequences.length))
+          probe_read_ids = nil
+          if options[:probe_reads]
+            probe_read_ids = options[:probe_reads]
+          else
+            probe_read_ids = Set.new((1..probe_sequences.length))
+          end
           if options[:previous_assembly].nil? #If assembly has not already been carried out
             Tempfile.open('probes.fa') do |tempfile|
               50.times do # Do 50 times to make sure that velvet doesn't throw out parts of the graph that contain this contig
@@ -219,7 +225,8 @@ module Bio
         # Find the anchor nodes again
         finder = Bio::AssemblyGraphAlgorithms::NodeFinder.new
         log.info "Finding nodes representing the end of the each contig"
-        anchor_sequence_ids = (1..probe_sequences.length)
+        anchor_sequence_ids = probe_read_ids.to_a.sort
+p anchor_sequence_ids
         endings = finder.find_unique_nodes_with_sequence_ids(graph, anchor_sequence_ids)
         finishm_graph = Bio::FinishM::ProbedGraph.new
         finishm_graph.graph = graph
