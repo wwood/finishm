@@ -122,6 +122,17 @@ class GraphTesting
     end
   end
 
+  def self.emit_otrails(paths)
+    graph, paths2 = emit_paths(paths)
+    return graph, paths2.collect do |path|
+      trail = Bio::Velvet::Graph::OrientedNodeTrail.new
+      path.each do |onode|
+        trail.add_oriented_node onode
+      end
+      trail
+    end
+  end
+
   def self.emit_printer_connection(graph, ref, variants)
     conn = Bio::AssemblyGraphAlgorithms::ContigPrinter::Connection.new
     conn.reference_path = ref.collect do |node_id|
@@ -180,5 +191,18 @@ class GraphTesting
     end
 
     return trail
+  end
+
+  def self.add_noded_reads(graph, paths)
+    paths.each_with_index do |path, i|
+      path.each do |node_id|
+        node = graph.nodes[node_id]
+        noded_read = Bio::Velvet::Graph::NodedRead.new
+        noded_read.read_id = i
+
+        node.short_reads ||= []
+        node.short_reads.push noded_read
+      end
+    end
   end
 end

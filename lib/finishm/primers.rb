@@ -12,9 +12,9 @@ class Bio::FinishM::Primers
   include Bio::FinishM::Logging
 
   def add_options(optparse_object, options)
-    optparse_object.banner = "\nUsage: finishm primers --contigs <contig_file> --fastq-gz <reads..> --output-connections <output.csv>
+    optparse_object.banner = "\nUsage: finishm primers --contigs <contig_file> --min-distance-from-contig-ends <num_bases> --max-distance-from-contig-ends <num_bases> [options]
 
-Takes a collection of contigs that are assumed to be a single circular genome. Then Designs primers off the ends of each of the contigs
+Takes a collection of contigs that are assumed to be a single circular genome. Then designs primers off the ends of each of the contigs
 for use in a PCR reaction such that if all primers were included all the PCR reaction all the gaps would be amplified.
 \n\n"
 
@@ -143,36 +143,39 @@ for use in a PCR reaction such that if all primers were included all the PCR rea
         'PRIMER_PRODUCT_SIZE_RANGE'=>"#{num_ns}-#{joined.length}",
         }.merge(extra_primer3_options)
         )
-      unless result.yeh?
-        log.warn "No primers found for contig #{contig.definition}, giving up"
-        exit 1
+      log.debug "primer3 returned the following result: #{result.output_hash.inspect}"
+
+      if result.yeh?
+        # Push each of the reported primers
+        fwds = []
+        reverses = []
+        (0...result['PRIMER_LEFT_NUM_RETURNED'].to_i).each do |pair_number|
+          fwds.push result["PRIMER_RIGHT_#{pair_number}_SEQUENCE"]
+          reverses.push result["PRIMER_LEFT_#{pair_number}_SEQUENCE"]
+        end
+        contig_name = contig.definition
+
+        f = PrimerList.new
+        f.contig_side = PrimerList::START_OF_CONTIG
+        f.primers = fwds
+        f.contig_name = contig_name
+        primer3_results.push f
+
+        r = PrimerList.new
+        r.contig_side = PrimerList::END_OF_CONTIG
+        r.primers = reverses
+        r.contig_name = contig_name
+        primer3_results.push r
+      else
+        log.error "For failing primer #{contig.definition}, primer3 result was: #{result.output_hash.inspect}"
+        log.error "No primers found for contig #{contig.definition}, giving up"
+        exit 1 unless options[:persevere]
       end
-
-      # Push each of the reported primers
-      fwds = []
-      reverses = []
-      (0...result['PRIMER_LEFT_NUM_RETURNED'].to_i).each do |pair_number|
-        fwds.push result["PRIMER_RIGHT_#{pair_number}_SEQUENCE"]
-        reverses.push result["PRIMER_LEFT_#{pair_number}_SEQUENCE"]
-      end
-      contig_name = contig.definition
-
-      f = PrimerList.new
-      f.contig_side = PrimerList::START_OF_CONTIG
-      f.primers = fwds
-      f.contig_name = contig_name
-      primer3_results.push f
-
-      r = PrimerList.new
-      r.contig_side = PrimerList::END_OF_CONTIG
-      r.primers = reverses
-      r.contig_name = contig_name
-      primer3_results.push r
     end
     log.info "Finished getting first round of primers, now have #{primer3_results.length} sets of primers e.g. #{primer3_results[0].inspect}"
 
     if log.debug?
-      log.debug "Primer sets that went in:"
+      log.debug "Primer sets to be validated:"
       primer3_results.each do |res|
         log.debug res.inspect
       end
@@ -222,8 +225,8 @@ for use in a PCR reaction such that if all primers were included all the PCR rea
           previous_primer_list.each_with_index do |prev, i|
             log.debug "Testing #{primer_to_test.inspect} against #{prev.inspect}"
             if Bio::Primer3.test_primer_compatibility(primer_to_test, prev, extra_primer3_options) == false
-              log.debug "Incompatible, unfortunately"
-              log.error "This route through the code has never been tested, so you'll have to take a look at the code to ensure there is no bugs. Exiting."
+              log.error "Found an incompatible pair of primers, unfortunately"
+              log.error "This route through the code has never been tested, so you'll have to take a look at the code to ensure there is no bugs. Or else run this program with different parameters. Exiting."
               exit 1
               failed_against_prev = true
               break
@@ -237,7 +240,7 @@ for use in a PCR reaction such that if all primers were included all the PCR rea
             # Do nothing, try to change the same index again
           else
             log.debug "All compatible, cool. Now moving to the next index"
-            current_path[next_index_to_change+1] = nil
+            current_path[next_index_to_change+1] = nil unless next_index_to_change+1 >= primer_sets.length
             next_index_to_change += 1
           end
         end
@@ -255,7 +258,7 @@ for use in a PCR reaction such that if all primers were included all the PCR rea
     (0...primer_sets.length).to_a.combination(2) do |array|
       primer1 = primer_sets[array[0]][current_path[array[0]]]
       primer2 = primer_sets[array[1]][current_path[array[1]]]
-      result = Bio::Primer3.test_primer_compatibility(primer1, primer2, extra_primer3_options)
+      result, res = Bio::Primer3.test_primer_compatibility(primer1, primer2, extra_primer3_options, :return_result => true)
       num_compared += 1
 
       if result == false
@@ -392,7 +395,11 @@ for use in a PCR reaction such that if all primers were included all the PCR rea
     log.debug "Tested #{num_compared} pairs of primers to see if anything else was hit, warnings above if any did so"
 
 
-    log.info "Hoorah! Found an ok set of primers"
+    if current_path.length == contigs.length*2
+      log.info "Hoorah! Found an ok set of primers"
+    else
+      log.error "Unable to find a complete set of primers with the constraints given to primer3. Printing the primers that were found anyway.."
+    end
     puts %w(Contig Side Index Primer).join("\t")
     current_path.each_with_index do |primer_index, primer_set_index|
       break if primer_set_index >= primer3_results.length
