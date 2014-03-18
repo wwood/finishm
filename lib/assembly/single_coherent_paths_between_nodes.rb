@@ -25,13 +25,13 @@ module Bio
 #         }.join("\n")
 
         #exit
-        paths = find_paths_from_problems(problems, terminal_oriented_node)
+        paths = find_paths_from_problems(problems, recoherence_kmer)
         return paths
       end
 
-      def find_all_problems(graph, initial_path, terminal_node, leash_length)
+      def find_all_problems(graph, initial_path, terminal_node, leash_length, recoherence_kmer)
         # setup dynamic programming cache
-        problems = {}
+        problems = ProblemSet.new
 
         # setup stack to keep track of initial nodes
         stack = DS::Stack.new
@@ -49,33 +49,28 @@ module Bio
           end
         end
 
-        path_to_settable = lambda do |path|
-          cumulative_length = 0
-          trail = path.trail
-          i = trail.length - 1
-          while i >= 0 and cumulative_length < max_bases_between_read_starts
-            cumulative_length += trail[i].length_alone
-            i -= 1
-          end
-          # 'Return' an array made up of the settables
-          trail[i..-1].collect{|t| t.to_settable}.flatten
-        end
-
         while current_path = stack.pop
           # Have we solved this before? If so, add this path to that solved problem.
-          set_key = path_to_settable.call current_path
+          set_key = path_to_settable current_path, recoherence_kmer
           path_length = current_path.length_in_bp
           log.debug "considering #{current_path}, path length: #{path_length}" if log.debug?
-          log.debug "considering last: #{last}" if log.debug?
 
           # Unless the path validates, forget it.
-          next if !validate_last_node_of_path_by_recoherence(current_path, recoherence_kmer)
+          if !validate_last_node_of_path_by_recoherence(current_path, recoherence_kmer)
+            log.debug "Path did not validate, skipping" if log.debug?
+            next
+          elsif log.debug?
+            log.debug "Path validates"
+          end
 
           if current_path.last == terminal_node
             log.debug "last is terminal" if log.debug?
             problems[set_key] ||= DynamicProgrammingProblem.new
             problems[set_key].known_paths ||= []
             problems[set_key].known_paths.push current_path
+
+            problems.terminal_node_keys ||= []
+            problems.terminal_node_keys.push set_key
 
           elsif problems[set_key]
             log.debug "Already seen this problem" if log.debug?
@@ -118,6 +113,25 @@ module Bio
         return problems
       end
 
+      def path_to_settable(path, recoherence_kmer)
+        log.debug "Making settable a path: #{path}" if log.debug?
+        return array_trail_to_settable(path.trail, recoherence_kmer)
+      end
+
+      def array_trail_to_settable(trail, recoherence_kmer)
+        cumulative_length = 0
+        i = trail.length - 1
+        while i >= 0 and cumulative_length < recoherence_kmer
+          cumulative_length += trail[i].node.length_alone
+          i -= 1
+        end
+        i += 1
+        # 'Return' an array made up of the settables
+        to_return = trail[i..-1].collect{|t| t.to_settable}.flatten
+        log.debug "'Returning' settable version of path: #{to_return}" if log.debug?
+        to_return
+      end
+
       # Given an OrientedNodeTrail, and an expected number of
       def validate_last_node_of_path_by_recoherence(path, recoherence_kmer)
         #not possible to fail on a 1 or 2 node path, by debruijn graph definition.
@@ -143,7 +157,7 @@ module Bio
         #TODO: there's a possible 'bug' here in that there's garauntee that the read is overlays the
         # nodes in a consecutive and gapless manner. But I suspect that is unlikely to be a problem in practice.
         possible_reads = path.trail[-1].node.short_reads.collect{|nr| nr.read_id}
-        log.debug "validate: Initial short reads: #{possible_reads.join(',')}" if log.debug?
+        log.debug "validate: Initial short reads: #{possible_reads.join(',') }" if log.debug?
         collected_nodes.each do |node|
           current_set = Set.new node.node.short_reads.collect{|nr| nr.read_id}
           possible_reads.select! do |r|
@@ -154,21 +168,29 @@ module Bio
         return true
       end
 
-      def find_paths_from_problems(problems, terminal_node)
+      def find_paths_from_problems(problems, recoherence_kmer)
         stack = DS::Stack.new
 
         to_return = Bio::AssemblyGraphAlgorithms::TrailSet.new
         to_return.circular_paths_detected = false
         to_return.trails = []
 
+
+        # if there is no solutions to the overall problem then there is no solution at all
+        if problems.terminal_node_keys.nil? or problems.terminal_node_keys.empty?
+          return to_return
+        end
+
         # push all solutions to the "ending in the final node" solutions to the stack
-        overall_solution = problems[terminal_node.to_settable]
-        return to_return if overall_solution.nil? # if there is no solutions to the overall problem then there is no solution at all
-        stack.push [
-          overall_solution.known_paths[0].to_a,
-          []
-        ]
+        problems.terminal_node_keys.each do |key|
+          overall_solution = problems[key]
+          stack.push [
+            overall_solution.known_paths[0].to_a,
+            []
+          ]
+        end
         all_paths = []
+
 
         while path_halves = stack.pop
           log.debug path_halves.collect{|half| half.collect{|onode| onode.node.node_id}.join(',')}.join(' and ')
@@ -187,7 +209,7 @@ module Bio
               to_return.circular_paths_detected = true
               return to_return
             else
-              paths_to_last = problems[last.to_settable].known_paths
+              paths_to_last = problems[array_trail_to_settable(first_half, recoherence_kmer)].known_paths
               paths_to_last.each do |path|
                 to_push = [path[0...(path.length-1)],[last,second_half].flatten]
                 log.debug "Pushing #{to_push.collect{|half| half.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') }" if log.debug?
@@ -228,6 +250,13 @@ module Bio
             end
           end
         end
+      end
+
+      # Like a Hash, but also contains a list of keys that end in the
+      # terminal node
+      class ProblemSet < Hash
+        # Array of keys to this hash that end in the terminal onode
+        attr_accessor :terminal_node_keys
       end
     end
   end

@@ -18,15 +18,26 @@ module Bio
     class AcyclicConnectionFinder
       include Bio::FinishM::Logging
 
-      def find_trails_between_nodes(graph, initial_oriented_node, terminal_oriented_node, leash_length)
+      # Find trails between two oriented nodes, both facing the same way along the path.
+      #
+      # Options:
+      # * :recoherence_kmer: use a longer kmer to help de-bubble and de-cicularise (default don't use this)
+      def find_trails_between_nodes(graph, initial_oriented_node, terminal_oriented_node, leash_length, options={})
 
         #TODO: this is now implemented in the finishm_graph object - just get it from there
         initial_path = Bio::Velvet::Graph::OrientedNodeTrail.new
         initial_path.add_oriented_node initial_oriented_node
 
-        return Bio::AssemblyGraphAlgorithms::PathsBetweenNodesFinder.new.find_all_connections_between_two_nodes(
-          graph, initial_path, terminal_oriented_node, leash_length
-          )
+        if options[:recoherence_kmer]
+          finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
+          return finder.find_all_connections_between_two_nodes(
+            graph, initial_path, terminal_oriented_node, leash_length, options[:recoherence_kmer]
+            )
+        else
+          return Bio::AssemblyGraphAlgorithms::PathsBetweenNodesFinder.new.find_all_connections_between_two_nodes(
+            graph, initial_path, terminal_oriented_node, leash_length
+            )
+        end
       end
 
 #       def find_all_trails_squid_way(graph, path, terminal_node, leash_length)

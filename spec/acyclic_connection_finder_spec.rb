@@ -36,7 +36,7 @@ describe "AcyclicConnectionFinder" do
     initial_node = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(graph.nodes[1], true)
     terminal_node = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(graph.nodes[2], true)
     trails = cartographer.find_trails_between_nodes(graph, initial_node, terminal_node, 99999999)
-    log.debug "Found trails: #{trails[0].collect{|node| node.node_id}.join(',')}" if log
+    log.debug "Found trails: #{trails[0].collect{|node| node.node_id}.join(',') }" if log
     GraphTesting.sorted_paths(trails).should == [
       [1,2],
     ]
@@ -81,7 +81,7 @@ describe "AcyclicConnectionFinder" do
     initial_node = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(graph.nodes[3], false)
     terminal_node = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(graph.nodes[2], false)
     trails = cartographer.find_trails_between_nodes(graph, initial_node, terminal_node, 99999999)
-    log.debug "Found trails: #{trails[0].collect{|node| node.node_id}.join(',')}" if log
+    log.debug "Found trails: #{trails[0].collect{|node| node.node_id}.join(',') }" if log
     GraphTesting.sorted_paths(trails).should == [
       [3,2],
     ]
@@ -471,7 +471,7 @@ describe "AcyclicConnectionFinder" do
     }
   end
 
-it 'should find a path when the initial is the terminal and directions match' do
+  it 'should find a path when the initial is the terminal and directions match' do
     graph = GraphTesting.emit([
       [1,2],
     ])
@@ -494,5 +494,26 @@ it 'should find a path when the initial is the terminal and directions match' do
     paths = cartographer.find_trails_between_nodes(graph, initial_node, terminal_node, 99999)
     GraphTesting.sorted_paths(paths).should == [
       ].sort
+  end
+
+  it 'should work with a recoherence kmer' do # There is more in-depth testing of this in another spec file
+    graph, initial_path, terminal_onode = GraphTesting.emit_ss([
+      [1,2],
+      [2,3],
+      [1,5],
+      [5,3],
+
+      [3,4],
+    ], 1, 4)
+    GraphTesting.add_noded_reads(graph,[
+      [1,2,3,4],
+      [1,5],
+      ])
+    cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
+    paths = cartographer.find_trails_between_nodes(graph, initial_path.trail[0], terminal_onode, 99999, :recoherence_kmer => 15)
+    paths.circular_paths_detected.should == false
+    GraphTesting.sorted_paths(paths.trails).should == [
+      [1,2,3,4],
+    ]
   end
 end

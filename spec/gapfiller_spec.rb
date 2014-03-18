@@ -14,7 +14,6 @@ describe 'finishm gap closer' do
 
   it 'should scripting test ok with a 1 node thing' do
     command = "#{path_to_script} --quiet --fasta-gz #{TEST_DATA_DIR}/3/reads.fa.gz --contigs #{TEST_DATA_DIR}/3/with_gaps.fa --output-fasta /dev/stdout"
-    puts command
     status, stdout, stderr = systemu command
 
     stderr.should eq("")

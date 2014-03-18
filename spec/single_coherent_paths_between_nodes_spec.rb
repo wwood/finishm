@@ -41,6 +41,105 @@ describe "SingleCoherentPathsBetweenNodes" do
     finder.validate_last_node_of_path_by_recoherence(paths[0], 11).should == false
   end
 
+  it 'should find a hello world trail' do
+    graph, paths = GraphTesting.emit_otrails([
+      [1,2,3],
+    ])
+    GraphTesting.add_noded_reads(graph,[
+      [1,2,3],
+      ])
+    initial_path = GraphTesting.make_onodes(graph, %w(1s))
+    terminal_oriented_node = GraphTesting.make_onodes(graph, %w(3s)).trail[0]
+    finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new; recoherence_kmer = 15
+    problems = finder.find_all_problems(graph, initial_path, terminal_oriented_node, nil, recoherence_kmer)
+    #pp problems
+    paths = finder.find_paths_from_problems(problems, recoherence_kmer)
+    #pp paths
+    paths.circular_paths_detected.should == false
+    GraphTesting.sorted_paths(paths.trails).should == [
+      [1,2,3],
+    ]
+  end
+
+  it 'should not find a uncoherent trail' do
+    graph, paths = GraphTesting.emit_otrails([
+      [1,2,3],
+    ])
+    GraphTesting.add_noded_reads(graph,[
+      [1,2],
+      [2,3],
+      ])
+    initial_path = GraphTesting.make_onodes(graph, %w(1s))
+    terminal_oriented_node = GraphTesting.make_onodes(graph, %w(3s)).trail[0]
+    finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new; recoherence_kmer = 15
+    problems = finder.find_all_problems(graph, initial_path, terminal_oriented_node, nil, recoherence_kmer)
+    #pp problems
+    paths = finder.find_paths_from_problems(problems, recoherence_kmer)
+    #pp paths
+    paths.circular_paths_detected.should == false
+    GraphTesting.sorted_paths(paths.trails).should == [
+    ]
+  end
+
+  it 'should find one path when only one is coherent 1' do
+    graph, initial_path, terminal_onode = GraphTesting.emit_ss([
+      [1,2],
+      [2,3],
+      [1,5],
+      [5,3],
+    ], 1, 3)
+    GraphTesting.add_noded_reads(graph,[
+      [1,2,3],
+      [1,5],
+      ])
+    finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 15)
+    paths.circular_paths_detected.should == false
+    GraphTesting.sorted_paths(paths.trails).should == [
+      [1,2,3],
+    ]
+  end
+
+  it 'should find one path when only one is coherent and two nodes at the end' do
+    graph, initial_path, terminal_onode = GraphTesting.emit_ss([
+      [1,2],
+      [2,3],
+      [1,5],
+      [5,3],
+
+      [3,4],
+    ], 1, 4)
+    GraphTesting.add_noded_reads(graph,[
+      [1,2,3,4],
+      [1,5],
+      ])
+    finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 15)
+    paths.circular_paths_detected.should == false
+    GraphTesting.sorted_paths(paths.trails).should == [
+      [1,2,3,4],
+    ]
+  end
+
+  it 'should find both paths when the recoherence_kmer is not long enough' do
+    graph, initial_path, terminal_onode = GraphTesting.emit_ss([
+      [1,2],
+      [2,3],
+      [1,5],
+      [5,3],
+    ], 1, 3)
+    GraphTesting.add_noded_reads(graph,[
+      [1,2,3],
+      [1,5],
+      ])
+    finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 9)
+    paths.circular_paths_detected.should == false
+    GraphTesting.sorted_paths(paths.trails).should == [
+      [1,2,3],
+    ]
+  end
+
 #   it 'should calculate a very straightforward trail' do
 #     graph, initial_path, terminal_node = GraphTesting.emit_ss([
 #       [1,2],
