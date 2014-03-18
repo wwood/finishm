@@ -1,0 +1,1 @@
+uqbwoodc@rudd:20140310:~/git/priner/spec/data/gapfilling/4$ ~/git/sammy/sammy.pl -r <(head -n4 /srv/db/gg/2013_05/gg_13_5_otus/rep_set/97_otus.fasta |tail -n+3) -n 300 -i 300 |pigz >reads.fa.gz
