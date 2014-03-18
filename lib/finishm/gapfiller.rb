@@ -212,7 +212,10 @@ each can be reported. \n\n"
         end_onode.node = end_onode_inward.node
         end_onode.first_side = end_onode_inward.starts_at_start? ? Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST : Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
 
-        trails = cartographer.find_trails_between_nodes(finishm_graph.graph, start_onode, end_onode, options[:graph_search_leash_length])
+        trails = cartographer.find_trails_between_nodes(
+          finishm_graph.graph, start_onode, end_onode, options[:graph_search_leash_length],
+          :recoherence_kmer => options[:recoherence_kmer]
+        )
         log.info "Found #{trails.trails.length} trails for #{gap.coords}"
         if trails.circular_paths_detected
           log.warn "Circular path detected here, not attempting to gapfill"

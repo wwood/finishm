@@ -226,7 +226,6 @@ module Bio
         finder = Bio::AssemblyGraphAlgorithms::NodeFinder.new
         log.info "Finding nodes representing the end of the each contig"
         anchor_sequence_ids = probe_read_ids.to_a.sort
-p anchor_sequence_ids
         endings = finder.find_unique_nodes_with_sequence_ids(graph, anchor_sequence_ids)
         finishm_graph = Bio::FinishM::ProbedGraph.new
         finishm_graph.graph = graph
