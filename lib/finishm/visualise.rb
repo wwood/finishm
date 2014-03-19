@@ -12,11 +12,11 @@ class Bio::FinishM::Visualiser
       :interesting_probes => nil
     })
     optparse_object.separator "Output visualisation formats (one or more of these must be used)"
-    optparse_object.on("--assembly-png PATH", "Output assembly as a PNG file [default: off]") do |arg|
-      options[:output_graph_png] = arg
-    end
     optparse_object.on("--assembly-svg PATH", "Output assembly as a SVG file [default: off]") do |arg|
       options[:output_graph_svg] = arg
+    end
+    optparse_object.on("--assembly-png PATH", "Output assembly as a PNG file [default: off]") do |arg|
+      options[:output_graph_png] = arg
     end
     optparse_object.on("--assembly-dot PATH", "Output assembly as a DOT file [default: off]") do |arg|
       options[:output_graph_dot] = arg

@@ -14,9 +14,9 @@ class Bio::FinishM::Sequence
     options.merge!({
     })
 
-    optparse_object.separator "\nRequired arguments:\n\n"
-    optparse_object.on("--path PATH", Array, "A comma separated list of node IDs and orientations - explore from these probe IDs in the graph e.g. '4s,2s,3e' means start at the start of node 4, connecting to the beginning of node 2 and finally the end of probe 3. [required]") do |arg|
-      options[:path] = arg.collect do |str|
+    # Parse a string like '4s,2s,3e' into a programmatic version of a path
+    parse_path_string = lambda do |path_string|
+      path_string.collect do |str|
         if matches = str.match(/^([01-9]+)([se])$/)
           stone = PathSteppingStone.new
           stone.node_id = matches[1].to_i
@@ -33,6 +33,25 @@ class Bio::FinishM::Sequence
         end
       end
     end
+
+    optparse_object.separator "\nRequired arguments:\n\n"
+    optparse_object.on("--path PATH", Array, "A comma separated list of node IDs and orientations - explore from these probe IDs in the graph e.g. '4s,2s,3e' means start at the start of node 4, connecting to the beginning of node 2 and finally the end of probe 3. [required]") do |arg|
+      options[:paths] = [parse_path_string.call(arg)]
+    end
+    optparse_object.separator "--or--"
+    optparse_object.on("--paths PATHS", "A colon separated list of comma separated lists of node IDs and orientations - e.g. '4s,2s,3e:532s,465s' means print 2 different paths [required]") do |arg|
+      raise "Only one of --path and --paths can be specified" unless options[:paths].nil?
+      options[:paths] = []
+      arg.split(':').each do |split|
+        split.strip!
+        next if split == ''
+        options[:paths].push parse_path_string.call(split.split(','))
+      end
+      log.info "Read in #{options[:paths] } path definitions"
+      if log.debug?
+
+      end
+    end
     optparse_object.separator "\nIf an assembly is to be done, there must be some definition of reads:\n\n" #TODO improve this help
     Bio::FinishM::ReadInput.new.add_options(optparse_object, options)
 
@@ -46,7 +65,7 @@ class Bio::FinishM::Sequence
     if argv.length != 0
       return "Dangling argument(s) found e.g. #{argv[0]}"
     else
-      if options[:path].nil?
+    if options[:paths].nil? or options[:paths].empty?
         return "No path defined, so don't know how to procede through the graph"
       end
 
@@ -68,32 +87,36 @@ class Bio::FinishM::Sequence
     finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
 
     # Build the oriented node trail
-    log.info "Building the trail from the nodes"
-    trail = Bio::Velvet::Graph::OrientedNodeTrail.new
-    options[:path].each do |stone|
-      log.debug "Adding stone to the trail: #{stone.inspect}"
-      node = finishm_graph.graph.nodes[stone.node_id]
-      if node.nil?
-        raise "Unable to find node ID #{stone.node_id} in the graph, so cannot continue"
+    log.info "Building the trail(s) from the nodes"
+    options[:paths].each do |path|
+      trail = Bio::Velvet::Graph::OrientedNodeTrail.new
+      path.each do |stone|
+        log.debug "Adding stone to the trail: #{stone.inspect}"
+        node = finishm_graph.graph.nodes[stone.node_id]
+        if node.nil?
+          raise "Unable to find node ID #{stone.node_id} in the graph, so cannot continue"
+        end
+
+        # check that the path actually connects in the graph, otherwise stop.
+        is_neighbour = false
+        unless trail.length == 0 #don't worry about the first stepping stone
+          trail.neighbours_of_last_node(finishm_graph.graph).each do |oneigh|
+            log.debug "Considering neighbour #{oneigh.inspect}"
+            is_neighbour = true if oneigh.node == node and oneigh.first_side == stone.first_side
+          end
+          unless is_neighbour
+            raise "In the graph, the node #{trail.last.to_s} does not connect with #{stone.inspect}"
+          end
+        end
+
+        # OK, all the checking done. Actually add it to the trail
+        trail.add_node node, stone.first_side
       end
 
-      # check that the path actually connects in the graph, otherwise stop.
-      is_neighbour = false
-      unless trail.length == 0 #don't worry about the first stepping stone
-        trail.neighbours_of_last_node(finishm_graph.graph).each do |oneigh|
-          log.debug "Considering neighbour #{oneigh.inspect}"
-          is_neighbour = true if oneigh.node == node and oneigh.first_side == stone.first_side
-        end
-        unless is_neighbour
-          raise "In the graph, the node #{trail.last.to_s} does not connect with #{stone.inspect}"
-        end
-      end
-
-      # OK, all the checking done. Actually add it to the trail
-      trail.add_node node, stone.first_side
+      # Print the sequence
+      print '>'
+      puts trail.to_shorthand
+      puts trail.sequence
     end
-
-    # Print the sequence
-    puts trail.sequence
   end
 end

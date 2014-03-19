@@ -152,4 +152,7 @@ ACTATGCTGGTATTTCACTTCCAGGTACAGG'.gsub(/\n/,'')
     trail.add_node graph.nodes[2], :start_is_first
     trail.neighbours_of_last_node(graph).collect{|n| [n.node.node_id, n.first_side]}.should == [[4,:start_is_first]]
   end
+
+  it 'should short' do
+  end
 end

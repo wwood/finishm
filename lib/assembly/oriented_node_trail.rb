@@ -201,7 +201,7 @@ module Bio
           else
             seq_length_required = @trail.collect{|n| n.node.length_alone}.reduce(:+) + missing_length_from_each_side - twin_nodes_sequence.length
             log.debug "first part: #{twin_nodes_sequence}"
-            log.debug "second: #{fwd_nodes_sequence[-seq_length_required...fwd_nodes_sequence.length]}"
+            log.debug "second: #{fwd_nodes_sequence[-seq_length_required...fwd_nodes_sequence.length] }"
             return revcom(twin_nodes_sequence)[0...(@trail[0].node.parent_graph.hash_length-1)]+fwd_nodes_sequence
             # calculating this way should be the same, but is somehow buggy in velvet?
             #return revcom(twin_nodes_sequence)+fwd_nodes_sequence[-seq_length_required...fwd_nodes_sequence.length]
@@ -215,7 +215,7 @@ module Bio
         end
 
         def to_s
-          "OrientedNodeTrail: #{object_id}: #{collect{|n| [n.node.node_id,n.first_side].join(',')}.join(' ')}"
+          "OrientedNodeTrail: #{object_id}: #{collect{|n| [n.node.node_id,n.first_side].join(',')}.join(' ') }"
         end
 
         def to_short_s
@@ -230,6 +230,15 @@ module Bio
 
         def length_in_bp
           reduce(0){|total, onode| total+=onode.node.length_alone}
+        end
+
+        def to_shorthand
+          shorthand = @trail.collect do |onode|
+            [
+              onode.node.node_id,
+              onode.starts_at_start? ? 's' : 'e'
+              ].join
+          end.join(',')
         end
 
         class OrientedNode
