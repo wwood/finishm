@@ -1,5 +1,6 @@
 require 'bio-velvet'
 require 'bio'
+require 'pry'
 
 module Bio
   module FinishM
@@ -181,7 +182,7 @@ module Bio
               velvet_result = Bio::Velvet::Runner.new.velvet(
                 options[:velvet_kmer_size],
                 "-create_binary #{read_inputs.velvet_read_arguments}",
-                "-read_trkg yes -cov_cutoff #{options[:assembly_coverage_cutoff]} -tour_bus no",
+                "-read_trkg yes -cov_cutoff #{options[:assembly_coverage_cutoff] } -tour_bus no",
                 :output_assembly_path => options[:output_assembly_path]
               )
               if log.debug?
@@ -193,7 +194,7 @@ module Bio
               log.info "Finished running assembly"
             end
           else
-            log.info "Using previous assembly stored at #{options[:previous_assembly]}"
+            log.info "Using previous assembly stored at #{options[:previous_assembly] }"
             velvet_result = Bio::Velvet::Result.new
             velvet_result.result_directory = options[:previous_assembly]
           end
@@ -209,14 +210,14 @@ module Bio
           log.info "Finished parsing graph: found #{graph.nodes.length} nodes and #{graph.arcs.length} arcs"
 
           if options[:serialize_parsed_graph_file]
-            log.info "Storing a binary version of the graph file for later use at #{options[:serialize_parsed_graph_file]}"
+            log.info "Storing a binary version of the graph file for later use at #{options[:serialize_parsed_graph_file] }"
             File.open(options[:serialize_parsed_graph_file],'wb') do |f|
               f.print Marshal.dump(graph)
             end
-            log.info "Stored a binary representation of the velvet graph at #{options[:serialize_parsed_graph_file]}"
+            log.info "Stored a binary representation of the velvet graph at #{options[:serialize_parsed_graph_file] }"
           end
         else
-          log.info "Restoring graph file from #{options[:previously_serialized_parsed_graph_file]}.."
+          log.info "Restoring graph file from #{options[:previously_serialized_parsed_graph_file] }.."
           graph = Marshal.load(File.open(options[:previously_serialized_parsed_graph_file]))
           log.info "Restoration complete"
         end
@@ -224,7 +225,7 @@ module Bio
 
         # Find the anchor nodes again
         finder = Bio::AssemblyGraphAlgorithms::NodeFinder.new
-        log.info "Finding nodes representing the end of the each contig"
+        log.info "Finding probe nodes in the assembly"
         anchor_sequence_ids = probe_read_ids.to_a.sort
         endings = finder.find_unique_nodes_with_sequence_ids(graph, anchor_sequence_ids)
         finishm_graph = Bio::FinishM::ProbedGraph.new
@@ -240,10 +241,10 @@ module Bio
             finishm_graph.probe_nodes.each_with_index do |probe,i|
               if probe.nil?
                 found_all = false
-                log.warn "Unable to recover probe ##{i}, perhaps this will cause problems, but proceding optimistically"
+                log.warn "Unable to recover probe ##{i+1}, perhaps this will cause problems, but proceding optimistically"
               else
                 probe_descriptions += ' ' unless i==0
-                probe_descriptions += "#{probe.node_id}/#{finishm_graph.probe_node_directions[i]}"
+                probe_descriptions += "#{probe.node_id}/#{finishm_graph.probe_node_directions[i] }"
               end
             end.join(', ')
             if found_all
@@ -253,15 +254,15 @@ module Bio
             end
           end
         else
-          raise "Unable to find both anchor reads from the assembly, cannot continue. This is probably an error with this script, not you. Probes not found: #{finishm_graph.missing_probe_indices.inspect}"
+          raise "Unable to find all anchor reads from the assembly, cannot continue. This is probably an error with this script, not you. Probes not found: #{finishm_graph.missing_probe_indices.inspect}"
         end
 
         if options[:remove_unconnected_nodes]
-          log.info "Removing nodes unconnected to either the start or the end from the graph.."
+          log.info "Removing nodes unconnected to probe nodes from the graph.."
           original_num_nodes = graph.nodes.length
           original_num_arcs = graph.arcs.length
           filter = Bio::AssemblyGraphAlgorithms::ConnectivityBasedGraphFilter.new
-          filter.remove_unconnected_nodes(graph, finishm_graph.probe_nodes)
+          filter.remove_unconnected_nodes(graph, finishm_graph.probe_nodes.reject{|n| n.nil?})
           log.info "Removed #{original_num_nodes-graph.nodes.length} nodes and #{original_num_arcs-graph.arcs.length} arcs, leaving #{graph.nodes.length} nodes and #{graph.arcs.length} arcs."
         end
 

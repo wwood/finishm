@@ -92,6 +92,7 @@ class Bio::FinishM::Visualiser
         log.info "Targeting #{options[:interesting_probes].length} probes #{options[:interesting_probes].inspect}"
       end
       options[:probe_reads] = options[:interesting_probes]
+      options[:remove_unconnected_nodes] = true
       dummy_probe_seqs = ['dummy']*options[:interesting_probes].max
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
     else
@@ -101,25 +102,8 @@ class Bio::FinishM::Visualiser
     # Display the output graph visualisation
     log.info "Converting assembly to a graphviz"
     viser = Bio::Assembly::ABVisualiser.new
-
-    gv = nil
-    if options[:interesting_probes].nil?
-      gv = viser.graphviz(finishm_graph.graph, {:start_node_ids => finishm_graph.probe_nodes.collect{|node| node.node_id}})
-    else
-      # Remove nodes unconnected from the interesting read nodes (with appropriate leash length)
-      filter = Bio::AssemblyGraphAlgorithms::ConnectivityBasedGraphFilter.new
-      log.info "Filtering the graph for clarity, removing nodes unconnected to probes #{options[:interesting_probes]}"
-      probe_node_ids = options[:interesting_probes].collect do |probe|
-        finishm_graph.probe_nodes[probe-1]
-      end
-      log.debug "ie. filtering velvet nodes unconnected to velvet nodes #{probe_node_ids}"
-      filter.remove_unconnected_nodes(finishm_graph.graph,
-        probe_node_ids,
-        :leash_length => options[:graph_search_leash_length]
-        )
-      log.info "Filtering finished, leaving #{finishm_graph.graph.nodes.length} nodes and #{finishm_graph.graph.arcs.length} arcs"
-      gv = viser.graphviz(finishm_graph.graph, {:start_node_ids => finishm_graph.probe_nodes.collect{|node| node.node_id}})
-    end
+    interesting_node_ids = finishm_graph.probe_nodes.reject{|n| n.nil?}.collect{|node| node.node_id}
+    gv = viser.graphviz(finishm_graph.graph, {:start_node_ids => interesting_node_ids})
 
     if options[:output_graph_png]
       log.info "Writing PNG #{options[:output_graph_png]}"
