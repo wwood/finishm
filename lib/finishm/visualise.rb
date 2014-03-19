@@ -50,6 +50,9 @@ class Bio::FinishM::Visualiser
       end
       log.info "Read #{options[:interesting_probes].length} probes in"
     end
+    optparse_object.on("--probe-to-node-map FILE", String, "Output a tab separated file containing the read IDs and their respective node IDs [default: no output]") do |arg|
+      options[:probe_to_node_map] = arg
+    end
     optparse_object.on("--leash-length NUM", Integer, "Don't explore too far in the graph, only this far and not much more [default: unused unless --nodes is specified, otherwise #{options[:graph_search_leash_length]}]") do |arg|
       options[:graph_search_leash_length] = arg
     end
@@ -97,6 +100,30 @@ class Bio::FinishM::Visualiser
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
     else
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
+    end
+
+    if options[:probe_to_node_map]
+      log.info "Writing probe-to-node map to #{options[:probe_to_node_map] }.."
+      File.open(options[:probe_to_node_map],'w') do |f|
+        f.puts %w(probe_number probe node direction).join("\t")
+        finishm_graph.probe_nodes.each_with_index do |node, i|
+          if node.nil?
+            f.puts [
+              i+1,
+              options[:interesting_probes][i],
+              '-',
+              '-',
+              ].join("\t")
+          else
+            f.puts [
+              i+1,
+              options[:interesting_probes][i],
+              node.node_id,
+              finishm_graph.probe_node_directions[i] == true ? 'forward' : 'reverse',
+              ].join("\t")
+          end
+        end
+      end
     end
 
     # Display the output graph visualisation

@@ -237,20 +237,19 @@ module Bio
         if finishm_graph.completely_probed?
           if log.info?
             found_all = true
-            probe_descriptions = ''
+            num_found = 0
             finishm_graph.probe_nodes.each_with_index do |probe,i|
               if probe.nil?
                 found_all = false
-                log.warn "Unable to recover probe ##{i+1}, perhaps this will cause problems, but proceding optimistically"
+                log.debug "Unable to recover probe ##{i+1}, perhaps this will cause problems, but proceding optimistically"
               else
-                probe_descriptions += ' ' unless i==0
-                probe_descriptions += "#{probe.node_id}/#{finishm_graph.probe_node_directions[i] }"
+                num_found += 1
               end
-            end.join(', ')
+            end
             if found_all
-              log.info "Found all anchoring nodes in the graph: #{probe_descriptions}"
+              log.info "Found all anchoring nodes in the graph."
             else
-              log.info "Found some but not all anchoring nodes in the graph: #{probe_descriptions}"
+              log.info "Found #{num_found} of #{finishm_graph.probe_nodes.length} anchoring nodes in the graph, ignoring the rest"
             end
           end
         else
