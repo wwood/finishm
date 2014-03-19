@@ -153,6 +153,17 @@ ACTATGCTGGTATTTCACTTCCAGGTACAGG'.gsub(/\n/,'')
     trail.neighbours_of_last_node(graph).collect{|n| [n.node.node_id, n.first_side]}.should == [[4,:start_is_first]]
   end
 
-  it 'should short' do
+  it 'should to_shorthand' do
+    graph = GraphTesting.emit([
+      [1,2],
+      [2,4],
+      [4,2],
+    ])
+    trail = Bio::Velvet::Graph::OrientedNodeTrail.new
+    trail.to_shorthand.should == ''
+    trail.add_node graph.nodes[1], :start_is_first
+    trail.to_shorthand.should == '1s'
+    trail.add_node graph.nodes[2], :end_is_first
+    trail.to_shorthand.should == '1s,2e'
   end
 end
