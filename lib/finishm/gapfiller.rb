@@ -167,7 +167,7 @@ each can be reported. \n\n"
     dijkstra = Bio::AssemblyGraphAlgorithms::Dijkstra.new
     finishm_graph.probe_nodes.each_index do |i|
       onode = finishm_graph.initial_path_from_probe(i).trail[0]
-      min_distances = dijkstra.min_distances(finishm_graph.graph, onode)
+      min_distances = dijkstra.min_distances(finishm_graph.graph, onode, :leash_length => options[:graph_search_leash_length])
       min_distances.keys.each do |array|
         node_id = array[0]
         whitelisted_node_ids << node_id
