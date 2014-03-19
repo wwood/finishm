@@ -1,6 +1,10 @@
 require 'ds'
 require 'set'
 
+class DS::Queue
+  alias_method :size, :length
+end
+
 module Bio
   module AssemblyGraphAlgorithms
     class SingleCoherentPathsBetweenNodesFinder
@@ -34,7 +38,7 @@ module Bio
         problems = ProblemSet.new
 
         # setup stack to keep track of initial nodes
-        stack = DS::Stack.new
+        stack = DS::Queue.new
         stack.push initial_path.copy
 
         push_next_neighbours = lambda do |current_path|
@@ -49,11 +53,12 @@ module Bio
           end
         end
 
-        while current_path = stack.pop
-          # Have we solved this before? If so, add this path to that solved problem.
-          set_key = path_to_settable current_path, recoherence_kmer
+        while current_path = stack.dequeue
           path_length = current_path.length_in_bp
           log.debug "considering #{current_path}, path length: #{path_length}" if log.debug?
+
+          # Have we solved this before? If so, add this path to that solved problem.
+          set_key = path_to_settable current_path, recoherence_kmer
 
           # Unless the path validates, forget it.
           if !validate_last_node_of_path_by_recoherence(current_path, recoherence_kmer)
@@ -156,8 +161,9 @@ module Bio
         # The trail validates iff the above statement is true.
         #TODO: there's a possible 'bug' here in that there's garauntee that the read is overlays the
         # nodes in a consecutive and gapless manner. But I suspect that is unlikely to be a problem in practice.
-        possible_reads = path.trail[-1].node.short_reads.collect{|nr| nr.read_id}
-        log.debug "validate: Initial short reads: #{possible_reads.join(',') }" if log.debug?
+        final_node = path.trail[-1].node
+        possible_reads = final_node.short_reads.collect{|nr| nr.read_id}
+        log.debug "validate starting from #{final_node.node_id}: Initial short reads: #{possible_reads.join(',') }" if log.debug?
         collected_nodes.each do |node|
           log.debug "Validating node #{node}"
           current_set = Set.new node.node.short_reads.collect{|nr| nr.read_id}

@@ -215,7 +215,7 @@ module Bio
         end
 
         def to_s
-          "OrientedNodeTrail: #{object_id}: #{collect{|n| [n.node.node_id,n.first_side].join(',')}.join(' ') }"
+          "OrientedNodeTrail: #{object_id}: #{to_shorthand }"
         end
 
         def to_short_s
