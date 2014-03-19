@@ -159,6 +159,7 @@ module Bio
         possible_reads = path.trail[-1].node.short_reads.collect{|nr| nr.read_id}
         log.debug "validate: Initial short reads: #{possible_reads.join(',') }" if log.debug?
         collected_nodes.each do |node|
+          log.debug "Validating node #{node}"
           current_set = Set.new node.node.short_reads.collect{|nr| nr.read_id}
           possible_reads.select! do |r|
             current_set.include? r

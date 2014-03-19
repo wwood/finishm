@@ -140,6 +140,33 @@ describe "SingleCoherentPathsBetweenNodes" do
     ]
   end
 
+  it 'should find paths in a complexish road' do
+    graph, initial_path, terminal_onode = GraphTesting.emit_ss([
+      [1,2],
+      [2,3],
+      [3,4],
+      [4,5],
+
+      [1,6],
+      [6,3],
+      [3,7],
+      [7,5],
+    ], 1, 5)
+    GraphTesting.add_noded_reads(graph,[
+      [1,2,3,4,5],
+      [1,6],
+      [6,3],
+      [3,7],
+      [7,5],
+      ])
+    finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 15)
+    paths.circular_paths_detected.should == false
+    GraphTesting.sorted_paths(paths.trails).should == [
+      [1,2,3,4,5],
+    ]
+  end
+
 #   it 'should calculate a very straightforward trail' do
 #     graph, initial_path, terminal_node = GraphTesting.emit_ss([
 #       [1,2],

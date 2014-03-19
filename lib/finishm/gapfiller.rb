@@ -1,3 +1,5 @@
+require 'tmpdir'
+
 class Bio::FinishM::GapFiller
   include Bio::FinishM::Logging
 
@@ -123,6 +125,17 @@ each can be reported. \n\n"
     # Generate the graph with the probe sequences in it.
     read_input = Bio::FinishM::ReadInput.new
     read_input.parse_options options
+    # Own the tmpdir, if one is to be used - need to re-read the LastGraph later on see..
+    assembly_directory = options[:output_assembly_path]
+    assembly_directory ||= options[:previous_assembly]
+    using_tmp_assembly_directory = false
+    if assembly_directory.nil?
+      using_tmp_assembly_directory = true
+      assembly_directory = Dir.mktmpdir
+      options[:output_assembly_path] = assembly_directory
+    end
+
+    # Do the actual graph building and/or initial reading
     finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph(probe_sequences, read_input, options)
 
     # Output optional graphics.
@@ -146,6 +159,40 @@ each can be reported. \n\n"
         gv.output :dot => options[:output_graph_dot]
       end
     end
+
+    # Find all nodes within the leash length of the probe nodes, so that the noded_reads of
+    # of these nodes can be read in in another pass of the LastGraph file
+    log.info "Finding nodes connectected to the probe nodes within the leash length.."
+    whitelisted_node_ids = Set.new
+    dijkstra = Bio::AssemblyGraphAlgorithms::Dijkstra.new
+    finishm_graph.probe_nodes.each_index do |i|
+      onode = finishm_graph.initial_path_from_probe(i).trail[0]
+      min_distances = dijkstra.min_distances(finishm_graph.graph, onode)
+      min_distances.keys.each do |array|
+        node_id = array[0]
+        whitelisted_node_ids << node_id
+      end
+    end
+    log.info "Found #{whitelisted_node_ids.length} nodes within leash length of the probe nodes."
+
+    # Re-parse in the graph noded_reads
+    # TODO: need to be able to run gapfill without saving the velvet output and running twice.
+    # What happens if a regular tmpdir is used here, for example?
+    graph_file_path = File.join assembly_directory, 'LastGraph'
+    log.info "Re-reading velvet graph file #{graph_file_path} to fill read information in the reachable nodes"
+    finishm_graph.graph.parse_additional_noded_reads(graph_file_path, {
+      :grep_hack => 500,
+      :interesting_read_ids => Set.new((0...probe_sequences.length)),
+      :interesting_node_ids => Set.new(whitelisted_node_ids),
+      })
+    log.info "Finished re-reading read information"
+
+    # Clean up the tmdir, if one was used.
+    if using_tmp_assembly_directory
+      log.debug "Removing tmpdir that held the assembly `#{assembly_directory}'.."
+      FileUtils.remove_entry assembly_directory
+    end
+
 
 
     # Do the gap-filling and print out the results
