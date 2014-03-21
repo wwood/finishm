@@ -170,6 +170,7 @@ class GraphTesting
 
   def self.make_onodes(graph, array)
     trail = Bio::Velvet::Graph::OrientedNodeTrail.new
+    array = array.split(',') if array.kind_of?(String)
 
     array.each do |e|
       raise unless e.kind_of?(String)

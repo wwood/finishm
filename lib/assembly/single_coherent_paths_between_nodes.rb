@@ -14,21 +14,12 @@ module Bio
       # Find all paths between the initial and terminal node in the graph.
       # Don't search in the graph when the distance in base pairs exceeds the leash length.
       # Recohere reads (singled ended only) in an attempt to remove bubbles.
-      def find_all_connections_between_two_nodes(graph, initial_path, terminal_oriented_node, leash_length, recoherence_kmer)
-        problems = find_all_problems(graph, initial_path, terminal_oriented_node, leash_length, recoherence_kmer)
-        #pp problems
+      def find_all_connections_between_two_nodes(graph, initial_path, terminal_oriented_node, leash_length, recoherence_kmer, sequence_hash)
+        problems = find_all_problems(graph, initial_path, terminal_oriented_node, leash_length, recoherence_kmer, sequence_hash)
         problems.each do |key, dynprob|
           dynprob.remove_duplication_in_known_paths!
         end
-#         puts problems.collect{|key, dynprob|
-#           [
-#             key[0],
-#             dynprob.min_distance,
-#             dynprob.known_paths.collect{|path| path.to_short_s}.join(' = ')
-#           ].join(' ')
-#         }.join("\n")
 
-        #exit
         paths = find_paths_from_problems(problems, recoherence_kmer)
         return paths
       end
@@ -106,15 +97,6 @@ module Bio
           log.debug "Stack size: #{stack.size}" if log.debug?
         end
 
-#         puts problems.collect{|key, dynprob|
-#           [
-#             key[0],
-#             key[1],
-#             dynprob.min_distance,
-#             dynprob.known_paths.collect{|path| path.to_short_s}.join(' = ')
-#           ].join(' ')
-#         }.join("\n")
-
         return problems
       end
 
@@ -138,7 +120,7 @@ module Bio
       end
 
       # Given an OrientedNodeTrail, and an expected number of
-      def validate_last_node_of_path_by_recoherence(path, recoherence_kmer)
+      def validate_last_node_of_path_by_recoherence(path, recoherence_kmer, sequence_hash)
         #not possible to fail on a 1 or 2 node path, by debruijn graph definition.
         return true if path.length < 3
 
@@ -170,12 +152,69 @@ module Bio
           possible_reads.select! do |r|
             current_set.include? r
           end
-          return false if possible_reads.empty?
+          if possible_reads.empty?
+            log.debug "First line validation failed, now detecting sub-kmer sequence overlap" if log.debug?
+            trail_to_validate = path.trail[i+1..-1]
+            return sub_kmer_sequence_overlap?(trail_to_validate, sequence_hash)
+          end
         end
         return true
       end
 
-      def find_paths_from_problems(problems, recoherence_kmer)
+      # Is there overlap across the given nodes, even if the overlap
+      # does not include an entire kmer?
+      # nodes: an OrientedNodeTrail. To validate, there must be at least 1 read that spans all of these nodes
+      # sequence_hash: Bio::Velvet::Sequence object with the sequences from the reads in the nodes
+      def sub_kmer_sequence_overlap?(nodes, sequence_hash)
+        raise if nodes.length < 3 #should not get here - this is taken care of above
+
+        # Only reads that are in the second last node are possible, by de-bruijn graph definition.
+        candidate_noded_reads = nodes[-2].node.short_reads
+        middle_nodes_length = nodes[1..-2].reduce(0){|sum, n| sum += n.node.length}+
+          +nodes[0].node.parent_graph.hash_length-1
+        log.debug "Found middle nodes length #{middle_nodes_length}" if log.debug?
+        single_base_revcom = {
+          'A'=>'T',
+          'T'=>'A',
+          'G'=>'C',
+          'C'=>'G',
+          }
+
+        candidate_noded_reads.each do |read|
+          # Ignore reads that don't come in at the start of the node
+          log.debug "Considering read #{read.inspect}" if log.debug?
+          next if read.direction == false
+          if read.offset_from_start_of_node != 0
+            log.debug "Read doesn't start at beginning of node, skipping" if log.debug?
+            next
+          else
+            seq = sequence_hash[read.read_id]
+            raise "No sequence stored for #{read.read_id}, programming fail." if seq.nil?
+
+            if read.start_coord == 0
+              log.debug "start_coord Insufficient length of read" if log.debug?
+              next
+            elsif seq.length-read.start_coord-middle_nodes_length < 1
+              log.debug "other_side Insufficient length of read" if log.debug?
+              next
+            end
+
+            # Now ensure that the sequence matches correctly
+            #TODO: deal with rev direction nodes
+            left_base = seq[read.start_coord-3] #minus for 1based seq index, 1 for moving left, 1 for indexing to the left
+            left_comparison_base = nodes[0].node.ends_of_kmers_of_twin_node[0]
+            if single_base_revcom[left_base] != left_comparison_base
+              log.debug "left comparison base mismatch, not continuing" if log.debug?
+              next
+            end
+            right_base = seq[read.start_coord+middle_nodes_length]
+            return true
+          end
+        end
+        return false #no candidate reads pass
+      end
+
+      def find_paths_from_problems(problems, recoherence_kmer, sequence_hash)
         stack = DS::Stack.new
 
         to_return = Bio::AssemblyGraphAlgorithms::TrailSet.new

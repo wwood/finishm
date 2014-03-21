@@ -176,8 +176,6 @@ each can be reported. \n\n"
     log.info "Found #{whitelisted_node_ids.length} nodes within leash length of the probe nodes."
 
     # Re-parse in the graph noded_reads
-    # TODO: need to be able to run gapfill without saving the velvet output and running twice.
-    # What happens if a regular tmpdir is used here, for example?
     graph_file_path = File.join assembly_directory, 'LastGraph'
     log.info "Re-reading velvet graph file #{graph_file_path} to fill read information in the reachable nodes"
     finishm_graph.graph.parse_additional_noded_reads(graph_file_path, {
@@ -186,6 +184,13 @@ each can be reported. \n\n"
       :interesting_node_ids => Set.new(whitelisted_node_ids),
       })
     log.info "Finished re-reading read information"
+
+    # Read in actual sequence information
+    sequences_of_interest = whitelisted_node_ids.collect{|node_id|
+      finishm_graph.graph.nodes[node_id].short_reads.collect{|r| r.read_id}
+      }.flatten
+    log.info "Reading in the actual sequences of #{sequences_of_interest.length} reads"
+
 
     # Clean up the tmdir, if one was used.
     if using_tmp_assembly_directory

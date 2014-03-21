@@ -82,7 +82,13 @@ class Bio::FinishM::Explorer
 
       # Need reads unless there is already an assembly
       unless options[:previous_assembly] or options[:previously_serialized_parsed_graph_file]
-        return Bio::FinishM::ReadInput.new.validate_options(options, [])
+        error = Bio::FinishM::ReadInput.new.validate_options(options, [])
+        return error unless error.nil?
+        if options[:contig_end_length] < options[:velvet_kmer_size]
+          return "The overhang must be greater than the size of the assembly kmer"
+        else
+          return nil
+        end
       else
         return nil
       end

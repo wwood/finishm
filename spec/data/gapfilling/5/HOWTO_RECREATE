@@ -1,0 +1,7 @@
+
+# This is one of the test gaps from simulation. Normal kmer-based gapfilling fails because of strain heterogeneity.
+uqbwoodc@menzies:20140320:~/git/priner/spec/data/gapfilling/5$ extract_from_fasta.pl -F 99 /srv/projects/finishm/gapfilling/12_simulation/1.answer.fna |sequenceChop.pl - 1001000 1002500 >answer.fna
+Chopped 1 sequence(s)
+uqbwoodc@menzies:20140320:~/git/priner/spec/data/gapfilling/5$ extract_from_fasta.pl -F 99 /srv/projects/finishm/gapfilling/12_simulation/1.gapped.fna |sequenceChop.pl - 1001000 1002500 >gappy.fna
+Chopped 1 sequence(s)
+
