@@ -59,7 +59,7 @@ module Bio
           '--fasta-gz' => :fasta_singles_gz,
           '--fastq-gz' => :fastq_singles_gz,
         }.each do |flag, sym|
-          option_parser.on("#{flag} PATH", Array, "Raw reads") do |arg|
+          option_parser.on("#{flag} PATH", Array, "One or more paths to reads, comma separated") do |arg|
             options[sym] = arg
           end
         end
@@ -125,12 +125,12 @@ module Bio
         option_parser.on("--already-assembled-velvet-directory PATH", "Skip until after assembly in this process, and start from this assembly directory created during a previous run of this script [default: off]") do |arg|
           options[:previous_assembly] = arg
         end
-        option_parser.on("--serialize-velvet-graph FILE", "So that the velvet graph does not have to be reparsed, serialise the parsed object for later use in this file [default: off]") do |arg|
-          options[:serialize_parsed_graph_file] = arg
-        end
-        option_parser.on("--already-serialized-velvet-graph FILE", "Restore the parsed velvet graph from this file [default: off]") do |arg|
-          options[:previously_serialized_parsed_graph_file] = arg
-        end
+#         option_parser.on("--serialize-velvet-graph FILE", "So that the velvet graph does not have to be reparsed, serialise the parsed object for later use in this file [default: off]") do |arg|
+#           options[:serialize_parsed_graph_file] = arg
+#         end
+#         option_parser.on("--already-serialized-velvet-graph FILE", "Restore the parsed velvet graph from this file [default: off]") do |arg|
+#           options[:previously_serialized_parsed_graph_file] = arg
+#         end
       end
 
       # Generate a ProbedGraph object, given one or more 'probe sequences'
@@ -147,6 +147,7 @@ module Bio
       # :assembly_coverage_cutoff: coverage cutoff for nodes
       # :output_assembly_path: write assembly to this directory
       # :previous_assembly: a velvet directory from a previous run of the same probe sequences and reads. (Don't re-assemble)
+      # :use_textual_sequence_file: by default, a binary sequence file is used. Set this true to get velvet to generate the Sequences file
       # :serialize_parsed_graph_file: after assembly, parse the graph in, and serialize the ruby object for later. Value of this option is the path to the save file.
       # :previously_serialized_parsed_graph_file: read in a previously serialized graph file, and continue from there
       def generate_graph(probe_sequences, read_inputs, options={})
@@ -179,10 +180,11 @@ module Bio
 
               log.info "Assembling sampled reads with velvet"
               # Bit of a hack, but have to use -short1 as the anchors because then start and end anchors will have node IDs 1,2,... etc.
+              use_binary = options[:use_textual_sequence_file] ? '' : '-create_binary'
               velvet_result = Bio::Velvet::Runner.new.velvet(
                 options[:velvet_kmer_size],
                 "#{read_inputs.velvet_read_arguments}",
-                "-read_trkg yes -cov_cutoff #{options[:assembly_coverage_cutoff] } -tour_bus no",
+                "-read_trkg yes #{use_binary} -cov_cutoff #{options[:assembly_coverage_cutoff] } -tour_bus no",
                 :output_assembly_path => options[:output_assembly_path]
               )
               if log.debug?

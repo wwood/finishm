@@ -207,3 +207,10 @@ class GraphTesting
     end
   end
 end
+
+
+class Util
+  def self.revcom(seq)
+    Bio::Sequence::NA.new(seq).reverse_complement.to_s.upcase
+  end
+end

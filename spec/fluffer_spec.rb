@@ -1,10 +1,4 @@
 require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
-require 'bio'
-class Util
-  def self.revcom(seq)
-    Bio::Sequence::NA.new(seq).reverse_complement.to_s.upcase
-  end
-end
 
 #Bio::Log::CLI.logger('stderr'); Bio::Log::CLI.trace('debug'); log = Bio::Log::LoggerPlus.new('finishm'); Bio::Log::CLI.configure('finishm')
 

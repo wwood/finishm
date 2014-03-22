@@ -4,11 +4,14 @@ class Bio::FinishM::GapFiller
   include Bio::FinishM::Logging
 
   def add_options(optparse_object, options)
-    optparse_object.banner = "\nUsage: finishm gapfill --contigs <contigs_file> --fastq-gz <reads..> --output-trails-fasta <output.fa>
+    optparse_object.banner = "\nUsage: finishm gapfill --contigs <contigs_file> --fastq-gz <reads..> --output-fasta <output.fa>
 
 Takes a set of reads and a contig that contains gap characters. Then it tries to fill in
 these N characters. It is possible that there is multiple ways to close the gap - in that case
-each can be reported. \n\n"
+each can be reported.
+
+example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --output-fasta output.fasta
+\n"
 
     options.merge!({
       :contig_end_length => 200,
@@ -23,10 +26,22 @@ each can be reported. \n\n"
       options[:overall_fasta_file] = arg
     end
 
-    optparse_object.separator "\nThere must be some definition of reads too:\n\n" #TODO improve this help
+    optparse_object.separator "\nThere must be some definition of of how to do the assembly, or else a path to a previous assembly directory:\n\n"
     Bio::FinishM::ReadInput.new.add_options(optparse_object, options)
+    Bio::FinishM::GraphGenerator.new.add_options optparse_object, options
 
-    optparse_object.separator "\nVisualisation options (of all joins):\n\n" #TODO improve this help
+    optparse_object.separator "\nGraph search options:\n\n"
+    optparse_object.on("--overhang NUM", Integer, "Start assembling this many base pairs back from the gap [default: #{options[:contig_end_length] }]") do |arg|
+      options[:contig_end_length] = arg
+    end
+    optparse_object.on("--leash-length NUM", Integer, "Don't explore too far in the graph, only this many base pairs and not (much) more [default: #{options[:graph_search_leash_length] }]") do |arg|
+      options[:graph_search_leash_length] = arg
+    end
+    optparse_object.on("--disambiguation-kmer NUM", Integer, "Use a kmer longer than the original velvet one, to help remove bubbles and circular paths [default: none] }]") do |arg|
+      options[:recoherence_kmer] = arg
+    end
+
+    optparse_object.separator "\nVisualisation options (of all joins):\n\n"
     optparse_object.on("--assembly-png PATH", "Output assembly as a PNG file [default: off]") do |arg|
       options[:output_graph_png] = arg
     end
@@ -36,19 +51,6 @@ each can be reported. \n\n"
     optparse_object.on("--assembly-dot PATH", "Output assembly as an DOT file [default: off]") do |arg|
       options[:output_graph_dot] = arg
     end
-
-    optparse_object.separator "\nOptional arguments:\n\n"
-    optparse_object.on("--overhang NUM", Integer, "Start assembling this far from the gap [default: #{options[:contig_end_length] }]") do |arg|
-      options[:contig_end_length] = arg
-    end
-    optparse_object.on("--leash-length NUM", Integer, "Don't explore too far in the graph, only this many base pairs and not much more [default: #{options[:graph_search_leash_length] }]") do |arg|
-      options[:graph_search_leash_length] = arg
-    end
-    optparse_object.on("--disambiguation-kmer NUM", Integer, "Use a kmer longer than the original velvet one, to help remove bubbles and circular paths [default: none] }]") do |arg|
-      options[:recoherence_kmer] = arg
-    end
-
-    Bio::FinishM::GraphGenerator.new.add_options optparse_object, options
   end
 
   def validate_options(options, argv)
@@ -136,6 +138,7 @@ each can be reported. \n\n"
     end
 
     # Do the actual graph building and/or initial reading
+    options[:use_textual_sequence_file] = true
     finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph(probe_sequences, read_input, options)
 
     # Output optional graphics.
@@ -177,19 +180,23 @@ each can be reported. \n\n"
 
     # Re-parse in the graph noded_reads
     graph_file_path = File.join assembly_directory, 'LastGraph'
-    log.info "Re-reading velvet graph file #{graph_file_path} to fill read information in the reachable nodes"
-    finishm_graph.graph.parse_additional_noded_reads(graph_file_path, {
+    log.info "Re-reading velvet graph file #{graph_file_path} to fill read position information in the reachable nodes"
+    sequences_of_interest = finishm_graph.graph.parse_additional_noded_reads(graph_file_path, {
       :grep_hack => 500,
       :interesting_read_ids => Set.new((0...probe_sequences.length)),
       :interesting_node_ids => Set.new(whitelisted_node_ids),
       })
-    log.info "Finished re-reading read information"
+    log.info "Finished re-reading read position information"
 
     # Read in actual sequence information
     sequences_of_interest = whitelisted_node_ids.collect{|node_id|
       finishm_graph.graph.nodes[node_id].short_reads.collect{|r| r.read_id}
       }.flatten
-    log.info "Reading in the actual sequences of #{sequences_of_interest.length} reads"
+    sequences_file_path = File.join assembly_directory, 'Sequences'
+    log.info "Reading in the actual sequences of #{sequences_of_interest.length} reads from #{sequences_file_path}"
+    sequences = Bio::Velvet::Sequences.parse_from_file(sequences_file_path,
+      :interesting_read_ids => Set.new(sequences_of_interest)
+      )
 
 
     # Clean up the tmdir, if one was used.
@@ -237,8 +244,6 @@ each can be reported. \n\n"
           following_contig.sequence
           )
         num_singly_filled += 1
-        #puts ">gapfilled"
-        #puts gapfilled_sequence
       else
         # Otherwise don't make any assumptions
         num_unbridgable += 1 if trails.empty?
@@ -265,8 +270,10 @@ each can be reported. \n\n"
         end_onode.first_side = end_onode_inward.starts_at_start? ? Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST : Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
 
         trails = cartographer.find_trails_between_nodes(
-          finishm_graph.graph, start_onode, end_onode, options[:graph_search_leash_length],
-          :recoherence_kmer => options[:recoherence_kmer]
+          finishm_graph.graph, start_onode, end_onode, options[:graph_search_leash_length], {
+            :recoherence_kmer => options[:recoherence_kmer],
+            :sequences => sequences
+            }
         )
         log.info "Found #{trails.trails.length} trails for #{gap.coords}"
         if trails.circular_paths_detected

@@ -12,7 +12,7 @@ describe "SingleCoherentPathsBetweenNodes" do
       [1,2,3]
       ])
     finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
-    finder.validate_last_node_of_path_by_recoherence(paths[0], 15).should == true
+    finder.validate_last_node_of_path_by_recoherence(paths[0], 15, Bio::Velvet::Sequence.new).should == true
   end
 
   it 'should not validate_last_node_of_path_by_recoherence due to kmer decoherences' do
@@ -24,7 +24,7 @@ describe "SingleCoherentPathsBetweenNodes" do
       [2,3],
       ])
     finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
-    finder.validate_last_node_of_path_by_recoherence(paths[0], 15).should == false
+    finder.validate_last_node_of_path_by_recoherence(paths[0], 15, Bio::Velvet::Sequence.new).should == false
   end
 
   it 'should validate_last_node_of_path_by_recoherence due to kmer decoherences, but too short kmer recoherence' do
@@ -36,9 +36,9 @@ describe "SingleCoherentPathsBetweenNodes" do
       [2,3],
       ])
     finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
-    finder.validate_last_node_of_path_by_recoherence(paths[0], 5).should == true
-    finder.validate_last_node_of_path_by_recoherence(paths[0], 10).should == true
-    finder.validate_last_node_of_path_by_recoherence(paths[0], 11).should == false
+    finder.validate_last_node_of_path_by_recoherence(paths[0], 5, Bio::Velvet::Sequence.new).should == true
+    finder.validate_last_node_of_path_by_recoherence(paths[0], 10, Bio::Velvet::Sequence.new).should == true
+    finder.validate_last_node_of_path_by_recoherence(paths[0], 11, Bio::Velvet::Sequence.new).should == false
   end
 
   it 'should find a hello world trail' do
@@ -51,7 +51,7 @@ describe "SingleCoherentPathsBetweenNodes" do
     initial_path = GraphTesting.make_onodes(graph, %w(1s))
     terminal_oriented_node = GraphTesting.make_onodes(graph, %w(3s)).trail[0]
     finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new; recoherence_kmer = 15
-    problems = finder.find_all_problems(graph, initial_path, terminal_oriented_node, nil, recoherence_kmer)
+    problems = finder.find_all_problems(graph, initial_path, terminal_oriented_node, nil, recoherence_kmer, Bio::Velvet::Sequence.new)
     #pp problems
     paths = finder.find_paths_from_problems(problems, recoherence_kmer)
     #pp paths
@@ -72,7 +72,7 @@ describe "SingleCoherentPathsBetweenNodes" do
     initial_path = GraphTesting.make_onodes(graph, %w(1s))
     terminal_oriented_node = GraphTesting.make_onodes(graph, %w(3s)).trail[0]
     finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new; recoherence_kmer = 15
-    problems = finder.find_all_problems(graph, initial_path, terminal_oriented_node, nil, recoherence_kmer)
+    problems = finder.find_all_problems(graph, initial_path, terminal_oriented_node, nil, recoherence_kmer, Bio::Velvet::Sequence.new)
     #pp problems
     paths = finder.find_paths_from_problems(problems, recoherence_kmer)
     #pp paths
@@ -93,7 +93,7 @@ describe "SingleCoherentPathsBetweenNodes" do
       [1,5],
       ])
     finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
-    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 15)
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 15, Bio::Velvet::Sequence.new)
     paths.circular_paths_detected.should == false
     GraphTesting.sorted_paths(paths.trails).should == [
       [1,2,3],
@@ -114,7 +114,7 @@ describe "SingleCoherentPathsBetweenNodes" do
       [1,5],
       ])
     finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
-    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 15)
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 15, Bio::Velvet::Sequence.new)
     paths.circular_paths_detected.should == false
     GraphTesting.sorted_paths(paths.trails).should == [
       [1,2,3,4],
@@ -133,7 +133,7 @@ describe "SingleCoherentPathsBetweenNodes" do
       [1,5],
       ])
     finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
-    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 9)
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 9, Bio::Velvet::Sequence.new)
     paths.circular_paths_detected.should == false
     GraphTesting.sorted_paths(paths.trails).should == [
       [1,2,3],
@@ -160,11 +160,30 @@ describe "SingleCoherentPathsBetweenNodes" do
       [7,5],
       ])
     finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
-    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 15)
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 15, Bio::Velvet::Sequence.new)
     paths.circular_paths_detected.should == false
     GraphTesting.sorted_paths(paths.trails).should == [
       [1,2,3,4,5],
     ]
+  end
+
+  describe 'validate paths by recoherence' do
+    it 'should not call badness when there is insufficient read length to validate' do
+      fail
+    end
+
+    it 'should not call badness when there is no reads but the nodes are arranged in serial order' do
+      fail
+    end
+
+    it 'should validate a longish path' do
+      #TODO not really a thought out test just yet
+      finder.validate_last_node_of_path_by_recoherence(
+        GraphTesting.make_onodes(graph, '1s,2s,3s,99e,68s,51e,86e,58e,93s'),
+        51,
+        sequences,
+        ).should == true
+    end
   end
 
   describe 'sub_kmer_sequence_overlap?' do
@@ -175,11 +194,19 @@ describe "SingleCoherentPathsBetweenNodes" do
     sequences = Bio::Velvet::Sequence.parse_from_file(File.join(TEST_DATA_DIR,'gapfilling','5','velvet51_3.5','Sequences'))
     finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
 
+    fwd_reads_graph = Bio::Velvet::Graph.parse_from_file(File.join(TEST_DATA_DIR,'gapfilling','5','velvet51_3.5','LastGraph'))
+    fwd_reads_graph.nodes.each do |node|
+      node.short_reads.reject!{|r| r.direction == false}
+    end
+    rev_reads_graph = Bio::Velvet::Graph.parse_from_file(File.join(TEST_DATA_DIR,'gapfilling','5','velvet51_3.5','LastGraph'))
+    rev_reads_graph.nodes.each do |node|
+      node.short_reads.reject!{|r| r.direction == true}
+    end
+
     it 'should validate a simple path' do
-      finder.sub_kmer_sequence_overlap?(
-        GraphTesting.make_onodes(graph, '86s,51s,68e'),
-        sequences,
-        ).should == true
+      finder.sub_kmer_sequence_overlap?(GraphTesting.make_onodes(graph, '94s,95s,89s'), sequences).should == true
+      finder.sub_kmer_sequence_overlap?(GraphTesting.make_onodes(fwd_reads_graph, '94s,95s,89s'), sequences).should == true
+      finder.sub_kmer_sequence_overlap?(GraphTesting.make_onodes(rev_reads_graph, '94s,95s,89s'), sequences).should == true
     end
 
     it 'should not validate a bad first node' do
@@ -189,19 +216,45 @@ describe "SingleCoherentPathsBetweenNodes" do
         ).should == false
     end
 
-    it 'should not validate a bad final node' do
-      finder.sub_kmer_sequence_overlap?(
-        GraphTesting.make_onodes(graph, '86s,51s,14e'),
-        sequences,
-        ).should == false
+    it 'should validate a path where the middle node is reverse' do
+      finder.sub_kmer_sequence_overlap?(GraphTesting.make_onodes(rev_reads_graph, '4s,46e,93e'), sequences).should == true
     end
 
-#     it 'should validate a longish path' do
-#       finder.validate_last_node_of_path_by_recoherence(
-#         GraphTesting.make_onodes(graph, '1s,2s,3s,99e,68s,51e,86e,58e,93s'),
-#         51,
-#         sequences,
-#         ).should == true
-#     end
+    it 'should validate a path where the first node is reverse' do
+      finder.sub_kmer_sequence_overlap?(GraphTesting.make_onodes(fwd_reads_graph, '27e,99e,14s'), sequences).should == true
+      finder.sub_kmer_sequence_overlap?(GraphTesting.make_onodes(rev_reads_graph, '27e,99e,14s'), sequences).should == true
+    end
+
+    it 'should validate a path where the last node is reverse' do
+      finder.sub_kmer_sequence_overlap?(GraphTesting.make_onodes(fwd_reads_graph, '86s,51s,68e'), sequences).should == true
+      finder.sub_kmer_sequence_overlap?(GraphTesting.make_onodes(rev_reads_graph, '86s,51s,68e'), sequences).should == true
+    end
+
+    it 'should not validate a bad path where the middle node is reverse' do
+      # Correct sequence is 4s,46e,93e
+      finder.sub_kmer_sequence_overlap?(GraphTesting.make_onodes(fwd_reads_graph, '4s,46e,38s'), sequences).should == false
+      finder.sub_kmer_sequence_overlap?(GraphTesting.make_onodes(rev_reads_graph, '4s,46e,38s'), sequences).should == false
+      finder.sub_kmer_sequence_overlap?(GraphTesting.make_onodes(fwd_reads_graph, '20s,46e,93e'), sequences).should == false
+      finder.sub_kmer_sequence_overlap?(GraphTesting.make_onodes(rev_reads_graph, '20s,46e,93e'), sequences).should == false
+    end
+
+    it 'should not validate a bad path where the first node is reverse' do
+      finder.sub_kmer_sequence_overlap?(GraphTesting.make_onodes(fwd_reads_graph, '27e,99e,68s'), sequences).should == false
+      finder.sub_kmer_sequence_overlap?(GraphTesting.make_onodes(rev_reads_graph, '27e,99e,68s'), sequences).should == false
+    end
+
+    it 'should not validate a bad path where the last node is reverse' do
+      finder.sub_kmer_sequence_overlap?(GraphTesting.make_onodes(fwd_reads_graph, '86s,51s,14e'), sequences).should == false
+      finder.sub_kmer_sequence_overlap?(GraphTesting.make_onodes(rev_reads_graph, '86s,51s,14e'), sequences).should == false
+    end
+
+    it 'should validate properly when there is >3 nodes being validated' do
+      fail "need to make another assembly for this"
+    end
+
+    it 'should validate when multiple nodes at the end do not have that read listed' do
+      #e.g. when there is a 1bp node 2nd last, and the last node's length is at least 2bp shorter than the kmer
+      # not needed I don't think?
+    end
   end
 end

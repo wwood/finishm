@@ -96,6 +96,7 @@ else
   opts.on("-q", "--quiet", "Run quietly, set logging to ERROR level [default INFO]") {options[:log_level] = 'error'}
   opts.on("--logger filename",String,"Log to file [default #{options[:logger]}]") { |name| options[:logger] = name}
   opts.on("--trace options",String,"Set log level [default INFO]. e.g. '--trace debug' to set logging level to DEBUG"){|s| options[:log_level] = s}
+  opts.separator "\n"
   opts.parse!
 #pp options
   # Setup logging
@@ -109,7 +110,7 @@ else
     operator.run options, ARGV
   else
     $stderr.puts
-    $stderr.puts error_message
+    $stderr.puts "ERROR parsing options: #{error_message}"
     $stderr.puts
     $stderr.puts opts
     exit 1
