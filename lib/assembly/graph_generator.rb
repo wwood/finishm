@@ -183,8 +183,8 @@ module Bio
               use_binary = options[:use_textual_sequence_file] ? '' : '-create_binary'
               velvet_result = Bio::Velvet::Runner.new.velvet(
                 options[:velvet_kmer_size],
-                "#{read_inputs.velvet_read_arguments}",
-                "-read_trkg yes #{use_binary} -cov_cutoff #{options[:assembly_coverage_cutoff] } -tour_bus no",
+                "#{read_inputs.velvet_read_arguments} #{use_binary}",
+                "-read_trkg yes -cov_cutoff #{options[:assembly_coverage_cutoff] } -tour_bus no",
                 :output_assembly_path => options[:output_assembly_path]
               )
               if log.debug?

@@ -101,6 +101,7 @@ class Bio::FinishM::Visualiser
     else
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
     end
+    binding.pry
 
     if options[:probe_to_node_map]
       log.info "Writing probe-to-node map to #{options[:probe_to_node_map] }.."

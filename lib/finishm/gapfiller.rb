@@ -187,7 +187,7 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
       :interesting_node_ids => Set.new(whitelisted_node_ids),
       })
     log.info "Finished re-reading read position information"
-
+binding.pry
     # Read in actual sequence information
     sequences_of_interest = whitelisted_node_ids.collect{|node_id|
       finishm_graph.graph.nodes[node_id].short_reads.collect{|r| r.read_id}

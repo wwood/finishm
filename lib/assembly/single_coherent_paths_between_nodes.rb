@@ -24,7 +24,6 @@ module Bio
         leash_length, recoherence_kmer, sequence_hash)
 
         problems = find_all_problems(graph, initial_path, terminal_oriented_node, leash_length, recoherence_kmer, sequence_hash)
-        binding.pry
         problems.each do |key, dynprob|
           dynprob.remove_duplication_in_known_paths!
         end
@@ -76,7 +75,6 @@ module Bio
             problems[set_key] ||= DynamicProgrammingProblem.new
             problems[set_key].known_paths ||= []
             problems[set_key].known_paths.push current_path
-            binding.pry
 
             problems.terminal_node_keys ||= Set.new
             problems.terminal_node_keys << set_key
@@ -154,7 +152,7 @@ module Bio
         while i >= 0
           collected_nodes.push path.trail[i]
           i -= 1
-          break if length_of_nodes.call(collected_nodes) > recoherence_kmer
+          break if length_of_nodes.call(collected_nodes) >= recoherence_kmer
         end
         log.debug "validate: Collected nodes: #{collected_nodes}" if log.debug?
 
@@ -211,6 +209,7 @@ module Bio
               log.debug "other_side Insufficient length of read" if log.debug?
               next
             end
+            binding.pry
 
             # Now ensure that the sequence matches correctly
             # left base, the base from the first node

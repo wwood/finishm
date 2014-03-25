@@ -34,8 +34,9 @@ class GraphTesting
           node.node_id = ident
           node_id_to_node[ident] = node
           node.parent_graph = graph
-          node.ends_of_kmers_of_node = 'A'*10
-          node.ends_of_kmers_of_twin_node = 'T'*10
+          node.length = 10
+          node.ends_of_kmers_of_node = 'A'*node.length
+          node.ends_of_kmers_of_twin_node = 'T'*node.length
         end
         nodes[ident] = node
       end
