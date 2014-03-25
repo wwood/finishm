@@ -16,7 +16,7 @@ describe "SingleCoherentPathsBetweenNodes" do
     finder.validate_last_node_of_path_by_recoherence(paths[0], 15, Bio::Velvet::Sequences.new).should == true
   end
 
-  it 'should not validate_last_node_of_path_by_recoherence due to kmer decoherences' do
+  it 'should correctly validate_last_node_of_path_by_recoherence due to kmer decoherences' do
     graph, paths = GraphTesting.emit_otrails([
       [1,2,3],
     ])
@@ -28,22 +28,7 @@ describe "SingleCoherentPathsBetweenNodes" do
     finder.validate_last_node_of_path_by_recoherence(paths[0], 15, Bio::Velvet::Sequences.new).should == true #kmer must be > 10+7-1+2=18 for read decoherence to click in
     finder.validate_last_node_of_path_by_recoherence(paths[0], 19, Bio::Velvet::Sequences.new).should == false
     finder.validate_last_node_of_path_by_recoherence(paths[0], 18, Bio::Velvet::Sequences.new).should == false
-    binding.pry
     finder.validate_last_node_of_path_by_recoherence(paths[0], 17, Bio::Velvet::Sequences.new).should == true
-  end
-
-  it 'should validate_last_node_of_path_by_recoherence due to kmer decoherences, but too short kmer recoherence' do
-    graph, paths = GraphTesting.emit_otrails([
-      [1,2,3],
-    ])
-    GraphTesting.add_noded_reads(graph,[
-      [1,2],
-      [2,3],
-      ])
-    finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
-    finder.validate_last_node_of_path_by_recoherence(paths[0], 5, Bio::Velvet::Sequences.new).should == true
-    finder.validate_last_node_of_path_by_recoherence(paths[0], 10, Bio::Velvet::Sequences.new).should == true
-    finder.validate_last_node_of_path_by_recoherence(paths[0], 11, Bio::Velvet::Sequences.new).should == false
   end
 
   it 'should find a hello world trail' do
@@ -66,7 +51,7 @@ describe "SingleCoherentPathsBetweenNodes" do
     ]
   end
 
-  it 'should not find a uncoherent trail' do
+  it 'should not find an incoherent trail' do
     graph, paths = GraphTesting.emit_otrails([
       [1,2,3],
     ])
@@ -76,7 +61,7 @@ describe "SingleCoherentPathsBetweenNodes" do
       ])
     initial_path = GraphTesting.make_onodes(graph, %w(1s))
     terminal_oriented_node = GraphTesting.make_onodes(graph, %w(3s)).trail[0]
-    finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new; recoherence_kmer = 15
+    finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new; recoherence_kmer = 20
     problems = finder.find_all_problems(graph, initial_path, terminal_oriented_node, nil, recoherence_kmer, Bio::Velvet::Sequences.new)
     #pp problems
     paths = finder.find_paths_from_problems(problems, recoherence_kmer)
@@ -98,7 +83,7 @@ describe "SingleCoherentPathsBetweenNodes" do
       [1,5],
       ])
     finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
-    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 15, Bio::Velvet::Sequences.new)
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 18, Bio::Velvet::Sequences.new)
     paths.circular_paths_detected.should == false
     GraphTesting.sorted_paths(paths.trails).should == [
       [1,2,3],
@@ -119,7 +104,7 @@ describe "SingleCoherentPathsBetweenNodes" do
       [1,5],
       ])
     finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
-    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 15, Bio::Velvet::Sequences.new)
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 18, Bio::Velvet::Sequences.new)
     paths.circular_paths_detected.should == false
     GraphTesting.sorted_paths(paths.trails).should == [
       [1,2,3,4],
@@ -142,6 +127,7 @@ describe "SingleCoherentPathsBetweenNodes" do
     paths.circular_paths_detected.should == false
     GraphTesting.sorted_paths(paths.trails).should == [
       [1,2,3],
+      [1,5,3],
     ]
   end
 
@@ -165,7 +151,7 @@ describe "SingleCoherentPathsBetweenNodes" do
       [7,5],
       ])
     finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
-    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 15, Bio::Velvet::Sequences.new)
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 18, Bio::Velvet::Sequences.new)
     paths.circular_paths_detected.should == false
     GraphTesting.sorted_paths(paths.trails).should == [
       [1,2,3,4,5],
@@ -177,6 +163,10 @@ describe "SingleCoherentPathsBetweenNodes" do
   end
 
   describe 'validate paths by recoherence' do
+    graph = Bio::Velvet::Graph.parse_from_file(File.join(TEST_DATA_DIR,'gapfilling','5','velvet51_3.5','LastGraph'))
+    sequences = Bio::Velvet::Sequences.parse_from_file(File.join(TEST_DATA_DIR,'gapfilling','5','velvet51_3.5','Sequences'))
+    finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
+
     it 'should not call badness when there is insufficient read length to validate' do
       fail
     end
@@ -187,11 +177,19 @@ describe "SingleCoherentPathsBetweenNodes" do
 
     it 'should validate a longish path' do
       #TODO not really a thought out test just yet
-      finder.validate_last_node_of_path_by_recoherence(
-        GraphTesting.make_onodes(graph, '1s,2s,3s,99e,68s,51e,86e,58e,93s'),
-        51,
-        sequences,
-        ).should == true
+      alltrail = GraphTesting.make_onodes(graph, '1s,2s,3s,99e,68s,51e,86e,58e,93s')
+      otrail = Bio::Velvet::Graph::OrientedNodeTrail.new
+      [51,66,77,85].each do |recoherence_kmer|
+        (0...alltrail.trail.length).each do |fin|
+          otrail.trail = alltrail.trail[0..fin]
+
+          finder.validate_last_node_of_path_by_recoherence(
+            otrail,
+            recoherence_kmer,
+            sequences,
+            ).should == true
+        end
+      end
     end
   end
 
