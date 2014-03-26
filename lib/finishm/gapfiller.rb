@@ -187,7 +187,7 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
       :interesting_node_ids => Set.new(whitelisted_node_ids),
       })
     log.info "Finished re-reading read position information"
-binding.pry
+
     # Read in actual sequence information
     sequences_of_interest = whitelisted_node_ids.collect{|node_id|
       finishm_graph.graph.nodes[node_id].short_reads.collect{|r| r.read_id}
@@ -269,8 +269,10 @@ binding.pry
         end_onode.node = end_onode_inward.node
         end_onode.first_side = end_onode_inward.starts_at_start? ? Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST : Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
 
+        adjusted_leash_length = finishm_graph.adjusted_leash_length(start_probe_index, options[:graph_search_leash_length])
+
         trails = cartographer.find_trails_between_nodes(
-          finishm_graph.graph, start_onode, end_onode, options[:graph_search_leash_length], {
+          finishm_graph.graph, start_onode, end_onode, adjusted_leash_length, {
             :recoherence_kmer => options[:recoherence_kmer],
             :sequences => sequences
             }

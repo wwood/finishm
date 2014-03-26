@@ -53,7 +53,7 @@ module Bio
           end
           if best_node
             best_noded_read = best_node.short_reads.find{|r| r.read_id == sequence_id}
-            [best_node, best_noded_read.direction]
+            [best_node, best_noded_read.direction, best_noded_read]
           else
             []
           end

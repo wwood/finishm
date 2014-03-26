@@ -5,7 +5,7 @@ require 'pry'
 module Bio
   module FinishM
     class ProbedGraph
-      attr_accessor :probe_nodes, :probe_node_directions, :graph
+      attr_accessor :probe_nodes, :probe_node_directions, :probe_node_reads, :graph
 
       # Were all the probe recovered through the process?
       def completely_probed?
@@ -44,6 +44,19 @@ module Bio
         else
           return initial_path_from_probe(probe_index)[0]
         end
+      end
+
+      # The leash is the number of base pairs from the start of the probe,
+      # but the path finding algorithm simply uses the combined length of all
+      # the nodes without reference to the actual probe sequence. So if the
+      # probe is near the end of a long node, then path finding may fail.
+      # So adjust the leash length to account for this (or keep the nil
+      # if the starting_leash_length is nil)
+      def adjusted_leash_length(probe_index, starting_leash_length)
+        return nil if starting_leash_length.nil?
+
+        read = @probe_node_reads[probe_index]
+        return read.start_coord
       end
     end
 
@@ -234,6 +247,7 @@ module Bio
         finishm_graph.graph = graph
         finishm_graph.probe_nodes = endings.collect{|array| array[0]}
         finishm_graph.probe_node_directions = endings.collect{|array| array[1]}
+        finishm_graph.probe_node_reads = endings.collect{|array| array[2]}
 
         # Check to make sure the probe sequences map to nodes in the graph
         if finishm_graph.completely_probed?
