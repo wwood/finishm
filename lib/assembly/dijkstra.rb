@@ -23,7 +23,8 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
       elsif initial_oriented_node.first_side == Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST
         onode2.first_side = Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
       else
-        raise "programming error: unexpected oriented node first_side: #{oriented_node}"
+        binding.pry
+        raise "programming error: unexpected oriented node first_side: #{initial_oriented_node}"
       end
       distances2 = min_distances_one_way(graph, onode2, options)
 
