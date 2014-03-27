@@ -70,4 +70,8 @@ describe 'finishm gap closer' do
     stdout = Bio::Commandeer.run(command, :stdin => input)
     stdout.should == input+"\n"
   end
+
+  it 'should take into account the position of the probe on the starting node' do
+    fail
+  end
 end

@@ -50,10 +50,19 @@ class Bio::FinishM::Visualiser
       end
       log.info "Read #{options[:interesting_probes].length} probes in"
     end
+    optparse_object.on("--node-ids NODE_IDS", Array, "explore from these nodes in the graph (comma separated). Node IDs are the nodes in the velvet graph. See also --leash-length [default: don't start from a node, explore the entire graph]") do |arg|
+      options[:interesting_nodes] = arg.collect do |read|
+        node_id = read.to_i
+        if node_id.to_s != read or node_id.nil? or node_id < 1
+          raise "Unable to parse node ID #{read}, from #{arg}, cannot continue"
+        end
+        node_id
+      end
+    end
     optparse_object.on("--probe-to-node-map FILE", String, "Output a tab separated file containing the read IDs and their respective node IDs [default: no output]") do |arg|
       options[:probe_to_node_map] = arg
     end
-    optparse_object.on("--leash-length NUM", Integer, "Don't explore too far in the graph, only this far and not much more [default: unused unless --nodes is specified, otherwise #{options[:graph_search_leash_length]}]") do |arg|
+    optparse_object.on("--leash-length NUM", Integer, "Don't explore too far in the graph, only this far and not much more [default: unused unless --probe-ids or --nodes is specified, otherwise #{options[:graph_search_leash_length]}]") do |arg|
       options[:graph_search_leash_length] = arg
     end
 
@@ -65,12 +74,15 @@ class Bio::FinishM::Visualiser
     #TODO: give a better description of the error that has occurred
     #TODO: require reads options
     if argv.length != 0
-      return "Dangling argument(s) found e.g. #{argv[0]}"
+      return "Dangling argument(s) found e.g. #{argv[0] }"
     else
       if options[:output_graph_png].nil? and options[:output_graph_svg].nil? and options[:output_graph_dot].nil?
         return "No visualisation output format/file given, don't know how to visualise"
       end
       #TODO: this needs to be improved.
+      if options[:interesting_probes] and options[:interesting_nodes]
+        return "Can only be interested in probes or nodes, not both, at least currently"
+      end
 
       # Need reads unless there is already an assembly
       unless options[:previous_assembly] or options[:previously_serialized_parsed_graph_file]
@@ -87,8 +99,11 @@ class Bio::FinishM::Visualiser
 
     # Generate the assembly graph
     log.info "Reading in or generating the assembly graph"
-    finishm_graph = nil
+    viser = Bio::Assembly::ABVisualiser.new
+    gv = nil
+
     if options[:interesting_probes]
+      # Looking based on probes
       if options[:interesting_probes].length > 5
         log.info "Targeting #{options[:interesting_probes].length} probes #{options[:interesting_probes][0..4].join(', ') }, ..."
       else
@@ -97,41 +112,72 @@ class Bio::FinishM::Visualiser
       options[:probe_reads] = options[:interesting_probes]
       options[:remove_unconnected_nodes] = true
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
-    else
-      finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
-    end
-    binding.pry
 
-    if options[:probe_to_node_map]
-      log.info "Writing probe-to-node map to #{options[:probe_to_node_map] }.."
-      File.open(options[:probe_to_node_map],'w') do |f|
-        f.puts %w(probe_number probe node direction).join("\t")
-        finishm_graph.probe_nodes.each_with_index do |node, i|
-          if node.nil?
-            f.puts [
-              i+1,
-              options[:interesting_probes][i],
-              '-',
-              '-',
-              ].join("\t")
-          else
-            f.puts [
-              i+1,
-              options[:interesting_probes][i],
-              node.node_id,
-              finishm_graph.probe_node_directions[i] == true ? 'forward' : 'reverse',
-              ].join("\t")
+      # Output probe map if asked
+      if options[:probe_to_node_map]
+        log.info "Writing probe-to-node map to #{options[:probe_to_node_map] }.."
+        File.open(options[:probe_to_node_map],'w') do |f|
+          f.puts %w(probe_number probe node direction).join("\t")
+          finishm_graph.probe_nodes.each_with_index do |node, i|
+            if node.nil?
+              f.puts [
+                i+1,
+                options[:interesting_probes][i],
+                '-',
+                '-',
+                ].join("\t")
+            else
+              f.puts [
+                i+1,
+                options[:interesting_probes][i],
+                node.node_id,
+                finishm_graph.probe_node_directions[i] == true ? 'forward' : 'reverse',
+                ].join("\t")
+            end
           end
         end
       end
+
+      # Create graphviz object
+      interesting_node_ids = finishm_graph.probe_nodes.reject{|n| n.nil?}.collect{|node| node.node_id}
+      log.info "Converting assembly to a graphviz"
+      gv = viser.graphviz(finishm_graph.graph, {:start_node_ids => interesting_node_ids})
+
+
+    elsif options[:interesting_nodes]
+      # Looking based on nodes
+      if options[:interesting_nodes].length > 5
+        log.info "Targeting #{options[:interesting_nodes].length} probes #{options[:interesting_nodes][0..4].join(', ') }, ..."
+      else
+        log.info "Targeting #{options[:interesting_nodes].length} probes #{options[:interesting_nodes].inspect}"
+      end
+      finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
+
+      log.info "Removing unconnected nodes.."
+      filter = Bio::AssemblyGraphAlgorithms::ConnectivityBasedGraphFilter.new
+      interesting_nodes = []
+      options[:interesting_nodes].collect do |node_id|
+        node  = finishm_graph.graph.nodes[node_id]
+        raise "Unable to locate node #{node_id}" if node.nil?
+        interesting_nodes.push node
+      end
+      filter.remove_unconnected_nodes(
+        finishm_graph.graph,
+        interesting_nodes,
+        :leash_length => options[:graph_search_leash_length]
+        )
+
+      log.info "Converting assembly to a graphviz"
+      gv = viser.graphviz(finishm_graph.graph, {:start_node_ids => options[:interesting_nodes]})
+
+    else
+      # Visualising the entire graph
+      finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
+      log.info "Converting assembly to a graphviz"
+      gv = viser.graphviz(finishm_graph.graph)
     end
 
-    # Display the output graph visualisation
-    log.info "Converting assembly to a graphviz"
-    viser = Bio::Assembly::ABVisualiser.new
-    interesting_node_ids = finishm_graph.probe_nodes.reject{|n| n.nil?}.collect{|node| node.node_id}
-    gv = viser.graphviz(finishm_graph.graph, {:start_node_ids => interesting_node_ids})
-
+    # Convert gv object to something actually pictorial
     if options[:output_graph_png]
       log.info "Writing PNG #{options[:output_graph_png]}"
       gv.output :png => options[:output_graph_png], :use => :neato

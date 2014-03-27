@@ -42,28 +42,20 @@ module Bio::AssemblyGraphAlgorithms
       # Copy the whitelist
       all_whitelisted_nodes = Set.new whitelisted_nodes
 
+      dij = Bio::AssemblyGraphAlgorithms::Dijkstra.new
+      dij_options = {:ignore_directions => true}
+      dij_options[:leash_length] = options[:leash_length]
+
       # Depth-first search of all the connected parts looking for nodes to keep
       whitelisted_nodes.each do |originally_whitelisted_node|
-        [:start_is_first, :end_is_first].each do |direction|
-          onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
-          onode.node = originally_whitelisted_node
-          onode.first_side = direction
-          log.debug "Testing for connectivity from #{onode.node.node_id}/#{onode.first_side}" if log.debug?
+        onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
+        onode.node = originally_whitelisted_node
+        onode.first_side = true #irrelevant because :ignore_directions => true
+        log.debug "Testing for connectivity from #{onode.node.node_id}" if log.debug?
 
-          if options[:leash_length]
-            dij = Bio::AssemblyGraphAlgorithms::Dijkstra.new
-            min_distances = dij.min_distances(graph, onode, :leash_length => options[:leash_length])
-            min_distances.each do |key, distance|
-              all_whitelisted_nodes << graph.nodes[key[0]]
-            end
-          else
-            graph.depth_first_search(onode) do |path|
-              node = path.last
-              log.debug "Whitelisting node #{node.node.node_id}/#{node.first_side}" if log.debug?
-              all_whitelisted_nodes << node.node
-              true
-            end
-          end
+        min_distances = dij.min_distances(graph, onode, dij_options)
+        min_distances.each do |key, distance|
+          all_whitelisted_nodes << graph.nodes[key[0]]
         end
       end
 
