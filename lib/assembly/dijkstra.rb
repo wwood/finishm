@@ -52,12 +52,12 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
           onodes = [neigh, onode2]
         end
         onodes.each do |onode|
-          new_distance = current_distance+onode.node.length_alone
+          new_distance = current_distance+min_distanced_node.node.length_alone
           if to_return[onode.to_settable] and to_return[onode.to_settable] <= new_distance
             # We already know a shorter path to this neighbour, so ignore it
             log.debug "Already seen this node at the same or shorter distance, going no further" if log.debug?
           else
-            log.debug "New distance for neighbour: #{onode}: #{new_distance}" if log.debug?
+            log.debug "Queuing new distance for neighbour: #{onode}: #{new_distance}" if log.debug?
             # new shortest distance found. queue it up
             distanced_node = DistancedOrientedNode.new
             distanced_node.node = onode.node
@@ -94,6 +94,10 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
       onode.node = @node
       onode.first_side = @first_side
       return onode.next_neighbours(graph)
+    end
+
+    def inspect
+      "DistancedOrientedNode #{object_id}: node=#{@node.node_id} first=#{@first_side} ditance=#{@distance}"
     end
   end
 end
