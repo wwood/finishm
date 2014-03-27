@@ -21,6 +21,7 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
     pqueue.push first, first.distance
 
     to_return = {}
+    first_node = true
 
     while min_distanced_node = pqueue.shift
 
@@ -52,7 +53,13 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
           onodes = [neigh, onode2]
         end
         onodes.each do |onode|
-          new_distance = current_distance+min_distanced_node.node.length_alone
+          new_distance = current_distance
+          if first_node
+            first_node = false
+          else
+            new_distance += min_distanced_node.node.length_alone
+          end
+
           if to_return[onode.to_settable] and to_return[onode.to_settable] <= new_distance
             # We already know a shorter path to this neighbour, so ignore it
             log.debug "Already seen this node at the same or shorter distance, going no further" if log.debug?
