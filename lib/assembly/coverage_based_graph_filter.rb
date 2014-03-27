@@ -50,7 +50,7 @@ module Bio::AssemblyGraphAlgorithms
       whitelisted_nodes.each do |originally_whitelisted_node|
         onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
         onode.node = originally_whitelisted_node
-        onode.first_side = true #irrelevant because :ignore_directions => true
+        onode.first_side = Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST #irrelevant which is first because :ignore_directions => true
         log.debug "Testing for connectivity from #{onode.node.node_id}" if log.debug?
 
         min_distances = dij.min_distances(graph, onode, dij_options)
