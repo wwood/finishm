@@ -56,7 +56,7 @@ module Bio
         return nil if starting_leash_length.nil?
 
         read = @probe_node_reads[probe_index]
-        return read.start_coord
+        return read.offset_from_start_of_node+starting_leash_length
       end
     end
 

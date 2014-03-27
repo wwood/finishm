@@ -58,7 +58,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
 
       # Have we solved this before? If so, add this path to that solved problem.
       set_key = path_to_settable current_path, recoherence_kmer
-      log.debug "Set key is #{set_key}"
+      log.debug "Set key is #{set_key}" if log.debug?
 
       # Unless the path validates, forget it.
       if !validate_last_node_of_path_by_recoherence(current_path, recoherence_kmer, sequence_hash)

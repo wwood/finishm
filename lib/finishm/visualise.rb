@@ -96,7 +96,6 @@ class Bio::FinishM::Visualiser
       end
       options[:probe_reads] = options[:interesting_probes]
       options[:remove_unconnected_nodes] = true
-      dummy_probe_seqs = ['dummy']*options[:interesting_probes].max
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
     else
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
