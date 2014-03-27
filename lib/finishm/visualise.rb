@@ -147,9 +147,9 @@ class Bio::FinishM::Visualiser
     elsif options[:interesting_nodes]
       # Looking based on nodes
       if options[:interesting_nodes].length > 5
-        log.info "Targeting #{options[:interesting_nodes].length} probes #{options[:interesting_nodes][0..4].join(', ') }, ..."
+        log.info "Targeting #{options[:interesting_nodes].length} nodes #{options[:interesting_nodes][0..4].join(', ') }, ..."
       else
-        log.info "Targeting #{options[:interesting_nodes].length} probes #{options[:interesting_nodes].inspect}"
+        log.info "Targeting #{options[:interesting_nodes].length} node(s) #{options[:interesting_nodes].inspect}"
       end
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
 

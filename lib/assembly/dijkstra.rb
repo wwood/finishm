@@ -54,9 +54,7 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
         end
         onodes.each do |onode|
           new_distance = current_distance
-          if first_node
-            first_node = false
-          else
+          unless first_node
             new_distance += min_distanced_node.node.length_alone
           end
 
@@ -75,6 +73,8 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
           end
         end
       end
+
+      first_node = false
     end
     return to_return
   end
