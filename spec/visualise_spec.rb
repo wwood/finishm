@@ -1,12 +1,12 @@
 
 require 'bio-commandeer'
-TEST_DATA_DIR = File.join(File.dirname(__FILE__),'data')
+TEST_DATA_DIR = File.join(File.dirname(__FILE__),'data','visualise')
 
 describe 'finishm visualise' do
   path_to_script = File.join(File.dirname(__FILE__),'..','bin','finishm visualise')
 
   it 'should visualise an entire graph' do
-    command = "#{path_to_script} --quiet --fasta #{TEST_DATA_DIR}/explore/1/2seqs.sammy.fa --assembly-dot /dev/stdout"
+    command = "#{path_to_script} --quiet --already-assembled-velvet-directory #{TEST_DATA_DIR}/1 --assembly-dot /dev/stdout"
     stdout = Bio::Commandeer.run(command)
     stdout.should == <<END_OF_DOT
 digraph G {
@@ -58,7 +58,7 @@ END_OF_DOT
   end
 
   it 'should visualise particular nodes of interest' do
-    command = "#{path_to_script} --quiet --fasta #{TEST_DATA_DIR}/explore/1/2seqs.sammy.fa --assembly-dot /dev/stdout --node-ids 1,17 --leash-length 300"
+    command = "#{path_to_script} --quiet --already-assembled-velvet-directory #{TEST_DATA_DIR}/1 --assembly-dot /dev/stdout --node-ids 1,17 --leash-length 300"
     stdout = Bio::Commandeer.run(command)
     stdout.should == <<END_OF_DOT
 digraph G {

@@ -27,7 +27,7 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
       # Add/overwrite the current one
       to_return[min_distanced_node.to_settable] = min_distanced_node.distance
 
-      log.debug "Working from #{min_distanced_node.inspect}"
+      log.debug "Working from #{min_distanced_node.inspect}" if log.debug?
 
       if options[:leash_length] and min_distanced_node.distance > options[:leash_length]
         # we are passed leash length, and this is the nearest node. So we are finito.
@@ -55,7 +55,7 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
           new_distance = current_distance+onode.node.length_alone
           if to_return[onode.to_settable] and to_return[onode.to_settable] <= new_distance
             # We already know a shorter path to this neighbour, so ignore it
-            log.debug "Already seen this node at the same or shorter distance, going to further" if log.debug?
+            log.debug "Already seen this node at the same or shorter distance, going no further" if log.debug?
           else
             log.debug "New distance for neighbour: #{onode}: #{new_distance}" if log.debug?
             # new shortest distance found. queue it up
