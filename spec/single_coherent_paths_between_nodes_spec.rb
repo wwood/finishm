@@ -2,7 +2,7 @@ require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
 require 'bio'
 require 'bio-velvet'
 
-Bio::Log::CLI.logger('stderr'); Bio::Log::CLI.trace('debug'); log = Bio::Log::LoggerPlus.new('finishm'); Bio::Log::CLI.configure('finishm')
+#Bio::Log::CLI.logger('stderr'); Bio::Log::CLI.trace('debug'); log = Bio::Log::LoggerPlus.new('finishm'); Bio::Log::CLI.configure('finishm')
 
 describe "SingleCoherentPathsBetweenNodes" do
   it 'should validate_last_node_of_path_by_recoherence simple' do
@@ -160,6 +160,50 @@ describe "SingleCoherentPathsBetweenNodes" do
 
   it 'should use recoherence to get around circuits where possible' do
     fail
+  end
+
+  it 'should not be subject duplication that may comes from leash length problems' do
+    graph, initial_path, terminal_onode = GraphTesting.emit_ss([
+      [1,2],
+      [2,3],
+      [1,5],
+      [5,3],
+      [3,4]
+    ], 1, 4)
+    GraphTesting.add_noded_reads(graph,[
+      [1,2,3,4],
+      [1,5,3,4],
+      ])
+    finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 18, Bio::Velvet::Sequences.new)
+    paths.circular_paths_detected.should == false
+    GraphTesting.sorted_paths(paths.trails).should == [
+      [1,2,3,4],
+      [1,5,3,4],
+    ]
+
+    # Make each path shorter in turn
+    graph.nodes[5].ends_of_kmers_of_node = 'A'*8
+    graph.nodes[5].ends_of_kmers_of_twin_node = 'T'*8
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 18, Bio::Velvet::Sequences.new)
+    paths.circular_paths_detected.should == false
+    GraphTesting.sorted_paths(paths.trails).should == [
+      [1,2,3,4],
+      [1,5,3,4],
+    ]
+
+    # and the other
+    graph.nodes[2].ends_of_kmers_of_node = 'A'*7
+    graph.nodes[2].ends_of_kmers_of_twin_node = 'T'*7
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 18, Bio::Velvet::Sequences.new)
+    paths.circular_paths_detected.should == false
+    GraphTesting.sorted_paths(paths.trails).should == [
+      [1,2,3,4],
+      [1,5,3,4],
+    ]
+
+
+
   end
 
   describe 'validate paths by recoherence' do

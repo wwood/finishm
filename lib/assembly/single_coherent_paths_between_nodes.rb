@@ -1,10 +1,6 @@
 require 'ds'
 require 'set'
 
-class DS::Queue
-  alias_method :size, :length
-end
-
 class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
   include Bio::FinishM::Logging
 
@@ -22,9 +18,6 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     leash_length, recoherence_kmer, sequence_hash)
 
     problems = find_all_problems(graph, initial_path, terminal_oriented_node, leash_length, recoherence_kmer, sequence_hash)
-    problems.each do |key, dynprob|
-      dynprob.remove_duplication_in_known_paths!
-    end
 
     paths = find_paths_from_problems(problems, recoherence_kmer)
     return paths
@@ -35,8 +28,8 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     problems = ProblemSet.new
 
     # setup stack to keep track of initial nodes
-    stack = DS::Stack.new
-    stack.push initial_path.copy
+    pqueue = DS::AnyPriorityQueue.new {|a,b| a < b}
+    pqueue.enqueue initial_path.copy, 0
 
     push_next_neighbours = lambda do |current_path|
       next_nodes = current_path.neighbours_of_last_node(graph)
@@ -46,13 +39,13 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         log.debug "Pushing neighbour to stack: #{n}" if log.debug?
         path = current_path.copy
         path.add_oriented_node n
-        stack.push path
+        pqueue.enqueue path, path.length_in_bp
       end
     end
 
     current_oriented_node_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
 
-    while current_path = stack.pop
+    while current_path = pqueue.dequeue
       path_length = current_path.length_in_bp
       log.debug "considering #{current_path}, path length: #{path_length}" if log.debug?
 
@@ -103,7 +96,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         # explore the forward neighbours
         push_next_neighbours.call current_path
       end
-      log.debug "Stack size: #{stack.size}" if log.debug?
+      log.debug "Priority queue size: #{pqueue.length}" if log.debug?
     end
 
     return problems
@@ -308,26 +301,6 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
 
     def initialize
       @known_paths = []
-    end
-
-    # With leash length considerations, sometimes we can get multiple paths leading to
-    # duplications ie 1 -> 2 -> 3 -> 4, also 1->5->3->4 - if length of node 5 is less than length
-    # of node 2, then there'll be 2 paths attached to 4.
-    def remove_duplication_in_known_paths!
-      second_to_last_node_observations = Set.new
-      @known_paths.select! do |path|
-        if path.length > 1
-          second_to_last = path[-2]
-          if second_to_last_node_observations.include?(second_to_last.to_settable)
-            false
-          else
-            second_to_last_node_observations << second_to_last.to_settable
-            true
-          end
-        else
-          true #keep all short paths
-        end
-      end
     end
   end
 
