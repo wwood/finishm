@@ -259,9 +259,9 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
     last_scaffold = nil
 
     (0...(probe_sequences.length / 2)).collect{|i| i*2}.each do |start_probe_index|
-      gap_number = start_probe_index / 2 + 1
+      gap_number = start_probe_index / 2
       gap = gaps[gap_number]
-      log.info "Now working through gap number #{gap_number}: #{gap.coords}"
+      log.info "Now working through gap number #{gap_number+1}: #{gap.coords}"
       start_onode = finishm_graph.velvet_oriented_node(start_probe_index)
       end_onode_inward = finishm_graph.velvet_oriented_node(start_probe_index+1)
       if start_onode and end_onode_inward
@@ -272,7 +272,6 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
 
         adjusted_leash_length = finishm_graph.adjusted_leash_length(start_probe_index, options[:graph_search_leash_length])
         log.debug "Using adjusted leash length #{adjusted_leash_length }" if log.debug?
-        binding.pry if gap_number == 13
 
         trails = cartographer.find_trails_between_nodes(
           finishm_graph.graph, start_onode, end_onode, adjusted_leash_length, {
@@ -335,7 +334,5 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
 
     output_trails_file.close unless output_trails_file.nil?
     output_fasta_file.close
-
-binding.pry
   end
 end
