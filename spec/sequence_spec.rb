@@ -4,7 +4,8 @@ describe 'finishm gap closer' do
   path_to_script = File.join(File.dirname(__FILE__),'..','bin','finishm sequence')
   it 'should scripting test ok' do
     command = "#{path_to_script} --quiet --already-assembled-velvet-directory spec/data/contig_printer/1/seq.fa.velvet --path 9s,12s,7e"
-    expected = 'TTAGAGTTTGATCCTGGCTCAGAACGAACGCTGGCGGCATGCCTAACACATGCAAGTCGAACGAGACCTTCGGGTCTAGTGGCGCACGGGTGCGTAACGCGTGGGAATCTGCCCTTGGGTACGGAATAACAGTTAGAAATGACTGCTAATACCGTATAATGACTTCGGTCCAAAGATTTATCGCC'+"\n"
+    expected = '>9s,12s,7e'+"\n"+
+      'TTAGAGTTTGATCCTGGCTCAGAACGAACGCTGGCGGCATGCCTAACACATGCAAGTCGAACGAGACCTTCGGGTCTAGTGGCGCACGGGTGCGTAACGCGTGGGAATCTGCCCTTGGGTACGGAATAACAGTTAGAAATGACTGCTAATACCGTATAATGACTTCGGTCCAAAGATTTATCGCC'+"\n"
     observed = Bio::Commandeer.run command
     observed.should == expected
   end
@@ -29,5 +30,14 @@ describe 'finishm gap closer' do
     expect {
       Bio::Commandeer.run command
       }.to raise_error
+  end
+
+
+  it 'should accept when no starting directions are given' do
+    command = "#{path_to_script} --quiet --already-assembled-velvet-directory spec/data/contig_printer/1/seq.fa.velvet --path-ids 9,12,7"
+    expected = '>9s,12s,7e'+"\n"+
+      'TTAGAGTTTGATCCTGGCTCAGAACGAACGCTGGCGGCATGCCTAACACATGCAAGTCGAACGAGACCTTCGGGTCTAGTGGCGCACGGGTGCGTAACGCGTGGGAATCTGCCCTTGGGTACGGAATAACAGTTAGAAATGACTGCTAATACCGTATAATGACTTCGGTCCAAAGATTTATCGCC'+"\n"
+    observed = Bio::Commandeer.run command
+    observed.should == expected
   end
 end

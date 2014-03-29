@@ -105,6 +105,8 @@ module Bio
         START_IS_FIRST = :start_is_first
         END_IS_FIRST = :end_is_first
 
+        class IllDefinedTrailDefinition < Exception; end
+
         # initialize a new path. If an array is given, each element should be a pair:
         # first element of the pair is a node, and the second true/false or
         # START_IS_FIRST/END_IS_FIRST
@@ -127,6 +129,90 @@ module Bio
             end
             @trail.push onode
           end
+        end
+
+        # Given a string like '2,3,4' (super-shorthand form),
+        # return the OrientedNodeTrail that thise defines. Raises
+        # 'IllDefinedTrailDefinition Exception if there is any ambiguity.
+        def self.create_from_super_shorthand(path_string, graph)
+          stones = path_string.split(',').collect{|s| s.strip}
+          return self.new if stones.length == 0
+          if stones.length == 1
+            raise IllDefinedTrailDefinition, "Cannot know path orientation when only one node is given"
+          end
+          state = 'first'
+          trail = []
+
+          stones.each do |str|
+            if matches = str.match(/^([01-9]+)$/)
+              if state == 'first'
+                state = 'second'
+              elsif state == 'second'
+                # Determine the direction of the first two nodes
+                first, second = stones[0..1].collect do |str|
+                  if matches = str.match(/^([01-9]+)$/)
+                    node = graph.nodes[matches[1].to_i]
+                    if node.nil?
+                      raise IllDefinedTrailDefinition, "Node `#{matches[1] }' from #{path_string} does not appear to be a node ID in the graph"
+                    end
+                    OrientedNode.new(node, START_IS_FIRST)
+                  else
+                    raise IllDefinedTrailDefinition, "Unable to parse stepping stone along the path: `#{str}'. Entire path was `#{path_string}'."
+                  end
+                end
+                neighbours_of_first_s = first.next_neighbours(graph)
+
+                rev_first = OrientedNode.new first.node, first.first_side
+                rev_first.first_side = END_IS_FIRST
+                neighbours_of_first_e = rev_first.next_neighbours(graph)
+
+                if neighbours_of_first_s.find{|n| n.node_id == second.node_id}
+                  if neighbours_of_first_e.find{|n| n.node_id == second.node_id}
+                    raise IllDefinedTrailDefinition, "Both start and end of first node connect to second node, I'm confused."
+                  else
+                    seconds = neighbours_of_first_s.select{|n| n.node_id == second.node_id}
+                    if seconds.length > 1
+                      raise IllDefinedTrailDefinition, "first node connects to both start and end of second node, I'm confused."
+                    else
+                      trail.push first
+                      trail.push seconds[0]
+                    end
+                  end
+                elsif neighbours_of_first_e.find{|n| n.node_id == second.node_id}
+                  seconds = neighbours_of_first_e.select{|n| n.node_id == second.node_id}
+                  if seconds.length > 1
+                    raise IllDefinedTrailDefinition, "first node connects to both start and end of second node, I'm confused."
+                  else
+                    trail.push rev_first
+                    trail.push seconds[0]
+                  end
+                else
+                  raise IllDefinedTrailDefinition, "First and second nodes do not appear to be directly connected"
+                end
+                state = 'beyond'
+
+              else #we are at the third or later node in the path
+                last = trail[-1]
+                neighbours_of_last = last.next_neighbours(graph)
+                nexts = neighbours_of_last.select{|n| n.node_id == matches[1].to_i}
+                if nexts.length == 0
+                  raise IllDefinedTrailDefinition, "Nodes #{last} and #{matches[1] } do not appear to be connected"
+                elsif nexts.length > 1
+                  raise IllDefinedTrailDefinition, "Node #{last} connects to both the start and end of #{matches[1] }, I'm confused"
+                else
+                  trail.push nexts[0]
+                  last = nexts[0]
+                end
+              end
+
+            else #can't regex the text as shorthand stone or super-shorthand stone
+              raise "Unable to parse stepping stone along the path: `#{arg}'. Entire path was `#{arg}'."
+            end
+          end
+
+          to_return = OrientedNodeTrail.new
+          to_return.trail = trail
+          return to_return
         end
 
         # Add a node to the trail. start_or_end is either

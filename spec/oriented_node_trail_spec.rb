@@ -166,4 +166,30 @@ ACTATGCTGGTATTTCACTTCCAGGTACAGG'.gsub(/\n/,'')
     trail.add_node graph.nodes[2], :end_is_first
     trail.to_shorthand.should == '1s,2e'
   end
+
+  it 'should be able to parse super-shorthand form easy' do
+    graph = GraphTesting.emit([
+      [1,2],
+      [2,3],
+      [2,4],
+      [4,2],
+    ])
+    Bio::Velvet::Graph::OrientedNodeTrail.create_from_super_shorthand('2,3', graph).to_shorthand.should == '2s,3s'
+    Bio::Velvet::Graph::OrientedNodeTrail.create_from_super_shorthand('1,2,3', graph).to_shorthand.should == '1s,2s,3s'
+    Bio::Velvet::Graph::OrientedNodeTrail.create_from_super_shorthand('3,2,1', graph).to_shorthand.should == '3e,2e,1e'
+
+    expect {
+      #one node only not enough
+      Bio::Velvet::Graph::OrientedNodeTrail.create_from_super_shorthand('3', graph).to_shorthand
+    }.to raise_error
+    expect {
+      # 2,4 have confusing connections
+      Bio::Velvet::Graph::OrientedNodeTrail.create_from_super_shorthand('2,4', graph).to_shorthand
+    }.to raise_error
+    expect {
+      # 1,4 not directly connected
+      Bio::Velvet::Graph::OrientedNodeTrail.create_from_super_shorthand('1,4', graph).to_shorthand
+    }.to raise_error
+
+  end
 end
