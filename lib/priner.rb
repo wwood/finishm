@@ -16,6 +16,7 @@ require 'kmer_multi_abundance_file'
 require 'kmer_abundance_pattern'
 
 require 'bio-velvet'
+require 'bio-velvet_underground'
 
 require 'assembly/acyclic_connection_finder'
 require 'assembly/paths_between_nodes'

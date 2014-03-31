@@ -138,7 +138,6 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
     end
 
     # Do the actual graph building and/or initial reading
-    options[:use_textual_sequence_file] = true
     finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph(probe_sequences, read_input, options)
 
     # Output optional graphics.
@@ -189,14 +188,10 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
     log.info "Finished re-reading read position information"
 
     # Read in actual sequence information
-    sequences_of_interest = whitelisted_node_ids.collect{|node_id|
-      finishm_graph.graph.nodes[node_id].short_reads.collect{|r| r.read_id}
-      }.flatten
-    sequences_file_path = File.join assembly_directory, 'Sequences'
-    log.info "Reading in the actual sequences of #{sequences_of_interest.length} reads from #{sequences_file_path}"
-    sequences = Bio::Velvet::Sequences.parse_from_file(sequences_file_path,
-      :interesting_read_ids => Set.new(sequences_of_interest)
-      )
+    sequences_file_path = File.join assembly_directory, 'CnyUnifiedSeq'
+    log.info "Reading in the actual sequences of all reads from #{sequences_file_path}"
+    sequences = Bio::Velvet::Underground::BinarySequenceStore.new sequences_file_path
+    log.info "Read in #{sequences.length} sequences"
 
 
     # Clean up the tmdir, if one was used.
