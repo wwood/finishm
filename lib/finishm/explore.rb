@@ -25,23 +25,27 @@ class Bio::FinishM::Explorer
     optparse_object.on("--contigs FILE", "Fasta file containing contigs to find the fluff on [required]") do |arg|
       options[:contigs_file] = arg
     end
-    optparse_object.on("--interesting-ends INTERESTING_PLACES", Array, "Comma-separated list of places to explore from e.g. 'contig1:end,MyContig2:start' to explore from the end of contig1 and the start of MyContig2. Names of contigs are as they are in the given --contigs file. [required]") do |arg|
-      arg.each do |tuple|
-        options[:interesting_places] ||= []
-        splits = tuple.split(':')
-        if splits.length != 2
-          log.error "Unable to parse this --interesting-ends argument: #{tuple}"
-          exit 1
+    optparse_object.on("--interesting-ends INTERESTING_PLACES", Array, "Comma-separated list of places to explore from e.g. 'contig1:end,MyContig2:start' to explore from the end of contig1 and the start of MyContig2. Names of contigs are as they are in the given --contigs file. Or use 'all' to mean all contig ends in the fasta file [required]") do |arg|
+      if arg == ['all']
+        options[:interesting_places] = :all
+      else
+        arg.each do |tuple|
+          options[:interesting_places] ||= []
+          splits = tuple.split(':')
+          if splits.length != 2
+            log.error "Unable to parse this --interesting-ends argument: #{tuple}"
+            exit 1
+          end
+          place = InterestingPlace.new
+          place.contig_name = splits[0]
+          if %(start end).include?(splits[1])
+            place.start_or_end = splits[1]
+          else
+            log.error "Unable to parse this --interesting-ends argument, second half must be 'start' or 'end': #{tuple}"
+            exit 1
+          end
+          options[:interesting_places].push place
         end
-        place = InterestingPlace.new
-        place.contig_name = splits[0]
-        if %(start end).include?(splits[1])
-          place.start_or_end = splits[1]
-        else
-          log.error "Unable to parse this --interesting-ends argument, second half must be 'start' or 'end': #{tuple}"
-          exit 1
-        end
-        options[:interesting_places].push place
       end
     end
     optparse_object.on("--output-explored-paths PATH", "Output found paths to this file in fasta format [required]") do |arg|
@@ -135,19 +139,36 @@ class Bio::FinishM::Explorer
 
     # Collect the node IDs that I'm interested in before generating the graph so don't have to do a whole assembly before getting an argument error
     interesting_probe_ids_to_place = {}
-    options[:interesting_places].each do |place|
-      seq_index = sequence_names.find_index place.contig_name
-      if seq_index.nil?
-        log.error "Unable to find interesting contig #{place.contig_name}, cannot continue"
-        exit 1
-      else
-        base = seq_index*2
-        if place.start_or_end == 'start'
-          #
-        elsif place.start_or_end == 'end'
-          base += 1
+    if options[:interesting_places] == :all
+      options[:interesting_places] = []
+      sequence_names.each_with_index do |name, i|
+        %w(start end).each do |side|
+          place = InterestingPlace.new
+          place.start_or_end = side
+          place.contig_name = name
+          options[:interesting_places].push place
+
+          base = i
+          base += 1 if side == 'end'
+
+          interesting_probe_ids_to_place[base] = place
         end
-        interesting_probe_ids_to_place[base] = place
+      end
+    else
+      options[:interesting_places].each do |place|
+        seq_index = sequence_names.find_index place.contig_name
+        if seq_index.nil?
+          log.error "Unable to find interesting contig #{place.contig_name}, cannot continue"
+          exit 1
+        else
+          base = seq_index*2
+          if place.start_or_end == 'start'
+            #
+          elsif place.start_or_end == 'end'
+            base += 1
+          end
+          interesting_probe_ids_to_place[base] = place
+        end
       end
     end
 

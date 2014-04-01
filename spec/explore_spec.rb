@@ -10,10 +10,20 @@ describe "FinishM explore" do
     Dir.chdir(data_path) do
       trails = Bio::Commandeer.run "#{FINISHM_SCRIPT_PATH} explore --quiet --contigs a.fa --interesting-ends random:end --output-explored-paths - --fasta 2seqs.sammy.fa"
     end
-    p trails
     splits = trails.split("\n").to_a.sort
     splits.length.should == 128
-    splits[0].match(/>random:end Dead end \/ coverage nodes:(\d),[\d,]+/)[1] == '1'
+    splits[0].match(/>random:end Dead end \/ coverage nodes:(\d),[\d,]+/)[1].should == '1'
     splits[127][0...100].should == 'CCTATCCGGTCCCCCTAGAATGTTGATTCCTCCGTCTTCTGATTTCCGTTGGCGGTTCGTATCGGCTCCCGTACAACCGCCGGAATTGAAGTGTACCTTG'
+  end
+
+  it 'should explore when interesting ends is all' do
+    data_path = File.join(TEST_DATA_DIR,'explore','1')
+    trails = nil
+    Dir.chdir(data_path) do
+      trails = Bio::Commandeer.run "#{FINISHM_SCRIPT_PATH} explore --quiet --contigs a.fa --interesting-ends all --output-explored-paths - --fasta 2seqs.sammy.fa"
+    end
+    splits = trails.split("\n").to_a
+    splits.length.should == 130
+    splits[0].match(/>random:start Dead end \/ coverage nodes:(\d)/)[1].should == '1'
   end
 end
