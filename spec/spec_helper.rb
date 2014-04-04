@@ -53,7 +53,7 @@ class GraphTesting
     return graph
   end
 
-  def self.emit_ss(arc_pairs, start_node_id, stop_node_id)
+  def self.emit_ss(arc_pairs, start_node_id, stop_node_id=1)
     graph = emit(arc_pairs)
     initial = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
     initial.node = graph.nodes[start_node_id]

@@ -18,7 +18,7 @@ module Bio::AssemblyGraphAlgorithms
           deleting = true
         end
 
-        if deleting and options[:whitelisted_sequences]
+        if deleting and options[:whitelisted_sequences] and !node.short_reads.nil?
           options[:whitelisted_sequences].each do |seq_id|
             if node.short_reads.collect{|r| r.read_id}.include?(seq_id)
               deleting = false

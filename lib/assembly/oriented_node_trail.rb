@@ -131,6 +131,32 @@ module Bio
           end
         end
 
+        def self.create_from_shorthand(path_string, graph)
+          stones = path_string.split(',').collect{|s| s.strip}
+          return self.new if stones.length == 0
+          trail = []
+          stones.each do |stone|
+            onode = OrientedNode.new
+            if matches = stone.match(/^(\d+)([se])$/)
+              node = graph.nodes[matches[1].to_i]
+              raise IllDefinedTrailDefinition, "Unable to find node #{matches[1] } in the graph, cannot continue" if node.nil?
+              onode.node = node
+
+              if matches[2] == 's'
+                onode.first_side = START_IS_FIRST
+              else
+                onode.first_side = END_IS_FIRST
+              end
+            else
+              raise IllDefinedTrailDefinition, "Unable to underestand shorthand #{stone}"
+            end
+            trail.push onode
+          end
+          path = self.new
+          path.trail = trail
+          return path
+        end
+
         # Given a string like '2,3,4' (super-shorthand form),
         # return the OrientedNodeTrail that thise defines. Raises
         # 'IllDefinedTrailDefinition Exception if there is any ambiguity.
@@ -351,6 +377,14 @@ module Bio
 
           def to_s
             "OrientedNode: node #{@node.node_id}, first_side: #{@first_side}"
+          end
+
+          def to_shorthand
+            if @first_side == OrientedNodeTrail::START_IS_FIRST
+              return "#{node_id}s"
+            else
+              return "#{node_id}e"
+            end
           end
 
           # Set#include? doesn't pick up when the same OrientedNode is picked

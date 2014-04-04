@@ -131,6 +131,9 @@ class Bio::FinishM::GraphGenerator
     option_parser.on("--assembly-coverage-cutoff NUMBER", "Require this much coverage in each node, all other nodes are removed [default: #{options[:assembly_coverage_cutoff] }]") do |arg|
       options[:assembly_coverage_cutoff] = arg.to_f
     end
+    option_parser.on("--post-assembly-coverage-cutoff NUMBER", "Require this much coverage in each node, implemented after assembly [default: not used]") do |arg|
+      options[:post_assembly_coverage_cutoff] = arg.to_f
+    end
     option_parser.on("--velvet-directory PATH", "Output assembly intermediate files to this directory [default: use temporary directory, delete afterwards]") do |arg|
       options[:output_assembly_path] = arg
     end
@@ -157,9 +160,12 @@ class Bio::FinishM::GraphGenerator
   # :probe_reads: a list of sequence numbers (numbering as per velvet Sequence file)
   # :velvet_kmer_size: kmer
   # :assembly_coverage_cutoff: coverage cutoff for nodes
+  # :post_assembly_coverage_cutoff: apply this coverage cutoff to nodes after parsing assembly
   # :output_assembly_path: write assembly to this directory
   # :previous_assembly: a velvet directory from a previous run of the same probe sequences and reads. (Don't re-assemble)
   # :use_textual_sequence_file: by default, a binary sequence file is used. Set this true to get velvet to generate the Sequences file
+  # :remove_unconnected_nodes: delete nodes from the graph that are not connected to the probe nodes
+  # :graph_search_leash_length: when :remove_unconnected_nodes'ing, use this leash length
   # :serialize_parsed_graph_file: after assembly, parse the graph in, and serialize the ruby object for later. Value of this option is the path to the save file.
   # :previously_serialized_parsed_graph_file: read in a previously serialized graph file, and continue from there
   def generate_graph(probe_sequences, read_inputs, options={})
@@ -275,12 +281,32 @@ class Bio::FinishM::GraphGenerator
       raise "Unable to find all anchor reads from the assembly, cannot continue. This is probably an error with this script, not you. Probes not found: #{finishm_graph.missing_probe_indices.inspect}"
     end
 
+    if options[:post_assembly_coverage_cutoff]
+      log.info "Removing nodes with coverage < #{options[:post_assembly_coverage_cutoff] } from graph.."
+      original_num_nodes = graph.nodes.length
+      original_num_arcs = graph.arcs.length
+      filter = Bio::AssemblyGraphAlgorithms::CoverageBasedGraphFilter.new
+      filter.remove_low_coverage_nodes(graph,
+        options[:post_assembly_coverage_cutoff],
+        :whitelisted_sequences => Set.new(anchor_sequence_ids)
+      )
+      log.info "Removed #{original_num_nodes-graph.nodes.length} nodes and #{original_num_arcs-graph.arcs.length} arcs, leaving #{graph.nodes.length} nodes and #{graph.arcs.length} arcs."
+    end
+
     if options[:remove_unconnected_nodes]
-      log.info "Removing nodes unconnected to probe nodes from the graph.."
+      if options[:graph_search_leash_length]
+        log.info "Removing nodes unconnected to probe nodes from the graph using leash #{options[:graph_search_leash_length] }.."
+      else
+        log.info "Removing nodes unconnected to probe nodes from the graph without using a leash.."
+      end
       original_num_nodes = graph.nodes.length
       original_num_arcs = graph.arcs.length
       filter = Bio::AssemblyGraphAlgorithms::ConnectivityBasedGraphFilter.new
-      filter.remove_unconnected_nodes(graph, finishm_graph.probe_nodes.reject{|n| n.nil?})
+      filter.remove_unconnected_nodes(
+        graph,
+        finishm_graph.probe_nodes.reject{|n| n.nil?},
+        :leash_length => options[:graph_search_leash_length]
+        )
       log.info "Removed #{original_num_nodes-graph.nodes.length} nodes and #{original_num_arcs-graph.arcs.length} arcs, leaving #{graph.nodes.length} nodes and #{graph.arcs.length} arcs."
     end
 

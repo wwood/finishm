@@ -6,7 +6,7 @@ class Bio::FinishM::Wanderer
     attr_accessor :sequence_name, :side
 
     def to_s
-      "#{@sequence_name}.#{side}"
+      "#{@sequence_name}.#{@side}"
     end
   end
 
@@ -144,6 +144,7 @@ class Bio::FinishM::Wanderer
           desc = probe_descriptions[i]
           desc.to_s
         end
+        binding.pry
         out.puts [
           sequence_names_and_directions,
           distance
