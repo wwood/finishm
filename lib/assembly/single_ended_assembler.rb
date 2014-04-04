@@ -6,10 +6,14 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
 
   # Assemble considering reads all reads as single ended. Options:
   # :max_tip_length: if a path is shorter than this in bp, then it will be clipped from the path. Default 100
-  def assemble_from(initial_path, graph, options={})
+  # :recoherence_kmer: attempt to separate paths by going back to the reads with this larger kmer
+  def assemble_from(initial_path, graph, sequences, options={})
     options[:max_tip_length] ||= 100
 
+    recoherencer = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
+
     path = initial_path.copy
+    dummy_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
     while true
       log.debug "Starting from #{path[-1].to_shorthand}" if log.debug?
       oneighbours = path.neighbours_of_last_node(graph)
@@ -23,7 +27,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
         path.add_oriented_node to_add
 
       else
-        # Reached a fork, which way to go?
+        # Reached a fork (or 3 or 4-fork), which way to go?
 
         # Remove neighbours that are short tips
         oneighbours.reject! do |oneigh|
@@ -36,9 +40,29 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
         elsif oneighbours.length == 1
           log.debug "Clipped short tip(s) off, and then there was only one way to go" if log.debug?
           path.add_oriented_node oneighbours[0]
-        else
-          log.debug "Came across what appears to be a legitimate fork, so giving up" if log.debug?
+        elsif options[:recoherence_kmer].nil?
+          log.debug "Came across what appears to be a legitimate fork and no recoherence kmer given, so giving up" if log.debug?
           return path
+        else
+          log.debug "Attempting to resolve fork by recoherence" if log.debug?
+          oneighbours.select! do |oneigh|
+            dummy_trail.trail = path.trail+[oneigh]
+            recoherencer.validate_last_node_of_path_by_recoherence(
+              dummy_trail,
+              options[:recoherence_kmer],
+              sequences
+              )
+          end
+          if oneighbours.length == 0
+            log.debug "no neighbours passed recoherence, giving up" if log.debug?
+            return path
+          elsif oneighbours.length == 1
+            log.debug "After recoherence there's only one way to go, going there"
+            path.add_oriented_node oneighbours[0]
+          else
+            log.debug "Still forked after recoherence, so seems to be a legitimate fork, giving up" if log.debug?
+            return path
+          end
         end
       end
     end

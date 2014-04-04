@@ -25,6 +25,9 @@ class Bio::FinishM::Assembler
     Bio::FinishM::ReadInput.new.add_options(optparse_object, options)
 
     optparse_object.separator "\nOptional arguments:\n\n"
+    optparse_object.on("--recoherence-kmer LENGTH", Integer, "When paths diverge, try to rescue by using a bigger kmer of this length [default: none]") do
+      options[:recoherence_kmer] = arg
+    end
     optparse_object.on("--output-pathspec", "Give the sequence of nodes used in the path in the output contig file [default: #{options[:output_pathspec] }]") do
       options[:output_pathspec] = true
     end
@@ -67,8 +70,17 @@ class Bio::FinishM::Assembler
     graph = finishm_graph.graph
 
     initial_trail = Bio::Velvet::Graph::OrientedNodeTrail.create_from_shorthand(options[:initial_node_shorthand], graph)
+
+    # Read sequence data
+    sequences_file_path = File.join finishm_graph.velvet_result_directory, 'CnyUnifiedSeq'
+    log.info "Reading in the actual sequences of all reads from #{sequences_file_path}"
+    sequences = Bio::Velvet::Underground::BinarySequenceStore.new sequences_file_path
+    log.info "Read in #{sequences.length} sequences"
+
     log.info "Starting to assemble from #{initial_trail.to_shorthand}.."
-    path = assembler.assemble_from(initial_trail, graph)
+    path = assembler.assemble_from(initial_trail, graph, sequences,
+      :recoherence_kmer => options[:recoherence_kmer]
+    )
 
     File.open(options[:output_trails_file],'w') do |output|
       output.print ">#{options[:initial_node_shorthand] }"

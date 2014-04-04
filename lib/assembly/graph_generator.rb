@@ -5,6 +5,8 @@ require 'pry'
 class Bio::FinishM::ProbedGraph
   attr_accessor :probe_nodes, :probe_node_directions, :probe_node_reads, :graph
 
+  attr_accessor :velvet_result_directory
+
   # Were all the probe recovered through the process?
   def completely_probed?
     !(@probe_nodes.find{|node| node.nil?})
@@ -170,6 +172,8 @@ class Bio::FinishM::GraphGenerator
   # :previously_serialized_parsed_graph_file: read in a previously serialized graph file, and continue from there
   def generate_graph(probe_sequences, read_inputs, options={})
     graph = nil
+    finishm_graph = Bio::FinishM::ProbedGraph.new
+
     if options[:previously_serialized_parsed_graph_file].nil?
       velvet_result = nil
 
@@ -212,6 +216,7 @@ class Bio::FinishM::GraphGenerator
             log.debug "velvetg stderr: #{velvet_result.velvetg_stderr}"
           end
           log.info "Finished running assembly"
+          finishm_graph.velvet_result_directory = velvet_result.result_directory
         end
       else
         log.info "Using previous assembly stored at #{options[:previous_assembly] }"
@@ -248,7 +253,6 @@ class Bio::FinishM::GraphGenerator
     log.info "Finding probe nodes in the assembly"
     anchor_sequence_ids = probe_read_ids.to_a.sort
     endings = finder.find_unique_nodes_with_sequence_ids(graph, anchor_sequence_ids)
-    finishm_graph = Bio::FinishM::ProbedGraph.new
     finishm_graph.graph = graph
     finishm_graph.probe_nodes = endings.collect{|array| array[0]}
     finishm_graph.probe_node_directions = endings.collect{|array| array[1]}

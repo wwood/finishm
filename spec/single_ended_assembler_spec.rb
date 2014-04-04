@@ -1,6 +1,6 @@
 require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
 
-Bio::Log::CLI.logger('stderr'); Bio::Log::CLI.trace('debug'); log = Bio::Log::LoggerPlus.new('finishm'); Bio::Log::CLI.configure('finishm')
+#Bio::Log::CLI.logger('stderr'); Bio::Log::CLI.trace('debug'); log = Bio::Log::LoggerPlus.new('finishm'); Bio::Log::CLI.configure('finishm')
 
 describe "SingleEndedAssembler" do
   describe 'is_short_tip?' do
@@ -43,7 +43,7 @@ describe "SingleEndedAssembler" do
         [2,3],
         ], 1)
       assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
-      observed = assembler.assemble_from(initial_path, graph)
+      observed = assembler.assemble_from(initial_path, graph, Bio::Velvet::Sequences.new)
       observed.to_shorthand.should == '1s,2s,3s'
     end
 
@@ -56,7 +56,7 @@ describe "SingleEndedAssembler" do
         [5,6],
         ], 1)
       assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
-      observed = assembler.assemble_from(initial_path, graph, :max_tip_length => 15)
+      observed = assembler.assemble_from(initial_path, graph, Bio::Velvet::Sequences.new, :max_tip_length => 15)
       observed.to_shorthand.should == '1s,2s,4s,5s,6s'
     end
 
@@ -69,7 +69,68 @@ describe "SingleEndedAssembler" do
         [5,6],
         ], 1)
       assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
-      observed = assembler.assemble_from(initial_path, graph, :max_tip_length => 5)
+      observed = assembler.assemble_from(initial_path, graph, Bio::Velvet::Sequences.new, :max_tip_length => 5)
+      observed.to_shorthand.should == '1s,2s'
+    end
+
+    it 'should use single read decoherence' do
+      graph, initial_path = GraphTesting.emit_ss([
+        [1,2],
+        [2,3],
+        [2,4]
+        ], 1)
+      GraphTesting.add_noded_reads(graph,[
+        [1,2,4],
+        [2,3]
+        ])
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
+      observed = assembler.assemble_from(initial_path, graph, Bio::Velvet::Sequences.new,
+        {
+          :recoherence_kmer => 22,
+          :max_tip_length => 5,
+          }
+        )
+      observed.to_shorthand.should == '1s,2s,4s'
+    end
+
+    it 'should fail when single read decoherence fails' do
+      graph, initial_path = GraphTesting.emit_ss([
+        [1,2],
+        [2,3],
+        [2,4]
+        ], 1)
+      GraphTesting.add_noded_reads(graph,[
+        [1,2],
+        [2,3],
+        [2,4],
+        ])
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
+      observed = assembler.assemble_from(initial_path, graph, Bio::Velvet::Sequences.new,
+        {
+          :recoherence_kmer => 22,
+          :max_tip_length => 5,
+          }
+        )
+      observed.to_shorthand.should == '1s,2s'
+    end
+
+    it 'should fail when still forked when single read decoherence fails' do
+      graph, initial_path = GraphTesting.emit_ss([
+        [1,2],
+        [2,3],
+        [2,4]
+        ], 1)
+      GraphTesting.add_noded_reads(graph,[
+        [1,2,3],
+        [1,2,4],
+        ])
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
+      observed = assembler.assemble_from(initial_path, graph, Bio::Velvet::Sequences.new,
+        {
+          :recoherence_kmer => 22,
+          :max_tip_length => 5,
+          }
+        )
       observed.to_shorthand.should == '1s,2s'
     end
   end
