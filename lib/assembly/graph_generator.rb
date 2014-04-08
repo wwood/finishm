@@ -222,6 +222,7 @@ class Bio::FinishM::GraphGenerator
         log.info "Using previous assembly stored at #{options[:previous_assembly] }"
         velvet_result = Bio::Velvet::Result.new
         velvet_result.result_directory = options[:previous_assembly]
+        finishm_graph.velvet_result_directory = velvet_result.result_directory
       end
 
       log.info "Parsing the graph output from velvet"
