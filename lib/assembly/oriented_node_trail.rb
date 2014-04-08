@@ -341,7 +341,10 @@ module Bio
         end
 
         def length_in_bp
-          reduce(0){|total, onode| total+=onode.node.length_alone}
+          return 0 if @trail.empty?
+          reduce(@trail[0].node.parent_graph.hash_length-1) do |total, onode|
+            total+=onode.node.length_alone
+          end
         end
 
         def to_shorthand
@@ -403,6 +406,24 @@ module Bio
 
           def next_neighbours(graph)
             graph.neighbours_of @node, @first_side
+          end
+
+          # switch @first_side of this node
+          def reverse!
+            if @first_side == OrientedNodeTrail::START_IS_FIRST
+              @first_side = OrientedNodeTrail::END_IS_FIRST
+            elsif @first_side == OrientedNodeTrail::END_IS_FIRST
+              @first_side = OrientedNodeTrail::START_IS_FIRST
+            else
+              raise "programming error"
+            end
+          end
+
+          # Return a new OrientedNode with the reverse direction
+          def reverse
+            rev = copy
+            copy.reverse!
+            return rev
           end
         end
 
