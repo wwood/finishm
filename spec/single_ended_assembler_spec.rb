@@ -1,3 +1,4 @@
+require 'ds'
 require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
 
 #Bio::Log::CLI.logger('stderr'); Bio::Log::CLI.trace('debug'); log = Bio::Log::LoggerPlus.new('finishm'); Bio::Log::CLI.configure('finishm')
@@ -10,8 +11,9 @@ describe "SingleEndedAssembler" do
         [2,3],
         ], 1)
       assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
-      assembler.is_short_tip?(initial_path[0], graph, 35).should == true
-      assembler.is_short_tip?(initial_path[0], graph, 25).should == false
+      assembler.is_short_tip?(initial_path[0], graph, 35).should == [true, [[2, :start_is_first], [3,:start_is_first]]]
+      assembler.is_short_tip?(initial_path[0], graph, 35)[0].should == true
+      assembler.is_short_tip?(initial_path[0], graph, 25)[0].should == false
     end
 
     it 'should clip short tips in a harder situation' do
@@ -22,8 +24,8 @@ describe "SingleEndedAssembler" do
         [1,4]
         ], 1)
       assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
-      assembler.is_short_tip?(initial_path[0], graph, 35).should == false
-      assembler.is_short_tip?(initial_path[0], graph, 45).should == true
+      assembler.is_short_tip?(initial_path[0], graph, 35)[0].should == false
+      assembler.is_short_tip?(initial_path[0], graph, 45)[0].should == true
     end
 
     it 'should clip when there is only 1 node' do
@@ -31,10 +33,13 @@ describe "SingleEndedAssembler" do
         [1,2],
         ], 1)
       assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
-      assembler.is_short_tip?(initial_path[0], graph, 25).should == true
-      assembler.is_short_tip?(initial_path[0], graph, 15).should == false
+      assembler.is_short_tip?(initial_path[0], graph, 25)[0].should == true
+      assembler.is_short_tip?(initial_path[0], graph, 15)[0].should == false
     end
   end
+
+
+
 
   describe 'assemble_from' do
     it 'should hello world' do
@@ -43,7 +48,7 @@ describe "SingleEndedAssembler" do
         [2,3],
         ], 1)
       assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
-      observed = assembler.assemble_from(initial_path, graph, Bio::Velvet::Sequences.new)
+      observed, visits = assembler.assemble_from(initial_path, graph, Bio::Velvet::Sequences.new)
       observed.to_shorthand.should == '1s,2s,3s'
     end
 
@@ -56,7 +61,7 @@ describe "SingleEndedAssembler" do
         [5,6],
         ], 1)
       assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
-      observed = assembler.assemble_from(initial_path, graph, Bio::Velvet::Sequences.new, :max_tip_length => 15)
+      observed, visits = assembler.assemble_from(initial_path, graph, Bio::Velvet::Sequences.new, :max_tip_length => 15)
       observed.to_shorthand.should == '1s,2s,4s,5s,6s'
     end
 
@@ -69,7 +74,7 @@ describe "SingleEndedAssembler" do
         [5,6],
         ], 1)
       assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
-      observed = assembler.assemble_from(initial_path, graph, Bio::Velvet::Sequences.new, :max_tip_length => 5)
+      observed, visits = assembler.assemble_from(initial_path, graph, Bio::Velvet::Sequences.new, :max_tip_length => 5)
       observed.to_shorthand.should == '1s,2s'
     end
 
@@ -84,7 +89,7 @@ describe "SingleEndedAssembler" do
         [2,3]
         ])
       assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
-      observed = assembler.assemble_from(initial_path, graph, Bio::Velvet::Sequences.new,
+      observed, visits = assembler.assemble_from(initial_path, graph, Bio::Velvet::Sequences.new,
         {
           :recoherence_kmer => 22,
           :max_tip_length => 5,
@@ -105,7 +110,7 @@ describe "SingleEndedAssembler" do
         [2,4],
         ])
       assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
-      observed = assembler.assemble_from(initial_path, graph, Bio::Velvet::Sequences.new,
+      observed, visits = assembler.assemble_from(initial_path, graph, Bio::Velvet::Sequences.new,
         {
           :recoherence_kmer => 22,
           :max_tip_length => 5,
@@ -125,13 +130,235 @@ describe "SingleEndedAssembler" do
         [1,2,4],
         ])
       assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
-      observed = assembler.assemble_from(initial_path, graph, Bio::Velvet::Sequences.new,
+      observed, visits = assembler.assemble_from(initial_path, graph, Bio::Velvet::Sequences.new,
         {
           :recoherence_kmer => 22,
           :max_tip_length => 5,
           }
         )
       observed.to_shorthand.should == '1s,2s'
+    end
+
+    it 'should recognise circles' do
+      graph, initial_path = GraphTesting.emit_ss([
+        [1,2],
+        [2,3],
+        [3,1],
+        ], 1)
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
+      observed, visits = assembler.assemble_from(initial_path, graph, Bio::Velvet::Sequences.new)
+      observed.to_shorthand.should == '1s,2s,3s,1s'
+    end
+
+
+    it 'should respect the leash length' do
+      graph, initial_path = GraphTesting.emit_ss([
+        [1,2],
+        [2,3],
+        [3,1],
+        ], 1)
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
+      observed, visits = assembler.assemble_from(initial_path, graph, Bio::Velvet::Sequences.new, :leash_length => 15)
+      observed.to_shorthand.should == '1s,2s'
+    end
+  end
+
+
+
+
+  describe 'assemble' do
+    it 'should hello world' do
+      graph = GraphTesting.emit([
+        [1,2],
+        [2,3],
+        ])
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
+      paths = assembler.assemble(graph, Bio::Velvet::Sequences.new, {
+        :max_tip_length => 2,
+        :min_contig_size => 0,
+        })
+      paths.kind_of?(Array).should == true
+      paths.collect{|path| path.to_shorthand}.should == [
+        '1s,2s,3s'
+        ]
+    end
+
+    it 'should assemble two disconnected components' do
+      graph = GraphTesting.emit([
+        [1,2],
+        [2,3],
+
+        [4,5],
+        [5,6],
+        [6,7],
+        ])
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
+      paths = assembler.assemble(graph, Bio::Velvet::Sequences.new, {
+        :max_tip_length => 2,
+        :min_contig_size => 0,
+        })
+      paths.kind_of?(Array).should == true
+      paths.collect{|path| path.to_shorthand}.should == [
+        '1s,2s,3s',
+        '4s,5s,6s,7s',
+        ]
+    end
+
+    it 'should yield correctly' do
+      graph = GraphTesting.emit([
+        [1,2],
+        [2,3],
+
+        [4,5],
+        [5,6],
+        [6,7],
+        ])
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
+      expecteds = DS::Queue.new
+      expecteds.enqueue '1s,2s,3s'
+      expecteds.enqueue '4s,5s,6s,7s'
+      assembler.assemble(graph, Bio::Velvet::Sequences.new, {
+        :max_tip_length => 2,
+        :min_contig_size => 0,
+        }) do |path|
+          path.to_shorthand.should == expecteds.dequeue
+      end
+    end
+
+    it 'should respect the minimum starting node coverage option' do
+      graph = GraphTesting.emit([
+        [1,2],
+        [2,3],
+
+        [4,5],
+        [5,6],
+        [6,7],
+        ])
+      graph.nodes.each do |node|
+        node.coverages = [10]
+      end
+      graph.nodes[1].coverages[0] = 100
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
+      paths = assembler.assemble(graph, Bio::Velvet::Sequences.new, {
+        :max_tip_length => 2,
+        :min_contig_size => 0,
+        :min_coverage_of_start_nodes => 2,
+        })
+      paths.kind_of?(Array).should == true
+      paths.collect{|path| path.to_shorthand}.should == [
+        '1s,2s,3s',
+        ]
+    end
+
+    it 'should not start assembling from short tips' do
+      graph = GraphTesting.emit([
+        [1,4], #this is the short tip
+        [2,3],
+        [3,4],
+        [4,5],
+        [5,6],
+        [6,7],
+        ])
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
+      paths = assembler.assemble(graph, Bio::Velvet::Sequences.new, {
+        :max_tip_length => 15,
+        :min_contig_size => 0,
+        })
+      paths.kind_of?(Array).should == true
+      paths.collect{|path| path.to_shorthand}.should == [
+        '2s,3s,4s,5s,6s,7s',
+        ]
+    end
+
+    it 'should not start assembling from complex short tips' do
+      graph = GraphTesting.emit([
+        [1,10], #this is the short tip
+        [10,11],
+        [10,12],
+        [11,6],
+        [12,6],
+
+        [2,3],
+        [3,4],
+        [4,5],
+        [5,6],
+        [6,7],
+        [7,8],
+        [8,9],
+        ])
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
+      paths = assembler.assemble(graph, Bio::Velvet::Sequences.new, {
+        :max_tip_length => 35,
+        :min_contig_size => 40,
+        })
+      paths.kind_of?(Array).should == true
+      paths.collect{|path| path.to_shorthand}.should == [
+        '2s,3s,4s,5s,6s,7s,8s,9s',
+        ]
+    end
+
+    it 'should not throw out large single node paths' do
+      graph = GraphTesting.emit([
+        [1,2],
+        ])
+      graph.delete_nodes_if{|node| node.node_id == 2}
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
+      paths = assembler.assemble(graph, Bio::Velvet::Sequences.new, {
+        :max_tip_length => -1,
+        :min_contig_size => 5,
+        })
+      paths.kind_of?(Array).should == true
+      paths.collect{|path| path.to_shorthand}.should == [
+        '1s'
+        ]
+    end
+
+    it 'should not choke when the starting node is itself forked' do
+      graph = GraphTesting.emit([
+        [1,2],
+        [3,1],
+        [3,4],
+        ])
+      graph.delete_nodes_if{|node| node.node_id == 2}
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
+      paths = assembler.assemble(graph, Bio::Velvet::Sequences.new, {
+        :max_tip_length => -1,
+        :min_contig_size => 5,
+        })
+      paths.kind_of?(Array).should == true
+      paths.collect{|path| path.to_shorthand}.should == [
+        '3e,1s,2s',
+        '3s,4s',
+        ]
+    end
+
+    it 'should not choke when two nodes along the starting trail are legitimate forks' do
+      # a nasty one. Starts at node 1, which then leads to starting at node 3.
+      # both node 3 and node 2 have in-arcs
+      graph = GraphTesting.emit([
+        [3,2],
+        [2,1],
+        [7,2],
+        [6,3],
+        [3,8],
+        [3,4],
+        [3,5],
+        ])
+      graph.delete_nodes_if{|node| node.node_id == 2}
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
+      paths = assembler.assemble(graph, Bio::Velvet::Sequences.new, {
+        :max_tip_length => -1,
+        :min_contig_size => 5,
+        })
+      paths.kind_of?(Array).should == true
+      paths.collect{|path| path.to_shorthand}.should == [
+        '3e,2e,1e',
+        '3e,2e,7e',
+        '3s,4s',
+        '3s,5s',
+        '6s,3s',
+        '3s,8s',
+        ]
     end
   end
 end

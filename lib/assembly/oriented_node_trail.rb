@@ -421,8 +421,8 @@ module Bio
 
           # Return a new OrientedNode with the reverse direction
           def reverse
-            rev = copy
-            copy.reverse!
+            rev = OrientedNode.new(@node, @first_side)
+            rev.reverse!
             return rev
           end
         end

@@ -170,6 +170,7 @@ class Bio::FinishM::GraphGenerator
   # :graph_search_leash_length: when :remove_unconnected_nodes'ing, use this leash length
   # :serialize_parsed_graph_file: after assembly, parse the graph in, and serialize the ruby object for later. Value of this option is the path to the save file.
   # :previously_serialized_parsed_graph_file: read in a previously serialized graph file, and continue from there
+  # :parse_all_noded_reads: parse NodedRead objects for all nodes (default: only worry about the nodes containing the probe reads)
   def generate_graph(probe_sequences, read_inputs, options={})
     graph = nil
     finishm_graph = Bio::FinishM::ProbedGraph.new
@@ -226,12 +227,16 @@ class Bio::FinishM::GraphGenerator
       end
 
       log.info "Parsing the graph output from velvet"
+      opts = {}
+      unless options[:parse_all_noded_reads]
+        #Ignore parsing reads that are not probes, as we don't care and this just takes up extra computational resources
+        opts[:interesting_read_ids] = probe_read_ids
+        #grepping the graph file is a bit of a hack, but makes things work much much faster
+        opts[:grep_hack] = 500
+      end
       graph = Bio::Velvet::Graph.parse_from_file(
         File.join(velvet_result.result_directory, 'LastGraph'),
-        {
-          :interesting_read_ids => probe_read_ids, #Ignore parsing reads that are not probes, as we don't care and this just takes up extra computational resources
-          :grep_hack => 500, #grepping the graph file is a bit of a hack, but makes things work much much faster
-          }
+        opts
         )
       log.info "Finished parsing graph: found #{graph.nodes.length} nodes and #{graph.arcs.length} arcs"
 
