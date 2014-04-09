@@ -39,6 +39,9 @@ class Bio::FinishM::Assembler
     optparse_object.on("--min-contig-length LENGTH",Integer,"Don't print contigs shorter than this [default: #{options[:min_contig_size] }]") do |arg|
       options[:min_contig_size] = arg
     end
+    optparse_object.on("--min-startin-node-coverage COVERAGE",Float,"Only start exploring from nodes with at least this much coverage [default: start from all nodes]") do |arg|
+      options[:min_coverage_of_start_nodes] = arg
+    end
 
     Bio::FinishM::GraphGenerator.new.add_options optparse_object, options
   end
@@ -115,6 +118,7 @@ class Bio::FinishM::Assembler
           :recoherence_kmer => options[:recoherence_kmer],
           :progressbar_io => progress_io,
           :min_contig_size => options[:min_contig_size],
+          :min_coverage_of_start_nodes => options[:min_coverage_of_start_nodes],
           ) do |path|
             contig_count += 1
             output.print ">contig#{contig_count}"

@@ -61,36 +61,25 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
         next
       end
 
-      # first find the start of the path
-      # Need the start of the path to be not on a short tip,
-      # and that it is at the start/end of the path, not the middle.
-      # TODO: deal with a fully circular genome where this never ends?
-      cross_node = find_connected_node_on_a_path(start_node, graph, sequences, options[:max_tip_length])
-      if cross_node.nil?
-        # There's no paths around here, give up.
-        log.debug "This node not connected enough to continue assembling from here" if log.debug?
-        seen_nodes << start_node.node_id
+      # first attempt to go forward as far as possible, then reverse the path
+      # and continue until cannot go farther
+      reversed_path_forward = find_beginnning_trail_from_node(start_node, graph, sequences, options[:max_tip_length])
+      if reversed_path_forward.nil?
+        log.debug "Could not find forward path from this node, giving up" if log.debug?
         next
       end
-      log.debug "Found nearby cross node #{cross_node.node_id}"
-      # Go all the way to the start
-      onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
-      onode.node = cross_node
-      onode.first_side = Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST
-      dummy_trail.trail = [onode]
-      path, just_visited_onodes = assemble_from(dummy_trail, graph, sequences, options)
-
-
-      # Then start assembling forwards, unless we've already seen this start node
-      real_start_onode = path[-1]
-      if seen_nodes.include?(real_start_onode.to_settable) or
-        seen_nodes.include?(real_start_onode.reverse.to_settable)
-        log.debug "Already seen this starting node before, not working along this path" if log.debug?
+      # Have we already seen this path before?
+      #TODO: add in recoherence logic here
+      if seen_nodes.include?(reversed_path_forward.trail[-1].to_settable)
+        log.debug "Already seen the last node of the reversed path forward: #{reversed_path_forward.trail[-1].to_shorthand}, giving up" if log.debug?
         next
       end
-      real_start_onode.reverse!
-      dummy_trail.trail = [real_start_onode]
-      path, just_visited_onodes = assemble_from(dummy_trail, graph, sequences, options)
+      # Add the now seen nodes to the trail
+      reversed_path_forward.each do |onode|
+        seen_nodes << onode.to_settable
+      end
+      # Assemble ahead again
+      path, just_visited_onodes = assemble_from(reversed_path_forward, graph, sequences, options)
 
       # Record which nodes have already been visited, so they aren't visited again
       seen_nodes.merge just_visited_onodes
@@ -99,6 +88,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
         log.debug "Path length (#{path.length_in_bp}) less than min_contig_size (#{options[:min_contig_size] }), not recording it" if log.debug?
         next
       end
+      log.debug "Found a seemingly legitimate path #{path.to_shorthand}" if log.debug?
       if block_given?
         yield path
       else
@@ -110,34 +100,61 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
     return paths
   end
 
-  # Given a node, find a closely connected node that is on an assembly path
-  # assuming min_contig_size == 0
-  def find_connected_node_on_a_path(node, graph, sequences, max_tip_length)
+  # Given a node, return a path that does not include any short tips, or nil if none is
+  # connected to this node.
+  # With this path, you can explore forwards. This isn't very clear commenting, but
+  # I'm just making this stuff up
+  def find_beginnning_trail_from_node(node, graph, sequences, max_tip_length)
     onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
     onode.node = node
-    onode.first_side = Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
+    onode.first_side = Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST #go backwards first, because the path will later be reversed
     dummy_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
     dummy_trail.trail = [onode]
 
     find_node_from_non_short_tip = lambda do |dummy_trail, graph, sequences|
-      path, nothing = assemble_from(dummy_trail, graph, sequences, :leash_length => max_tip_length)
-      path[-1].node
+      # go all the way forwards
+      path, visited_nodes = assemble_from(dummy_trail, graph, sequences)
+      # reverse the path
+      path.reverse!
+      # peel back up we aren't in a short tip (these lost nodes might be
+      # re-added later on)
+      cannot_remove_any_more_nodes = false
+      log.debug "Before pruning back, trail is #{path.to_shorthand}" if log.debug?
+      is_tip, whatever = is_short_tip?(path[-1], graph, max_tip_length)
+      while is_tip
+        if path.trail.length == 1
+          cannot_remove_any_more_nodes = true
+          break
+        end
+        path.trail = path.trail[0...-1]
+        log.debug "After pruning back, trail is now #{path.to_shorthand}" if log.debug?
+        is_tip, whatever = is_short_tip?(path[-1], graph, max_tip_length)
+      end
+
+      if cannot_remove_any_more_nodes
+        nil
+      else
+        path
+      end
     end
 
     log.debug "Finding nearest find_connected_node_on_a_path #{node.node_id}" if log.debug?
-    if is_short_tip?(onode, graph, max_tip_length)[0]
-      log.debug "fwd direction is short tip, now testing reverse" if log.debug?
-      onode.reverse!
-      if is_short_tip?(onode, graph, max_tip_length)[0]
-        log.debug "short tip in both directions, there is no good neighbour" if log.debug?
-        #short tip in both directions, so not a real contig
-        return nil
-      else
-        log.debug "reverse direction not a short tip, going with that" if log.debug?
-        return find_node_from_non_short_tip.call(dummy_trail, graph, sequences)
-      end
-    else
+    if !is_short_tip?(onode, graph, max_tip_length)[0]
       log.debug "fwd direction not a short tip, going with that" if log.debug?
+      path = find_node_from_non_short_tip.call(dummy_trail, graph, sequences)
+      if !path.nil?
+        return path
+      end
+    end
+
+    log.debug "rev direction is short tip, now testing reverse" if log.debug?
+    onode.reverse!
+    if is_short_tip?(onode, graph, max_tip_length)[0]
+      log.debug "short tip in both directions, there is no good neighbour" if log.debug?
+      #short tip in both directions, so not a real contig
+      return nil
+    else
+      log.debug "reverse direction not a short tip, going with that" if log.debug?
       return find_node_from_non_short_tip.call(dummy_trail, graph, sequences)
     end
   end
@@ -155,7 +172,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
     visited_onodes = Set.new
     dummy_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
     while true
-      log.debug "Starting from #{path[-1].to_shorthand}" if log.debug?
+      log.debug "Now assembling from #{path[-1].to_shorthand}" if log.debug?
       if visited_onodes.include?(path[-1].to_settable)
         log.debug "Found circularisation in path, going no further" if log.debug?
         break

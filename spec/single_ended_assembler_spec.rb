@@ -1,7 +1,7 @@
 require 'ds'
 require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
 
-#Bio::Log::CLI.logger('stderr'); Bio::Log::CLI.trace('debug'); log = Bio::Log::LoggerPlus.new('finishm'); Bio::Log::CLI.configure('finishm')
+Bio::Log::CLI.logger('stderr'); Bio::Log::CLI.trace('debug'); log = Bio::Log::LoggerPlus.new('finishm'); Bio::Log::CLI.configure('finishm')
 
 describe "SingleEndedAssembler" do
   describe 'is_short_tip?' do
@@ -265,7 +265,7 @@ describe "SingleEndedAssembler" do
         :min_contig_size => 0,
         })
       paths.kind_of?(Array).should == true
-      paths.collect{|path| path.to_shorthand}.should == [
+      GraphTesting.sorted_fwd_shorthand_paths(paths).should == [
         '2s,3s,4s,5s,6s,7s',
         ]
     end
@@ -292,7 +292,7 @@ describe "SingleEndedAssembler" do
         :min_contig_size => 40,
         })
       paths.kind_of?(Array).should == true
-      paths.collect{|path| path.to_shorthand}.should == [
+      GraphTesting.sorted_fwd_shorthand_paths(paths).should == [
         '2s,3s,4s,5s,6s,7s,8s,9s',
         ]
     end
@@ -319,15 +319,14 @@ describe "SingleEndedAssembler" do
         [3,1],
         [3,4],
         ])
-      graph.delete_nodes_if{|node| node.node_id == 2}
       assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
       paths = assembler.assemble(graph, Bio::Velvet::Sequences.new, {
         :max_tip_length => -1,
         :min_contig_size => 5,
         })
       paths.kind_of?(Array).should == true
-      paths.collect{|path| path.to_shorthand}.should == [
-        '3e,1s,2s',
+      GraphTesting.sorted_fwd_shorthand_paths(paths).should == [
+        "2e,1e,3e",
         '3s,4s',
         ]
     end
@@ -344,14 +343,14 @@ describe "SingleEndedAssembler" do
         [3,4],
         [3,5],
         ])
-      graph.delete_nodes_if{|node| node.node_id == 2}
       assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
       paths = assembler.assemble(graph, Bio::Velvet::Sequences.new, {
         :max_tip_length => -1,
         :min_contig_size => 5,
         })
+      pp paths.collect{|path| path.to_shorthand}
       paths.kind_of?(Array).should == true
-      paths.collect{|path| path.to_shorthand}.should == [
+      GraphTesting.sorted_fwd_shorthand_paths(paths).should == [
         '3e,2e,1e',
         '3e,2e,7e',
         '3s,4s',
@@ -359,6 +358,10 @@ describe "SingleEndedAssembler" do
         '6s,3s',
         '3s,8s',
         ]
+    end
+
+    it 'should be able to deal with recoherence when getting out of a short tip' do
+      raise
     end
   end
 end

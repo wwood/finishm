@@ -356,6 +356,20 @@ module Bio
           end.join(',')
         end
 
+        def reverse!
+          @trail.reverse!
+          @trail.each do |onode|
+            onode.reverse!
+          end
+          nil
+        end
+
+        def reverse
+          rev = copy
+          rev.reverse!
+          return rev
+        end
+
         class OrientedNode
           attr_accessor :node, :first_side
 
