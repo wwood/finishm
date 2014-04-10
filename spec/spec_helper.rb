@@ -104,6 +104,25 @@ class GraphTesting
     end
   end
 
+  def self.sorted_fwd_paths(paths)
+    paths.collect! do |path|
+      if path[0].node_id > path[-1].node_id
+        path.reverse
+      else
+        path
+      end
+    end
+    paths.sort do |p1,p2|
+      p1.collect{|o|o.node_id} <=> p2.collect{|o|o.node_id}
+    end
+  end
+
+  def self.sorted_fwd_shorthand_paths(paths)
+    sorted_fwd_paths(paths).collect do |path|
+      path.to_shorthand
+    end
+  end
+
   def self.emit_paths(paths)
     arcs = []
     paths.each do |path|

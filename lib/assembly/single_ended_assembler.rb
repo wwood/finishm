@@ -1,25 +1,194 @@
 require 'ds'
 require 'set'
+require 'ruby-progressbar'
 
 class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
   include Bio::FinishM::Logging
 
+  DEFAULT_MAX_TIP_LENGTH = 100
+
+  # Assemble everything in the graph into OrientedNodeTrail objects.
+  # Yields an OrientedNodeTrail if a block is
+  # given, otherwise returns an array of found paths
+  #
+  # Options:
+  # :min_coverage_of_start_nodes: only start exploring from nodes with this much coverage
+  # :min_contig_size: don't print contigs shorter than this (default 500bp)
+  # :progressbar_io: given an IO object e.g. $stdout, write progress information
+  # options from #assemble_from are all valid here also
+  def assemble(graph, sequences, options={})
+    options[:min_contig_size] ||= 500
+    options[:max_tip_length] ||= DEFAULT_MAX_TIP_LENGTH
+
+    paths = []
+
+    # Gather a list of nodes to start from
+    starting_nodes = []
+    if options[:min_coverage_of_start_nodes]
+      graph.nodes.each do |node|
+        unless node.coverage < options[:min_coverage_of_start_nodes]
+          starting_nodes.push node
+        end
+      end
+    else
+      starting_nodes = graph.nodes
+    end
+    log.debug "Found #{starting_nodes.length} nodes to attempt assembly from" if log.debug?
+
+    seen_nodes = Set.new
+    progress = nil
+    if options[:progressbar_io]
+      progress = ProgressBar.create(
+        :title => "Assembly",
+        :format => '%a %bᗧ%i %p%% %t',
+        :progress_mark  => ' ',
+        :remainder_mark => '･',
+        :total => starting_nodes.length,
+        :output => options[:progressbar_io]
+      )
+    end
+
+    # For each starting node, start the assembly process
+    dummy_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
+    starting_nodes.each do |start_node|
+      log.debug "Trying to assemble from #{start_node.node_id}" if log.debug?
+      progress.increment unless progress.nil?
+
+      # If we've already covered this node, don't try it again
+      if seen_nodes.include?([start_node.node_id, Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST]) or
+        seen_nodes.include?([start_node.node_id, Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST])
+        log.debug "Already seen this node, not inspecting further" if log.debug?
+        next
+      end
+
+      # first attempt to go forward as far as possible, then reverse the path
+      # and continue until cannot go farther
+      reversed_path_forward = find_beginnning_trail_from_node(start_node, graph, sequences, options[:max_tip_length])
+      if reversed_path_forward.nil?
+        log.debug "Could not find forward path from this node, giving up" if log.debug?
+        next
+      end
+      # Have we already seen this path before?
+      #TODO: add in recoherence logic here
+      if seen_nodes.include?(reversed_path_forward.trail[-1].to_settable)
+        log.debug "Already seen the last node of the reversed path forward: #{reversed_path_forward.trail[-1].to_shorthand}, giving up" if log.debug?
+        next
+      end
+      # Add the now seen nodes to the trail
+      reversed_path_forward.each do |onode|
+        seen_nodes << onode.to_settable
+      end
+      # Assemble ahead again
+      path, just_visited_onodes = assemble_from(reversed_path_forward, graph, sequences, options)
+
+      # Record which nodes have already been visited, so they aren't visited again
+      seen_nodes.merge just_visited_onodes
+
+      if path.length_in_bp < options[:min_contig_size]
+        log.debug "Path length (#{path.length_in_bp}) less than min_contig_size (#{options[:min_contig_size] }), not recording it" if log.debug?
+        next
+      end
+      log.debug "Found a seemingly legitimate path #{path.to_shorthand}" if log.debug?
+      if block_given?
+        yield path
+      else
+        paths.push path
+      end
+    end
+    progress.finish unless progress.nil?
+
+    return paths
+  end
+
+  # Given a node, return a path that does not include any short tips, or nil if none is
+  # connected to this node.
+  # With this path, you can explore forwards. This isn't very clear commenting, but
+  # I'm just making this stuff up
+  def find_beginnning_trail_from_node(node, graph, sequences, max_tip_length)
+    onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
+    onode.node = node
+    onode.first_side = Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST #go backwards first, because the path will later be reversed
+    dummy_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
+    dummy_trail.trail = [onode]
+
+    find_node_from_non_short_tip = lambda do |dummy_trail, graph, sequences|
+      # go all the way forwards
+      path, visited_nodes = assemble_from(dummy_trail, graph, sequences)
+      # reverse the path
+      path.reverse!
+      # peel back up we aren't in a short tip (these lost nodes might be
+      # re-added later on)
+      cannot_remove_any_more_nodes = false
+      log.debug "Before pruning back, trail is #{path.to_shorthand}" if log.debug?
+      is_tip, whatever = is_short_tip?(path[-1], graph, max_tip_length)
+      while is_tip
+        if path.trail.length == 1
+          cannot_remove_any_more_nodes = true
+          break
+        end
+        path.trail = path.trail[0...-1]
+        log.debug "After pruning back, trail is now #{path.to_shorthand}" if log.debug?
+        is_tip, whatever = is_short_tip?(path[-1], graph, max_tip_length)
+      end
+
+      if cannot_remove_any_more_nodes
+        nil
+      else
+        path
+      end
+    end
+
+    log.debug "Finding nearest find_connected_node_on_a_path #{node.node_id}" if log.debug?
+    if !is_short_tip?(onode, graph, max_tip_length)[0]
+      log.debug "fwd direction not a short tip, going with that" if log.debug?
+      path = find_node_from_non_short_tip.call(dummy_trail, graph, sequences)
+      if !path.nil?
+        return path
+      end
+    end
+
+    log.debug "rev direction is short tip, now testing reverse" if log.debug?
+    onode.reverse!
+    if is_short_tip?(onode, graph, max_tip_length)[0]
+      log.debug "short tip in both directions, there is no good neighbour" if log.debug?
+      #short tip in both directions, so not a real contig
+      return nil
+    else
+      log.debug "reverse direction not a short tip, going with that" if log.debug?
+      return find_node_from_non_short_tip.call(dummy_trail, graph, sequences)
+    end
+  end
+
   # Assemble considering reads all reads as single ended. Options:
   # :max_tip_length: if a path is shorter than this in bp, then it will be clipped from the path. Default 100
   # :recoherence_kmer: attempt to separate paths by going back to the reads with this larger kmer
+  # :leash_length: don't continue assembly from nodes farther than this distance (in bp) away
   def assemble_from(initial_path, graph, sequences, options={})
-    options[:max_tip_length] ||= 100
+    options[:max_tip_length] ||= DEFAULT_MAX_TIP_LENGTH
 
     recoherencer = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
 
     path = initial_path.copy
+    visited_onodes = Set.new
     dummy_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
     while true
-      log.debug "Starting from #{path[-1].to_shorthand}" if log.debug?
+      log.debug "Now assembling from #{path[-1].to_shorthand}" if log.debug?
+      if visited_onodes.include?(path[-1].to_settable)
+        log.debug "Found circularisation in path, going no further" if log.debug?
+        break
+      else
+        visited_onodes << path[-1].to_settable
+      end
+
+      if options[:leash_length] and path.length_in_bp-graph.hash_length > options[:leash_length]
+        log.debug "Beyond leash length, going to further with assembly" if log.debug?
+        break
+      end
+
       oneighbours = path.neighbours_of_last_node(graph)
       if oneighbours.length == 0
         log.debug "Found a dead end, last node is #{path[-1].to_shorthand}" if log.debug?
-        return path
+        break
 
       elsif oneighbours.length == 1
         to_add = oneighbours[0]
@@ -31,43 +200,58 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
 
         # Remove neighbours that are short tips
         oneighbours.reject! do |oneigh|
-          is_short_tip?(oneigh, graph, options[:max_tip_length])
+          is_tip, visiteds = is_short_tip?(oneigh, graph, options[:max_tip_length])
+          if is_tip
+            visiteds.each do |onode_settable|
+              visited_onodes << onode_settable
+            end
+          end
+          is_tip
         end
 
         if oneighbours.length == 0
           log.debug "Found a dead end at a fork, last node is #{path[-1].to_shorthand}" if log.debug?
-          return path
+          break
         elsif oneighbours.length == 1
           log.debug "Clipped short tip(s) off, and then there was only one way to go" if log.debug?
           path.add_oriented_node oneighbours[0]
         elsif options[:recoherence_kmer].nil?
-          log.debug "Came across what appears to be a legitimate fork and no recoherence kmer given, so giving up" if log.debug?
-          return path
+          if log.debug?
+            neighbours_string = oneighbours.collect do |oneigh|
+              oneigh.to_shorthand
+            end.join(' or ')
+            log.debug "Came across what appears to be a legitimate fork to nodes #{neighbours_string} and no recoherence kmer given, so giving up" if log.debug?
+          end
+          break
         else
-          log.debug "Attempting to resolve fork by recoherence" if log.debug?
-          oneighbours.select! do |oneigh|
-            dummy_trail.trail = path.trail+[oneigh]
-            recoherencer.validate_last_node_of_path_by_recoherence(
-              dummy_trail,
-              options[:recoherence_kmer],
-              sequences
-              )
+          unless options[:recoherence_kmer].nil?
+            log.debug "Attempting to resolve fork by recoherence" if log.debug?
+            oneighbours.select! do |oneigh|
+              dummy_trail.trail = path.trail+[oneigh]
+              recoherencer.validate_last_node_of_path_by_recoherence(
+                dummy_trail,
+                options[:recoherence_kmer],
+                sequences
+                )
+            end
           end
           if oneighbours.length == 0
             log.debug "no neighbours passed recoherence, giving up" if log.debug?
-            return path
+            break
           elsif oneighbours.length == 1
             log.debug "After recoherence there's only one way to go, going there"
             path.add_oriented_node oneighbours[0]
           else
             log.debug "Still forked after recoherence, so seems to be a legitimate fork, giving up" if log.debug?
-            return path
+            break
           end
         end
       end
     end
 
-    return path
+    visited_onodes << path[-1].to_settable
+
+    return path, visited_onodes
   end
 
   # Returns false iff there is a path longer than max_tip_length
@@ -84,7 +268,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
     cache = {}
 
     while current_max_distanced_onode = stack.pop
-      return false if current_max_distanced_onode.distance > max_tip_length
+      return false, [] if current_max_distanced_onode.distance > max_tip_length
 
       current_max_distanced_onode.onode.next_neighbours(graph).each do |oneigh|
         neighbour_distance = current_max_distanced_onode.distance + oneigh.node.length_alone
@@ -97,7 +281,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
       end
     end
 
-    return true
+    return true, cache.collect{|donode| donode[0]}
   end
 
   class MaxDistancedOrientedNode
