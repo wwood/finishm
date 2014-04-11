@@ -33,6 +33,9 @@ class Bio::FinishM::Assembler
     optparse_object.on("--output-pathspec", "Give the sequence of nodes used in the path in the output contig file [default: #{options[:output_pathspec] }]") do
       options[:output_pathspec] = true
     end
+    optparse_object.on("--output-contig-stats FILE", "Output stats about each contig to this file [default: don't output anything]") do |arg|
+      options[:output_stats] = arg
+    end
     optparse_object.on("--no-progressbar", "Don't show a progress bar [default: do show one unless --assemble-from is specified]") do
       options[:progressbar] = false
     end
@@ -119,20 +122,34 @@ class Bio::FinishM::Assembler
 
       log.info "Attempting to assemble the entire graph"
       contig_count = 0
+      stats_output = nil
+      if options[:output_stats]
+        stats_output = File.open(options[:output_stats],'w')
+        stats_output.puts %w(name coverage).join("\t")
+      end
       File.open(options[:output_trails_file],'w') do |output|
         progress_io = options[:progressbar] ? $stdout : nil
-        assembler.assembly_options[:progress_io] = progress_io
+        assembler.assembly_options[:progressbar_io] = progress_io
         assembler.assemble do |path|
           contig_count += 1
-          output.print ">contig#{contig_count}"
+          name = "contig#{contig_count}"
+          output.print ">#{name}"
           if options[:output_pathspec]
             output.print " #{path.to_shorthand}"
           end
           output.puts
           output.puts path.sequence
+
+          if !stats_output.nil?
+            stats_output.puts [
+              name,
+              path.coverage,
+              ].join("\t")
+          end
         end
       end
       log.info "Assembled #{contig_count} contigs"
+      stats_output.close if !stats_output.nil?
     end
   end
 end

@@ -370,6 +370,19 @@ module Bio
           return rev
         end
 
+        # The weighted average of coverages along the trail,
+        # (weighted by node length)
+        def coverage
+          total_length = 0
+          total_coverage = 0.0
+          each do |onode|
+            len =  onode.node.length_alone
+            total_coverage += onode.node.coverage*len*len
+            total_length += len
+          end
+          return total_coverage / total_length
+        end
+
         class OrientedNode
           attr_accessor :node, :first_side
 

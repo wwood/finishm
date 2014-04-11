@@ -192,4 +192,15 @@ ACTATGCTGGTATTTCACTTCCAGGTACAGG'.gsub(/\n/,'')
     }.to raise_error
 
   end
+
+  it 'should calculate coverage' do
+    graph = GraphTesting.emit([
+      [1,2],
+      [2,3],
+    ])
+    path = Bio::Velvet::Graph::OrientedNodeTrail.create_from_super_shorthand('1,2,3', graph)
+    path.coverage.should == 5.0
+    graph.nodes[2].coverages = [10]
+    path.coverage.should == 20.0 / 3
+  end
 end

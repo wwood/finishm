@@ -37,6 +37,7 @@ class GraphTesting
           node.length = 10
           node.ends_of_kmers_of_node = 'A'*node.length
           node.ends_of_kmers_of_twin_node = 'T'*node.length
+          node.coverages = [5]
         end
         nodes[ident] = node
       end

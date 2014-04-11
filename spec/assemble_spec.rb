@@ -54,4 +54,13 @@ describe "FinishM assemble" do
     end
     # Not sure what is supposed to come out of here with such a short assembly-kmer, but just so long as it doesn't crash.
   end
+
+  it 'should output contig stats' do
+    data_path = File.join(TEST_DATA_DIR,'explore','1')
+    stats = nil
+    Dir.chdir(data_path) do
+      stats = Bio::Commandeer.run "#{FINISHM_SCRIPT_PATH} assemble --no-progressbar --quiet --output-pathspec --output-contigs /dev/null --output-contig-stats /dev/stdout --fasta 2seqs.sammy.fa"#, :log => log
+    end
+    stats.should == "name\tcoverage\ncontig1\t11148.0\ncontig2\t11173.55304518664\ncontig3\t10246.181728880158\n"
+  end
 end
