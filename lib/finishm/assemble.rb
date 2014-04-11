@@ -95,7 +95,7 @@ class Bio::FinishM::Assembler
     if options[:initial_node_shorthand]
       initial_trail = Bio::Velvet::Graph::OrientedNodeTrail.create_from_shorthand(options[:initial_node_shorthand], graph)
       log.info "Starting to assemble from #{initial_trail.to_shorthand}.."
-      path = assembler.assemble_from(initial_trail, graph, sequences,
+      path, visited_nodes = assembler.assemble_from(initial_trail, graph, sequences,
         :recoherence_kmer => options[:recoherence_kmer]
       )
 
