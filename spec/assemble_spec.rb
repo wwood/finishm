@@ -31,4 +31,27 @@ describe "FinishM assemble" do
     splits[1][0..60].should == 'TATCCGGTCCCCCTAGAATGTTGATTCCTCCGTCTTCTGATTTCCGTTGGCGGTTCGTATC'
     splits[1].length.should == 613
   end
+
+  it 'should work when assembling the entire graph' do
+    data_path = File.join(TEST_DATA_DIR,'explore','1')
+    trails = nil
+    Dir.chdir(data_path) do
+      trails = Bio::Commandeer.run "#{FINISHM_SCRIPT_PATH} assemble --no-progressbar --quiet --output-pathspec --output-contigs /dev/stdout --fasta 2seqs.sammy.fa"#, :log => log
+    end
+    splits = trails.split("\n")
+    splits.length.should == 6
+
+    splits[0].should == ">contig1 1s"
+    splits[1][0..60].should == 'AGGGCAGATTCCCACGCGTTACGCACCCGTGCGCCACTAGACCCGAAGGTCTCGTTCGACT'
+    splits[1].length.should == 613
+  end
+
+  it 'should not crash when recoherence kmer is given' do
+    data_path = File.join(TEST_DATA_DIR,'explore','1')
+    trails = nil
+    Dir.chdir(data_path) do
+      trails = Bio::Commandeer.run "#{FINISHM_SCRIPT_PATH} assemble --no-progressbar --assembly-kmer 7 --recoherence-kmer 51 --quiet --output-pathspec --output-contigs /dev/stdout --fasta 2seqs.sammy.fa"#, :log => log
+    end
+    # Not sure what is supposed to come out of here with such a short assembly-kmer, but just so long as it doesn't crash.
+  end
 end

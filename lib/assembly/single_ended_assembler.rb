@@ -6,23 +6,46 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
   include Bio::FinishM::Logging
 
   DEFAULT_MAX_TIP_LENGTH = 100
+  DEFAULT_MIN_CONTIG_SIZE = 500
+
+  attr_accessor :graph
+
+  ASSEMBLY_OPTIONS = [
+    :max_tip_length,
+    :recoherence_kmer,
+    :sequences,
+    :leash_length,
+    :min_contig_size,
+    ]
+  attr_accessor :assembly_options
+
+  # Create a new assembler given a velvet graph and velvet Sequences object
+  #
+  # Assembly options:
+  # :max_tip_length: if a path is shorter than this in bp, then it will be clipped from the path. Default 100
+  # :recoherence_kmer: attempt to separate paths by going back to the reads with this larger kmer (requires :seqeunces)
+  # :sequences: the sequences of the actual reads, probably a Bio::Velvet::Underground::BinarySequenceStore object
+  # :leash_length: don't continue assembly from nodes farther than this distance (in bp) away
+  # :min_coverage_of_start_nodes: only start exploring from nodes with this much coverage
+  # :min_contig_size: don't bother returning contigs shorter than this (default 500bp)
+  # :progressbar_io: given an IO object e.g. $stdout, write progress information
+  def initialize(graph, assembly_options={})
+    @graph = graph
+    @assembly_options = assembly_options
+    @assembly_options[:max_tip_length] ||= DEFAULT_MAX_TIP_LENGTH
+    @assembly_options[:min_contig_size] ||= DEFAULT_MIN_CONTIG_SIZE
+  end
 
   # Assemble everything in the graph into OrientedNodeTrail objects.
   # Yields an OrientedNodeTrail if a block is
-  # given, otherwise returns an array of found paths
-  #
-  # Options:
-  # :min_coverage_of_start_nodes: only start exploring from nodes with this much coverage
-  # :min_contig_size: don't print contigs shorter than this (default 500bp)
-  # :progressbar_io: given an IO object e.g. $stdout, write progress information
-  # options from #assemble_from are all valid here also
-  def assemble(graph, sequences, options={})
-    options[:min_contig_size] ||= 500
-    options[:max_tip_length] ||= DEFAULT_MAX_TIP_LENGTH
+  # given, otherwise returns an array of found paths. Options for
+  # assembly are specified in assembly_options
+  def assemble
+    options = @assembly_options
 
     paths = []
 
-    # Gather a list of nodes to start from
+    # Gather a list of nodes to try starting from
     starting_nodes = []
     if options[:min_coverage_of_start_nodes]
       graph.nodes.each do |node|
@@ -33,7 +56,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
     else
       starting_nodes = graph.nodes
     end
-    log.debug "Found #{starting_nodes.length} nodes to attempt assembly from" if log.debug?
+    log.info "Found #{starting_nodes.length} nodes to attempt assembly from"
 
     seen_nodes = Set.new
     progress = nil
@@ -63,7 +86,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
 
       # first attempt to go forward as far as possible, then reverse the path
       # and continue until cannot go farther
-      reversed_path_forward = find_beginnning_trail_from_node(start_node, graph, sequences, options[:max_tip_length])
+      reversed_path_forward = find_beginnning_trail_from_node(start_node)
       if reversed_path_forward.nil?
         log.debug "Could not find forward path from this node, giving up" if log.debug?
         next
@@ -79,13 +102,13 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
         seen_nodes << onode.to_settable
       end
       # Assemble ahead again
-      path, just_visited_onodes = assemble_from(reversed_path_forward, graph, sequences, options)
+      path, just_visited_onodes = assemble_from(reversed_path_forward)
 
       # Record which nodes have already been visited, so they aren't visited again
       seen_nodes.merge just_visited_onodes
 
-      if path.length_in_bp < options[:min_contig_size]
-        log.debug "Path length (#{path.length_in_bp}) less than min_contig_size (#{options[:min_contig_size] }), not recording it" if log.debug?
+      if path.length_in_bp < @assembly_options[:min_contig_size]
+        log.debug "Path length (#{path.length_in_bp}) less than min_contig_size (#{@assembly_options[:min_contig_size] }), not recording it" if log.debug?
         next
       end
       log.debug "Found a seemingly legitimate path #{path.to_shorthand}" if log.debug?
@@ -104,23 +127,23 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
   # connected to this node.
   # With this path, you can explore forwards. This isn't very clear commenting, but
   # I'm just making this stuff up
-  def find_beginnning_trail_from_node(node, graph, sequences, max_tip_length)
+  def find_beginnning_trail_from_node(node)
     onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
     onode.node = node
     onode.first_side = Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST #go backwards first, because the path will later be reversed
     dummy_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
     dummy_trail.trail = [onode]
 
-    find_node_from_non_short_tip = lambda do |dummy_trail, graph, sequences|
+    find_node_from_non_short_tip = lambda do |dummy_trail|
       # go all the way forwards
-      path, visited_nodes = assemble_from(dummy_trail, graph, sequences)
+      path, visited_nodes = assemble_from(dummy_trail)
       # reverse the path
       path.reverse!
       # peel back up we aren't in a short tip (these lost nodes might be
       # re-added later on)
       cannot_remove_any_more_nodes = false
       log.debug "Before pruning back, trail is #{path.to_shorthand}" if log.debug?
-      is_tip, whatever = is_short_tip?(path[-1], graph, max_tip_length)
+      is_tip, whatever = is_short_tip?(path[-1])
       while is_tip
         if path.trail.length == 1
           cannot_remove_any_more_nodes = true
@@ -128,7 +151,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
         end
         path.trail = path.trail[0...-1]
         log.debug "After pruning back, trail is now #{path.to_shorthand}" if log.debug?
-        is_tip, whatever = is_short_tip?(path[-1], graph, max_tip_length)
+        is_tip, whatever = is_short_tip?(path[-1])
       end
 
       if cannot_remove_any_more_nodes
@@ -139,9 +162,9 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
     end
 
     log.debug "Finding nearest find_connected_node_on_a_path #{node.node_id}" if log.debug?
-    if !is_short_tip?(onode, graph, max_tip_length)[0]
+    if !is_short_tip?(onode)[0]
       log.debug "fwd direction not a short tip, going with that" if log.debug?
-      path = find_node_from_non_short_tip.call(dummy_trail, graph, sequences)
+      path = find_node_from_non_short_tip.call(dummy_trail)
       if !path.nil?
         return path
       end
@@ -149,13 +172,13 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
 
     log.debug "rev direction is short tip, now testing reverse" if log.debug?
     onode.reverse!
-    if is_short_tip?(onode, graph, max_tip_length)[0]
+    if is_short_tip?(onode)[0]
       log.debug "short tip in both directions, there is no good neighbour" if log.debug?
       #short tip in both directions, so not a real contig
       return nil
     else
       log.debug "reverse direction not a short tip, going with that" if log.debug?
-      return find_node_from_non_short_tip.call(dummy_trail, graph, sequences)
+      return find_node_from_non_short_tip.call(dummy_trail)
     end
   end
 
@@ -163,14 +186,15 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
   # :max_tip_length: if a path is shorter than this in bp, then it will be clipped from the path. Default 100
   # :recoherence_kmer: attempt to separate paths by going back to the reads with this larger kmer
   # :leash_length: don't continue assembly from nodes farther than this distance (in bp) away
-  def assemble_from(initial_path, graph, sequences, options={})
-    options[:max_tip_length] ||= DEFAULT_MAX_TIP_LENGTH
+  def assemble_from(initial_path, visited_onodes=Set.new)
+    options = @assembly_options
 
     recoherencer = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
 
     path = initial_path.copy
     visited_onodes = Set.new
     dummy_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
+    oneighbours = nil
     while true
       log.debug "Now assembling from #{path[-1].to_shorthand}" if log.debug?
       if visited_onodes.include?(path[-1].to_settable)
@@ -180,12 +204,12 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
         visited_onodes << path[-1].to_settable
       end
 
-      if options[:leash_length] and path.length_in_bp-graph.hash_length > options[:leash_length]
+      if options[:leash_length] and path.length_in_bp-@graph.hash_length > options[:leash_length]
         log.debug "Beyond leash length, going to further with assembly" if log.debug?
         break
       end
 
-      oneighbours = path.neighbours_of_last_node(graph)
+      oneighbours = path.neighbours_of_last_node(@graph)
       if oneighbours.length == 0
         log.debug "Found a dead end, last node is #{path[-1].to_shorthand}" if log.debug?
         break
@@ -200,7 +224,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
 
         # Remove neighbours that are short tips
         oneighbours.reject! do |oneigh|
-          is_tip, visiteds = is_short_tip?(oneigh, graph, options[:max_tip_length])
+          is_tip, visiteds = is_short_tip?(oneigh)
           if is_tip
             visiteds.each do |onode_settable|
               visited_onodes << onode_settable
@@ -231,7 +255,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
               recoherencer.validate_last_node_of_path_by_recoherence(
                 dummy_trail,
                 options[:recoherence_kmer],
-                sequences
+                options[:sequences]
                 )
             end
           end
@@ -251,14 +275,14 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
 
     visited_onodes << path[-1].to_settable
 
-    return path, visited_onodes
+    return path, visited_onodes, oneighbours
   end
 
   # Returns false iff there is a path longer than max_tip_length
   # starting at the given oriented_node. Currently works like Dijkstra's
   # shortest path algorithm except that it finds the longest path, not the
   # shortest.
-  def is_short_tip?(oriented_node, graph, max_tip_length)
+  def is_short_tip?(oriented_node)
     stack = DS::Stack.new
     first = MaxDistancedOrientedNode.new
     first.onode = oriented_node
@@ -266,11 +290,12 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
     stack.push first
 
     cache = {}
+    max_tip_length = @assembly_options[:max_tip_length]
 
     while current_max_distanced_onode = stack.pop
       return false, [] if current_max_distanced_onode.distance > max_tip_length
 
-      current_max_distanced_onode.onode.next_neighbours(graph).each do |oneigh|
+      current_max_distanced_onode.onode.next_neighbours(@graph).each do |oneigh|
         neighbour_distance = current_max_distanced_onode.distance + oneigh.node.length_alone
         next if cache[oneigh.to_settable] and cache[oneigh.to_settable] >= neighbour_distance
         distanced_node = MaxDistancedOrientedNode.new

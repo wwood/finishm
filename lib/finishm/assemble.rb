@@ -39,7 +39,7 @@ class Bio::FinishM::Assembler
     optparse_object.on("--min-contig-length LENGTH",Integer,"Don't print contigs shorter than this [default: #{options[:min_contig_size] }]") do |arg|
       options[:min_contig_size] = arg
     end
-    optparse_object.on("--min-startin-node-coverage COVERAGE",Float,"Only start exploring from nodes with at least this much coverage [default: start from all nodes]") do |arg|
+    optparse_object.on("--min-starting-node-coverage COVERAGE",Float,"Only start exploring from nodes with at least this much coverage [default: start from all nodes]") do |arg|
       options[:min_coverage_of_start_nodes] = arg
     end
 
@@ -71,8 +71,6 @@ class Bio::FinishM::Assembler
   end
 
   def run(options, argv)
-    assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new
-
     # Generate the graph
     read_input = Bio::FinishM::ReadInput.new
     read_input.parse_options options
@@ -85,19 +83,29 @@ class Bio::FinishM::Assembler
       Bio::Velvet::Graph::OrientedNodeTrail.create_from_shorthand(options[:initial_node_shorthand], graph)
     end
 
-    # Read sequence data
-    sequences_file_path = File.join finishm_graph.velvet_result_directory, 'CnyUnifiedSeq'
-    log.info "Reading in the actual sequences of all reads from #{sequences_file_path}"
-    sequences = Bio::Velvet::Underground::BinarySequenceStore.new sequences_file_path
-    log.info "Read in #{sequences.length} sequences"
+    # Setup assembler
+    assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new graph
+    [
+      :recoherence_kmer,
+      :min_contig_size,
+      :min_coverage_of_start_nodes
+      ].each do |opt|
+        assembler.assembly_options[opt] = options[opt]
+      end
 
+    # Read sequence data if required
+    if options[:recoherence_kmer]
+      sequences_file_path = File.join finishm_graph.velvet_result_directory, 'CnyUnifiedSeq'
+      log.info "Reading in the actual sequences of all reads from #{sequences_file_path}"
+      sequences = Bio::Velvet::Underground::BinarySequenceStore.new sequences_file_path
+      log.info "Read in #{sequences.length} sequences"
+      assembler.assembly_options[:sequences] = sequences
+    end
 
     if options[:initial_node_shorthand]
       initial_trail = Bio::Velvet::Graph::OrientedNodeTrail.create_from_shorthand(options[:initial_node_shorthand], graph)
       log.info "Starting to assemble from #{initial_trail.to_shorthand}.."
-      path, visited_nodes = assembler.assemble_from(initial_trail, graph, sequences,
-        :recoherence_kmer => options[:recoherence_kmer]
-      )
+      path, visited_nodes = assembler.assemble_from(initial_trail)
 
       File.open(options[:output_trails_file],'w') do |output|
         output.print ">#{options[:initial_node_shorthand] }"
@@ -113,21 +121,16 @@ class Bio::FinishM::Assembler
       contig_count = 0
       File.open(options[:output_trails_file],'w') do |output|
         progress_io = options[:progressbar] ? $stdout : nil
-        assembler.assemble(graph,
-          sequences,
-          :recoherence_kmer => options[:recoherence_kmer],
-          :progressbar_io => progress_io,
-          :min_contig_size => options[:min_contig_size],
-          :min_coverage_of_start_nodes => options[:min_coverage_of_start_nodes],
-          ) do |path|
-            contig_count += 1
-            output.print ">contig#{contig_count}"
-            if options[:output_pathspec]
-              output.print " #{path.to_shorthand}"
-            end
-            output.puts
-            output.puts path.sequence
+        assembler.assembly_options[:progress_io] = progress_io
+        assembler.assemble do |path|
+          contig_count += 1
+          output.print ">contig#{contig_count}"
+          if options[:output_pathspec]
+            output.print " #{path.to_shorthand}"
           end
+          output.puts
+          output.puts path.sequence
+        end
       end
       log.info "Assembled #{contig_count} contigs"
     end
