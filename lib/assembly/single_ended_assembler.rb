@@ -63,7 +63,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
     if options[:progressbar_io]
       progress = ProgressBar.create(
         :title => "Assembly",
-        :format => '%a %bᗧ%i %p%% %t',
+        :format => '%a %bᗧ%i %p%% %E %t',
         :progress_mark  => ' ',
         :remainder_mark => '･',
         :total => starting_nodes.length,

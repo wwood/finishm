@@ -377,7 +377,7 @@ module Bio
           total_coverage = 0.0
           each do |onode|
             len =  onode.node.length_alone
-            total_coverage += onode.node.coverage*len*len
+            total_coverage += onode.node.coverage*len
             total_length += len
           end
           return total_coverage / total_length

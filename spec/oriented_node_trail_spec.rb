@@ -199,8 +199,8 @@ ACTATGCTGGTATTTCACTTCCAGGTACAGG'.gsub(/\n/,'')
       [2,3],
     ])
     path = Bio::Velvet::Graph::OrientedNodeTrail.create_from_super_shorthand('1,2,3', graph)
-    path.coverage.should == 5.0
+    path.coverage.should == 0.5
     graph.nodes[2].coverages = [10]
-    path.coverage.should == 20.0 / 3
+    (path.coverage*100).round.should == (20.0 / 3 / 10 *100).round
   end
 end
