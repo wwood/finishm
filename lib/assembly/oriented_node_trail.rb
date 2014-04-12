@@ -98,7 +98,7 @@ module Bio
       # An ordered list of nodes, each with an orientation along that trail
       class OrientedNodeTrail
         include Enumerable
-        include Bio::FinishM::Logging
+        include Bio::Velvet::Logging
 
         attr_accessor :trail
 

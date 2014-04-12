@@ -86,7 +86,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
 
       # first attempt to go forward as far as possible, then reverse the path
       # and continue until cannot go farther
-      reversed_path_forward = find_beginnning_trail_from_node(start_node, seen_nodes)
+      reversed_path_forward = find_beginnning_trail_from_node(start_node)
       if reversed_path_forward.nil?
         log.debug "Could not find forward path from this node, giving up" if log.debug?
         next
@@ -97,18 +97,12 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
         log.debug "Already seen the last node of the reversed path forward: #{reversed_path_forward.trail[-1].to_shorthand}, giving up" if log.debug?
         next
       end
-      # Assemble ahead again
-      path, just_visited_onodes = assemble_from(reversed_path_forward)
-
-      # Remove nodes that have already been seen to prevent duplication
-      log.debug "Before removing already seen nodes the second time, path was #{path.length} nodes long" if log.debug?
-      remove_seen_nodes_from_end_of_path(path, seen_nodes)
-      log.debug "After removing already seen nodes the second time, path was #{path.length} nodes long" if log.debug?
-
-      # Add the now seen nodes to the list
+      # Add the now seen nodes to the trail
       reversed_path_forward.each do |onode|
         seen_nodes << onode.to_settable
       end
+      # Assemble ahead again
+      path, just_visited_onodes = assemble_from(reversed_path_forward)
 
       # Record which nodes have already been visited, so they aren't visited again
       seen_nodes.merge just_visited_onodes
@@ -133,7 +127,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
   # connected to this node.
   # With this path, you can explore forwards. This isn't very clear commenting, but
   # I'm just making this stuff up
-  def find_beginnning_trail_from_node(node, previously_seen_nodes)
+  def find_beginnning_trail_from_node(node)
     onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
     onode.node = node
     onode.first_side = Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST #go backwards first, because the path will later be reversed
@@ -143,14 +137,6 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
     find_node_from_non_short_tip = lambda do |dummy_trail|
       # go all the way forwards
       path, visited_nodes = assemble_from(dummy_trail)
-
-      # Remove already seen nodes from the end of the trail, because
-      # they are already included in other paths and this shows
-      # up as duplicated contig stretches and this is not correct
-      log.debug "Before removing already seen nodes the first time, path was #{path.length} nodes long" if log.debug?
-      remove_seen_nodes_from_end_of_path(path, previously_seen_nodes)
-      log.debug "After removing already seen nodes the first time, path was #{path.length} nodes long" if log.debug?
-
       # reverse the path
       path.reverse!
       # peel back up we aren't in a short tip (these lost nodes might be
@@ -163,7 +149,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
           cannot_remove_any_more_nodes = true
           break
         end
-        path.trail.delete_at(path.trail.length-1)
+        path.trail = path.trail[0...-1]
         log.debug "After pruning back, trail is now #{path.to_shorthand}" if log.debug?
         is_tip, whatever = is_short_tip?(path[-1])
       end
@@ -194,23 +180,6 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
       log.debug "reverse direction not a short tip, going with that" if log.debug?
       return find_node_from_non_short_tip.call(dummy_trail)
     end
-  end
-
-  def remove_seen_nodes_from_end_of_path(path, seen_nodes)
-    log.debug "Removing from the end of the path #{path.to_shorthand} any nodes in #{seen_nodes.to_a.sort}" if log.debug?
-    while !path.trail.empty?
-      last_node_index = path.length-1
-      last_node = path[last_node_index]
-
-      if seen_nodes.include?([last_node.node_id, Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST]) or
-        seen_nodes.include?([last_node.node_id, Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST])
-        path.trail.delete_at(last_node_index)
-      else
-        # Last node is not previously seen, chop no further.
-        break
-      end
-    end
-    return path
   end
 
   # Assemble considering reads all reads as single ended. Options:

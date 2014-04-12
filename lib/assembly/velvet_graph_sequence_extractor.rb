@@ -1,3 +1,6 @@
+require 'bio-velvet'
+require 'bio'
+
 module Bio
   module AssemblyGraphAlgorithms
     class GraphWalkingException < Exception; end
