@@ -1,7 +1,7 @@
 require 'ds'
 require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
 
-Bio::Log::CLI.logger('stderr'); Bio::Log::CLI.trace('debug'); log = Bio::Log::LoggerPlus.new('finishm'); Bio::Log::CLI.configure('finishm')
+#Bio::Log::CLI.logger('stderr'); Bio::Log::CLI.trace('debug'); log = Bio::Log::LoggerPlus.new('finishm'); Bio::Log::CLI.configure('finishm')
 
 describe "SingleEndedAssembler" do
   describe 'is_short_tip?' do
@@ -320,7 +320,7 @@ describe "SingleEndedAssembler" do
       paths.kind_of?(Array).should == true
       GraphTesting.sorted_fwd_shorthand_paths(paths).should == [
         "2e,1e,3e",
-        '3s,4s',
+        '4s',
         ]
     end
 
@@ -342,12 +342,12 @@ describe "SingleEndedAssembler" do
       paths = assembler.assemble
       paths.kind_of?(Array).should == true
       GraphTesting.sorted_fwd_shorthand_paths(paths).should == [
-        '3e,2e,1e',
-        '3e,2e,7e',
-        '3s,4s',
-        '3s,5s',
-        '6s,3s',
-        '3s,8s',
+        '1e,2e',
+        '3e,6e',
+        '4s',
+        '5s',
+        '7s',
+        '8s',
         ]
     end
 
