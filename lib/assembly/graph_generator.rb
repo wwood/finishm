@@ -186,6 +186,7 @@ class Bio::FinishM::GraphGenerator
   # :parse_all_noded_reads: parse NodedRead objects for all nodes (default: only worry about the nodes containing the probe reads)
   def generate_graph(probe_sequences, read_inputs, options={})
     graph = nil
+    read_probing_graph = nil
     finishm_graph = Bio::FinishM::ProbedGraph.new
 
     if options[:previously_serialized_parsed_graph_file].nil?
@@ -253,6 +254,10 @@ class Bio::FinishM::GraphGenerator
         )
       log.info "Finished parsing graph: found #{graph.nodes.length} nodes and #{graph.arcs.length} arcs"
 
+      log.info "Beginning parse of graph using velvet's parsing C code.."
+      read_probing_graph = Bio::Velvet::Underground::Graph.parse_from_file File.join(velvet_result.result_directory, 'LastGraph')
+      log.info "Completed velvet code parsing velvet graph"
+
       if options[:serialize_parsed_graph_file]
         log.info "Storing a binary version of the graph file for later use at #{options[:serialize_parsed_graph_file] }"
         File.open(options[:serialize_parsed_graph_file],'wb') do |f|
@@ -268,10 +273,13 @@ class Bio::FinishM::GraphGenerator
 
 
     # Find the anchor nodes again
-    finder = Bio::AssemblyGraphAlgorithms::NodeFinder.new
-    log.info "Finding probe nodes in the assembly"
     anchor_sequence_ids = probe_read_ids.to_a.sort
-    endings = finder.find_unique_nodes_with_sequence_ids(graph, anchor_sequence_ids)
+    endings = []
+    unless probe_read_ids.empty? #don't bother trying to find probes if none exists
+      finder = Bio::AssemblyGraphAlgorithms::NodeFinder.new
+      log.info "Finding probe nodes in the assembly"
+      endings = finder.find_unique_nodes_with_sequence_ids(read_probing_graph, anchor_sequence_ids)
+    end
     finishm_graph.graph = graph
     finishm_graph.probe_nodes = endings.collect{|array| array[0]}
     finishm_graph.probe_node_directions = endings.collect{|array| array[1]}

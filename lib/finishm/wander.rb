@@ -33,7 +33,7 @@ class Bio::FinishM::Wanderer
     optparse_object.on("--contigs FILE", "fasta file of single contig containing Ns that are to be closed [required]") do |arg|
       options[:contigs_file] = arg
     end
-    optparse_object.on("--output-connections PATH", "Output found paths to this file in fasta format [required]") do |arg|
+    optparse_object.on("--output-connections PATH", "Output connections in tab-separated format [required]") do |arg|
       options[:output_connection_file] = arg
     end
     optparse_object.separator "\nThere must be some definition of reads too:\n\n" #TODO improve this help
@@ -107,6 +107,7 @@ class Bio::FinishM::Wanderer
       end
     else
       # Else don't split up any of the sequences
+      log.info "Reading input sequences.."
       Bio::FlatFile.foreach(options[:contigs_file]) do |seq|
         process_sequence.call seq.definition, seq.seq
       end

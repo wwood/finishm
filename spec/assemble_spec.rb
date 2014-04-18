@@ -36,10 +36,10 @@ describe "FinishM assemble" do
     data_path = File.join(TEST_DATA_DIR,'explore','1')
     trails = nil
     Dir.chdir(data_path) do
-      trails = Bio::Commandeer.run "#{FINISHM_SCRIPT_PATH} assemble --no-progressbar --quiet --output-pathspec --output-contigs /dev/stdout --fasta 2seqs.sammy.fa"#, :log => log
+      trails = Bio::Commandeer.run "#{FINISHM_SCRIPT_PATH} assemble --no-progressbar --quiet --output-pathspec --min-contig-length 0 --output-contigs /dev/stdout --fasta 2seqs.sammy.fa"#, :log => log
     end
     splits = trails.split("\n")
-    splits.length.should == 6
+    splits.length.should == 24
 
     splits[0].should == ">contig1 1s"
     splits[1][0..60].should == 'AGGGCAGATTCCCACGCGTTACGCACCCGTGCGCCACTAGACCCGAAGGTCTCGTTCGACT'
@@ -59,8 +59,13 @@ describe "FinishM assemble" do
     data_path = File.join(TEST_DATA_DIR,'explore','1')
     stats = nil
     Dir.chdir(data_path) do
-      stats = Bio::Commandeer.run "#{FINISHM_SCRIPT_PATH} assemble --no-progressbar --quiet --output-pathspec --output-contigs /dev/null --output-contig-stats /dev/stdout --fasta 2seqs.sammy.fa"#, :log => log
+      stats = Bio::Commandeer.run "#{FINISHM_SCRIPT_PATH} assemble --no-progressbar --min-contig-length 0 --quiet --output-pathspec --output-contigs /dev/null --output-contig-stats /dev/stdout --fasta 2seqs.sammy.fa"#, :log => log
     end
-    stats.should == "name\tcoverage\ncontig1\t11148.0\ncontig2\t11173.55304518664\ncontig3\t10246.181728880158\n"
+    #        +contig1 21.15370018975332
+    #        +contig2 62.07488986784141
+    #        +contig3 22.654135338345863
+    #        +contig4 34.90963855421687
+    # ...
+    stats.match(/name\tcoverage\ncontig1\t21.15370018975332\ncontig2\t62.07488986784141\ncontig3\t22.654135338345863\n/).nil?.should == false
   end
 end
