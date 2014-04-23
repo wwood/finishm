@@ -119,6 +119,8 @@ module Bio
           finishm_graph.probe_nodes.each_with_index do |node, i|
             next if i <= probe_node_index # only return the 'upper triangle' of the distance matrices
 
+            # Disallow hitting probes if they are
+
             finish = finishing_nodes[i]
             if minimum_node_distances.key?(finish)
               min_distance = minimum_node_distances[finish]

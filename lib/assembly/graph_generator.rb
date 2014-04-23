@@ -137,7 +137,7 @@ class Bio::FinishM::GraphGenerator
 
   def add_options(option_parser, options)
     options.merge!({
-      :velvet_kmer_size => 87,
+      :velvet_kmer_size => 51,
       :assembly_coverage_cutoff => 3.5,
       })
     option_parser.on("--assembly-kmer NUMBER", "when assembling, use this kmer length [default: #{options[:velvet_kmer_size] }]") do |arg|
@@ -244,9 +244,9 @@ class Bio::FinishM::GraphGenerator
       opts = {}
       unless options[:parse_all_noded_reads]
         #Ignore parsing reads that are not probes, as we don't care and this just takes up extra computational resources
-        opts[:interesting_read_ids] = probe_read_ids
+        #opts[:interesting_read_ids] = probe_read_ids
         #grepping the graph file is a bit of a hack, but makes things work much much faster
-        opts[:grep_hack] = 500
+        #opts[:grep_hack] = 500
       end
       graph = Bio::Velvet::Graph.parse_from_file(
         File.join(velvet_result.result_directory, 'LastGraph'),

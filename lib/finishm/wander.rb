@@ -136,16 +136,15 @@ class Bio::FinishM::Wanderer
         desc.side = 'end'
         desc.sequence_name = sequence_names[(i-1) / 2]
       end
+      probe_descriptions.push desc
     end
 
     # Write out connections to the given file
     File.open(options[:output_connection_file], 'w') do |out|
       first_connections.each do |node_indices, distance|
         sequence_names_and_directions = node_indices.collect do |i|
-          desc = probe_descriptions[i]
-          desc.to_s
+          probe_descriptions[i].to_s
         end
-        binding.pry
         out.puts [
           sequence_names_and_directions,
           distance
