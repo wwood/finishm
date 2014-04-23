@@ -244,9 +244,7 @@ class Bio::FinishM::GraphGenerator
       opts = {}
       unless options[:parse_all_noded_reads]
         #Ignore parsing reads that are not probes, as we don't care and this just takes up extra computational resources
-        #opts[:interesting_read_ids] = probe_read_ids
-        #grepping the graph file is a bit of a hack, but makes things work much much faster
-        #opts[:grep_hack] = 500
+        opts[:dont_parse_noded_reads] = true
       end
       graph = Bio::Velvet::Graph.parse_from_file(
         File.join(velvet_result.result_directory, 'LastGraph'),
