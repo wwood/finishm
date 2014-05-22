@@ -198,5 +198,6 @@ class Bio::FinishM::Wanderer
 #     #TODO: implemented this in repo hamiltonian_cycler, need to incorporate it here. See also a script in luca/bbbin that uses that library.
 #     #TODO: look for hamiltonian paths as well as hamiltonian cycles
 
+    log.info "All done."
   end
 end
