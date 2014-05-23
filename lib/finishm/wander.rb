@@ -16,10 +16,21 @@ class Bio::FinishM::Wanderer
     Takes a set of contigs/scaffolds and finds connections in the graph between them. A connection here is given as
     the length of the shortest path between them, without actually computing all the paths.
 
-    This method can be used for 'pre-scaffolding', in the following sense. If the shortest path between
+    This can be used for scaffolding, because if a contig end only connects to one other contig end, then
+    those contigs might be scaffolded together.
+
+    This method can also be used for 'pre-scaffolding', in the following sense. If the shortest path between
     two contig ends is 10kb, and a mate pair library with insert size 2kb suggests a linkage
     between the two ends, then the mate pair linkage is likely false (as long as there is sufficient
     coverage in the reads, and not overwhelming amounts of strain heterogeneity, etc.).
+
+    Example:
+
+    finishm wander --contigs contigs.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --output-connections connections.csv
+
+    That will create a collapsed de-Bruijn graph from reads.1.fq.gz and reads.2.fq.gz, then try to find connections between
+    the starts and the ends of the contigs in contigs.fasta through the de-Bruijn graph. Any connections found
+    are output to connections.csv
 
     \n\n"
 

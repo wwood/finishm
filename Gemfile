@@ -9,9 +9,9 @@ gem 'progressbar'
 gem 'bio-samtools'
 gem 'ruby-graphviz'
 gem 'ds'
-gem 'hopcsv', '>=0.4.3'
+gem 'hopcsv', '~> 0.4'
 gem 'bio-velvet'
-gem 'bio-velvet_underground'
+gem 'bio-velvet_underground', '~>0.1'
 gem 'ruby-progressbar'
 
 #only needed temporarily until the bio-velvet gem is a proper dependency
