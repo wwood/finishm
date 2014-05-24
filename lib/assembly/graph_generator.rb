@@ -196,7 +196,9 @@ class Bio::FinishM::GraphGenerator
     finishm_graph = Bio::FinishM::ProbedGraph.new
 
     if options[:previously_serialized_parsed_graph_file].nil?
-      velvet_result = nil
+      # Velvet directory is either pre-defined or a temporary directory
+      velvet_directory_for_underground = options[:output_assembly_path]
+      velvet_directory_for_underground ||= Files.create.root
 
       probe_read_ids = nil
       if options[:probe_reads]
@@ -225,30 +227,24 @@ class Bio::FinishM::GraphGenerator
           # Bit of a hack, but have to use -short1 as the anchors because then start and end anchors will have node IDs 1,2,... etc.
           use_binary = options[:use_textual_sequence_file] ? '' : '-create_binary'
 
-          # Velvet directory is either
-          velvet_directory_for_underground = options[:output_assembly_path]
-          velvet_directory_for_underground ||= Files.create.root
-
           Bio::Velvet::Underground::Runner.run(
             options[:velvet_kmer_size],
             read_inputs.velvet_read_arguments_array + [use_binary],
-            %w(-read_trkg yes -cov_cutoff)+[options[:assembly_coverage_cutoff]] + %w(-tour_bus no -clip_tips no),
-            :velvet_directory => velvet_directory_for_underground#options[:output_assembly_path]
+            %w(-read_trkg yes -cov_cutoff)+[options[:assembly_coverage_cutoff].to_s] + %w(-tour_bus no -clip_tips no),
+            :velvet_directory => velvet_directory_for_underground
             )
-          if log.debug?
-            log.debug "velveth stdout: #{velvet_result.velveth_stdout}"
-            log.debug "velveth stderr: #{velvet_result.velveth_stderr}"
-            log.debug "velvetg stdout: #{velvet_result.velvetg_stdout}"
-            log.debug "velvetg stderr: #{velvet_result.velvetg_stderr}"
-          end
+#           if log.debug?
+#             log.debug "velveth stdout: #{velvet_result.velveth_stdout}"
+#             log.debug "velveth stderr: #{velvet_result.velveth_stderr}"
+#             log.debug "velvetg stdout: #{velvet_result.velvetg_stdout}"
+#             log.debug "velvetg stderr: #{velvet_result.velvetg_stderr}"
+#           end
           log.info "Finished running assembly"
-          finishm_graph.velvet_result_directory = velvet_result.result_directory
+          finishm_graph.velvet_result_directory = velvet_directory_for_underground
         end
       else
         log.info "Using previous assembly stored at #{options[:previous_assembly] }"
-        velvet_result = Bio::Velvet::Result.new
-        velvet_result.result_directory = options[:previous_assembly]
-        finishm_graph.velvet_result_directory = velvet_result.result_directory
+        finishm_graph.velvet_result_directory = velvet_directory_for_underground
       end
 
       log.info "Parsing the graph output from velvet"
@@ -258,13 +254,13 @@ class Bio::FinishM::GraphGenerator
         opts[:dont_parse_noded_reads] = true
       end
       graph = Bio::Velvet::Graph.parse_from_file(
-        File.join(velvet_result.result_directory, 'LastGraph'),
+        File.join(velvet_directory_for_underground, 'LastGraph'),
         opts
         )
       log.info "Finished parsing graph: found #{graph.nodes.length} nodes and #{graph.arcs.length} arcs"
 
       log.info "Beginning parse of graph using velvet's parsing C code.."
-      read_probing_graph = Bio::Velvet::Underground::Graph.parse_from_file File.join(velvet_result.result_directory, 'LastGraph')
+      read_probing_graph = Bio::Velvet::Underground::Graph.parse_from_file File.join(velvet_directory_for_underground, 'LastGraph')
       log.info "Completed velvet code parsing velvet graph"
 
       if options[:serialize_parsed_graph_file]

@@ -19,8 +19,8 @@ describe 'finishm wander' do
       t.puts '>last400'
       t.puts random[600..-1]
       t.close
-      command = "#{path_to_script} --quiet --fasta #{TEST_DATA_DIR}/wander/1/random1.sammy.fa --contigs #{t.path} --output-connections /dev/stdout --overhang 100 --assembly-kmer 51"
-      #puts command
+      command = "#{path_to_script} --trace debug --velvet-directory /tmp/velv --fasta #{TEST_DATA_DIR}/wander/1/random1.sammy.fa --contigs #{t.path} --output-connections /dev/stdout --overhang 100 --assembly-kmer 51"
+      puts command
       output = Bio::Commandeer.run command
       puts output
       output.split("\n").should == [
