@@ -156,7 +156,12 @@ contig_names.each do |contig_name|
   rev_probe = Probe.new
   rev_probe.contig_name = contig_name
   rev_probe.side = 'end'
-  if graph.edges[probe.to_setable].length == 1 and graph.edges[probe.to_setable].include?(rev_probe.to_setable)
+
+  # Both the start and the end must only connect to each other
+  if graph.edges[probe.to_setable].length == 1 and
+    graph.edges[rev_probe.to_setable].length == 1 and
+    graph.edges[probe.to_setable].include?(rev_probe.to_setable)
+
     num_plasmids_found += 1
     log.info "Contig #{contig_name} appears to be circular and not connect to other contigs, suggesting it may be a plasmid"
   end
