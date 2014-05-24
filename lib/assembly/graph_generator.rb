@@ -1,7 +1,6 @@
 require 'bio-velvet'
 require 'bio'
 require 'pry'
-require 'files'
 
 class Bio::FinishM::ProbedGraph
   attr_accessor :probe_nodes, :probe_node_directions, :probe_node_reads, :graph
@@ -65,7 +64,7 @@ end
 class Bio::FinishM::ReadInput
   READ_INPUT_SYMBOLS = [
     :fasta_singles, :fastq_singles, :fasta_singles_gz, :fastq_singles_gz,
-    #:interleaved_fasta, :interleaved_fastq, :interleaved_fasta_gz, :interleaved_fastq_gz,
+    :interleaved_fasta, :interleaved_fastq, :interleaved_fasta_gz, :interleaved_fastq_gz,
     ]
   READ_INPUT_SYMBOLS.each do |sym|
     attr_accessor sym
@@ -78,7 +77,7 @@ class Bio::FinishM::ReadInput
       '--fastq' => :fastq_singles,
       '--fasta-gz' => :fasta_singles_gz,
       '--fastq-gz' => :fastq_singles_gz,
-      '--interleaved-fasta' => :interleaved_fasta, #paired-end requires more fiddling with the velvet source to remove tip clipping
+      '--interleaved-fasta' => :interleaved_fasta,
       '--interleaved-fastq' => :interleaved_fastq,
       '--interleaved-fasta-gz' => :interleaved_fasta_gz,
       '--interleaved-fastq-gz' => :interleaved_fastq_gz,
@@ -105,36 +104,31 @@ class Bio::FinishM::ReadInput
     end
   end
 
-  # Like velvet_read_arguments but arguments are
-  # returned in an Array, not a String
-  def velvet_read_arguments_array
-    args = []
+  # Output a string to be used on the command line with velvet
+  def velvet_read_arguments
+    readset_index = 1
+    args = ''
     #Put paired sequences first in the hash (in Ruby, hashes are ordered) so that if they are paired, then odd numbered sequences
     # are read1 and even numbered sequences are read2
     {
-#       :interleaved_fasta => %w(-fasta -shortPaired),
-#       :interleaved_fastq => %w(-fastq -shortPaired),
-#       :interleaved_fasta_gz => %w(-fasta.gz -shortPaired),
-#       :interleaved_fastq_gz => %w(-fastq.gz -shortPaired),
-      :fasta_singles => %w(-fasta -short),
-      :fastq_singles => %w(-fastq -short),
-      :fasta_singles_gz => %w(-fasta.gz -short),
-      :fastq_singles_gz => %w(-fastq.gz -short),
-      }.each do |sym, velvet_flags|
+      :interleaved_fasta => '-fasta -shortPaired',
+      :interleaved_fastq => '-fastq -shortPaired',
+      :interleaved_fasta_gz => '-fasta.gz -shortPaired',
+      :interleaved_fastq_gz => '-fastq.gz -shortPaired',
+      :fasta_singles => '-fasta -short',
+      :fastq_singles => '-fastq -short',
+      :fasta_singles_gz => '-fasta.gz -short',
+      :fastq_singles_gz => '-fastq.gz -short',
+      }.each do |sym, velvet_flag|
         paths = send(sym)
         unless paths.nil? or paths.empty?
-          args.push velvet_flags
+          args += " #{velvet_flag}"
           paths.each do |path|
-            args.push path
+            args += " #{path}"
           end
         end
       end
-    return args.flatten
-  end
-
-  # Output a string to be used on the command line with velvet
-  def velvet_read_arguments
-    velvet_read_arguments_array.collect{|s| s.inspect}.join(' ')
+    return args
   end
 end
 
@@ -224,16 +218,11 @@ class Bio::FinishM::GraphGenerator
           log.info "Assembling sampled reads with velvet"
           # Bit of a hack, but have to use -short1 as the anchors because then start and end anchors will have node IDs 1,2,... etc.
           use_binary = options[:use_textual_sequence_file] ? '' : '-create_binary'
-
-          # Velvet directory is either
-          velvet_directory_for_underground = options[:output_assembly_path]
-          velvet_directory_for_underground ||= Files.create.root
-
-          Bio::Velvet::Underground::Runner.run(
+          velvet_result = Bio::Velvet::Runner.new.velvet(
             options[:velvet_kmer_size],
-            read_inputs.velvet_read_arguments_array + [use_binary],
-            %w(-read_trkg yes -cov_cutoff)+[options[:assembly_coverage_cutoff]] + %w(-tour_bus no -clip_tips no),
-            :velvet_directory => velvet_directory_for_underground#options[:output_assembly_path]
+            "#{read_inputs.velvet_read_arguments} #{use_binary}",
+            "-read_trkg yes -cov_cutoff #{options[:assembly_coverage_cutoff] } -tour_bus no",
+            :output_assembly_path => options[:output_assembly_path]
             )
           if log.debug?
             log.debug "velveth stdout: #{velvet_result.velveth_stdout}"
