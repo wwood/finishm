@@ -202,8 +202,13 @@ class Bio::FinishM::Explorer
 
         # Print explorations that come back
         paths.each do |explore_path|
-          output.puts ">#{place.contig_name}:#{place.start_or_end} #{explore_path.termination_type} nodes:#{explore_path}"
-          output.puts explore_path.path.sequence
+          begin
+            seq = explore_path.path.sequence
+            output.puts ">#{place.contig_name}:#{place.start_or_end} #{explore_path.termination_type} nodes:#{explore_path}"
+            output.puts seq
+          rescue Bio::Velvet::Graph::OrientedNodeTrail::InsufficientLengthException
+            log.warn "Unable to retrieve sequence from '#{place.contig_name}:#{place.start_or_end} #{explore_path.termination_type} nodes:#{explore_path}' due to insufficient length of path, ignoring"
+          end
         end
       end
     end

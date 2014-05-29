@@ -106,6 +106,7 @@ module Bio
         END_IS_FIRST = :end_is_first
 
         class IllDefinedTrailDefinition < Exception; end
+        class InsufficientLengthException < Exception; end
 
         # initialize a new path. If an array is given, each element should be a pair:
         # first element of the pair is a node, and the second true/false or
@@ -309,7 +310,7 @@ module Bio
           end
           missing_length_from_each_side = @trail[0].node.parent_graph.hash_length-1
           if twin_nodes_sequence.length < missing_length_from_each_side
-            raise Bio::Velvet::NotImplementedException, "Not enough information to know the sequence of a node trail"
+            raise InsufficientLengthException, "Not enough information to know the sequence of a node trail"
           else
             seq_length_required = @trail.collect{|n| n.node.length_alone}.reduce(:+) + missing_length_from_each_side - twin_nodes_sequence.length
             log.debug "first part: #{twin_nodes_sequence}"

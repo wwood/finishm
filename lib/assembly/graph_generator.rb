@@ -234,7 +234,7 @@ class Bio::FinishM::GraphGenerator
           finishm_graph.velvet_result_directory = velvet_result.result_directory
         end
       else
-        log.info "Using previous assembly stored at #{options[:previous_assembly] }"
+        log.info "Using previous assembly stored in #{options[:previous_assembly] }"
         velvet_result = Bio::Velvet::Result.new
         velvet_result.result_directory = options[:previous_assembly]
         finishm_graph.velvet_result_directory = velvet_result.result_directory
@@ -276,7 +276,31 @@ class Bio::FinishM::GraphGenerator
     unless probe_read_ids.empty? #don't bother trying to find probes if none exists
       finder = Bio::AssemblyGraphAlgorithms::NodeFinder.new
       log.info "Finding probe nodes in the assembly"
-      endings = finder.find_unique_nodes_with_sequence_ids(read_probing_graph, anchor_sequence_ids)
+      c_graph_endings = finder.find_unique_nodes_with_sequence_ids(read_probing_graph, anchor_sequence_ids)
+      log.debug "Converting probe nodes found in C graph to probe nodes found in Ruby-paresed graph"
+      endings = c_graph_endings.collect do |node_direction_read|
+        if node_direction_read.empty?
+          # No probe found
+          []
+        else #found a node.
+          #equivalent node
+          node = graph.nodes[node_direction_read[0].node_id]
+          #equivalent direction
+          direction = node_direction_read[1]
+          #equivalent noded read
+          nr = Bio::Velvet::Graph::NodedRead.new
+          #           nr.read_id = read_id
+          #           nr.offset_from_start_of_node = row[1].to_i
+          #           nr.start_coord = row[2].to_i
+          #           nr.direction = current_node_direction
+          cnr = node_direction_read[2]
+          nr.read_id = cnr.read_id
+          nr.offset_from_start_of_node = cnr.offset_from_start_of_node
+          nr.start_coord = cnr.start_coord
+          # collect
+          [node, direction, nr]
+        end
+      end
     end
     finishm_graph.graph = graph
     finishm_graph.probe_nodes = endings.collect{|array| array[0]}
