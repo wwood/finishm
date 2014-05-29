@@ -198,7 +198,8 @@ class Bio::FinishM::Explorer
         # Do exploration
         onode = finishm_graph.initial_path_from_probe probe_id
         paths = explorer.explore_from_node(finishm_graph.graph, onode, options[:graph_search_leash_length])
-        log.info "Found #{paths.length} paths from #{place}"
+        max_length = paths.collect{|path| path.path.length_in_bp}.max
+        log.info "Found #{paths.length} paths from #{place}, maximal length #{max_length}"
 
         # Print explorations that come back
         paths.each do |explore_path|
