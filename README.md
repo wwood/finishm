@@ -2,7 +2,7 @@
 
 FinishM attempts two things:
 
-1. Improve draft genomes]by considering the computational problem to be about finishing, not assembly in the traditional sense.
+1. Improve draft genomes by considering the computational problem to be about finishing, not assembly in the traditional sense.
 2. If the genome cannot be finished with the current sequence data, FinishM can design and interpret a novel multiplex PCR finishing + next-gen sequencing experiment that vastly reduces the number of PCR reactions required to finish a genome, and automates interpretation of the results.
 
 ## Information on the table
