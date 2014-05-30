@@ -13,6 +13,7 @@ gem 'hopcsv', '~> 0.4'
 gem 'bio-velvet'
 gem 'bio-velvet_underground', '~>0.1'
 gem 'ruby-progressbar'
+gem 'yargraph', '~>0.0'
 
 #only needed temporarily until the bio-velvet gem is a proper dependency
 gem 'files'
