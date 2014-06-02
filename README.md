@@ -3,12 +3,12 @@
 FinishM attempts two things:
 
 1. Improve draft genomes by considering the computational problem to be about finishing, not assembly in the traditional sense.
-2. If the genome cannot be finished with the current sequence data, FinishM can design and interpret a novel multiplex PCR finishing + next-gen sequencing experiment that vastly reduces the number of PCR reactions required to finish a genome, and automates interpretation of the results.
+2. If the genome cannot be finished with the current sequence data, FinishM can design and interpret a novel multiplex PCR finishing + next-gen sequencing experiment that requires many fewer PCR reactions than traditional assembly techniques, and automates interpretation of the results.
 
-## Information on the table
+## A finishing approach to assembly
 Metagenome and isolate assemblers generate contigs from reads, but still leave valuable information on the table. FinishM exploits this information to improve/finish a draft genome without any further laboratory-based work.
 
-In isolate genome sequencing, most/all contigs will constitute the vast majority of the genome being sequenced, but this information is ignored. Unlike a traditional assembler FinishM does not attempt to directly extend contigs, but instead focuses on connecting already assembled contigs.
+In even a moderately successful assembly, resultant contigs constitute the vast majority of the genome being sequenced, but this fact is ignored by assemblers. Unlike a traditional assembler FinishM does not attempt to directly extend contigs, but instead focuses on connecting already assembled contigs.
 
 FinishM has several modes:
 * Determine which contig ends are connected in the assembly graph. See `finishm wander`.
@@ -17,7 +17,7 @@ FinishM has several modes:
 
 ## A new finishing technique
 
-FinishM combines multiplex PCR reactions and next-generation sequencing to simulataneously scaffold across and sequence the missing areas of genomes of interest. If you are interested in this please get in touch directly, as it is thus far not stable enough for large scale public consumption (not yet!).
+FinishM combines multiplex PCR reactions and next-generation sequencing to simulataneously scaffold across and sequence the missing areas of genomes of interest. If you are interested in this please get in touch directly, as it is thus far not stable enough for large scale public consumption (soon!).
 
 ## Installation
 
