@@ -13,8 +13,8 @@ describe 'finishm wander' do
       break
     end
 
-    #Tempfile.open('testing') do |t|
-    File.open('/tmp/contigs','w') do |t|
+    Tempfile.open('testing') do |t|
+    #File.open('/tmp/contigs','w') do |t|
       t.puts '>first300'
       t.puts random[0...300]
       t.puts '>last400'
