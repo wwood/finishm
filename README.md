@@ -35,6 +35,7 @@ There are further external dependencies specific to the finishing PCR:
 * primer3
 * The D programming language environment
 * BioD
+
 Basically, the finishing PCR software probably won't work (yet) anywhere except the author's machine. I'm working on it.
 
 ## Usage
@@ -45,7 +46,7 @@ finishm
 
 ## Citation
 
-A manuscript describing the tools described here is currently in preparation. However, FinishM reuses code from velvet, exonerate/iPCRess, and primer3, so these tools may be worth citing.
+A manuscript describing the tools described here is currently in preparation. However, FinishM reuses code from velvet and BioRuby, so these tools may be worth citing.
 
 ## Copyright
 
