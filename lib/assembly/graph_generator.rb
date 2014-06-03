@@ -25,12 +25,6 @@ class Bio::FinishM::GraphGenerator
     option_parser.on("--already-assembled-velvet-directory PATH", "Skip until after assembly in this process, and start from this assembly directory created during a previous run of this script [default: off]") do |arg|
       options[:previous_assembly] = arg
     end
-    #         option_parser.on("--serialize-velvet-graph FILE", "So that the velvet graph does not have to be reparsed, serialise the parsed object for later use in this file [default: off]") do |arg|
-    #           options[:serialize_parsed_graph_file] = arg
-    #         end
-    #         option_parser.on("--already-serialized-velvet-graph FILE", "Restore the parsed velvet graph from this file [default: off]") do |arg|
-    #           options[:previously_serialized_parsed_graph_file] = arg
-    #         end
   end
 
   # Generate a ProbedGraph object, given one or more 'probe sequences'
@@ -51,102 +45,84 @@ class Bio::FinishM::GraphGenerator
   # :use_textual_sequence_file: by default, a binary sequence file is used. Set this true to get velvet to generate the Sequences file
   # :remove_unconnected_nodes: delete nodes from the graph that are not connected to the probe nodes
   # :graph_search_leash_length: when :remove_unconnected_nodes'ing, use this leash length
-  # :serialize_parsed_graph_file: after assembly, parse the graph in, and serialize the ruby object for later. Value of this option is the path to the save file.
-  # :previously_serialized_parsed_graph_file: read in a previously serialized graph file, and continue from there
-  # :parse_all_noded_reads: parse NodedRead objects for all nodes (default: only worry about the nodes containing the probe reads)
   def generate_graph(probe_sequences, read_inputs, options={})
     options[:parse_sequence_file] ||= true
     graph = nil
     read_probing_graph = nil
     finishm_graph = Bio::FinishM::ProbedGraph.new
 
-    if options[:previously_serialized_parsed_graph_file].nil?
-      velvet_result = nil
+    velvet_result = nil
 
-      probe_read_ids = nil
-      if options[:probe_reads]
-        probe_read_ids = options[:probe_reads]
-      else
-        probe_read_ids = Set.new((1..probe_sequences.length))
-      end
-      if options[:previous_assembly].nil? #If assembly has not already been carried out
-        Tempfile.open('probes.fa') do |tempfile|
-          50.times do # Do 50 times to make sure that velvet doesn't throw out parts of the graph that contain this contig
-            probe_sequences.each_with_index do |probe, i|
-              tempfile.puts ">probe#{i}"
-              tempfile.puts probe
-            end
+    probe_read_ids = nil
+    if options[:probe_reads]
+      probe_read_ids = options[:probe_reads]
+    else
+      probe_read_ids = Set.new((1..probe_sequences.length))
+    end
+    if options[:previous_assembly].nil? #If assembly has not already been carried out
+      Tempfile.open('probes.fa') do |tempfile|
+        50.times do # Do 50 times to make sure that velvet doesn't throw out parts of the graph that contain this contig
+          probe_sequences.each_with_index do |probe, i|
+            tempfile.puts ">probe#{i}"
+            tempfile.puts probe
           end
-          tempfile.close
-          singles = read_inputs.fasta_singles
-          if singles and !singles.empty?
-            read_inputs.fasta_singles = [tempfile.path, singles].flatten
-          else
-            read_inputs.fasta_singles = [tempfile.path]
-          end
-          log.debug "Inputting probes into the assembly:\n#{File.open(tempfile.path).read}" if log.debug?
-
-          log.info "Assembling sampled reads with velvet"
-          # Bit of a hack, but have to use -short1 as the anchors because then start and end anchors will have node IDs 1,2,... etc.
-          use_binary = options[:use_textual_sequence_file] ? '' : '-create_binary'
-          velvet_result = Bio::Velvet::Runner.new.velvet(
-            options[:velvet_kmer_size],
-            "#{read_inputs.velvet_read_arguments} #{use_binary}",
-            "-read_trkg yes -cov_cutoff #{options[:assembly_coverage_cutoff] } -tour_bus no",
-            :output_assembly_path => options[:output_assembly_path]
-            )
-          if log.debug?
-            log.debug "velveth stdout: #{velvet_result.velveth_stdout}"
-            log.debug "velveth stderr: #{velvet_result.velveth_stderr}"
-            log.debug "velvetg stdout: #{velvet_result.velvetg_stdout}"
-            log.debug "velvetg stderr: #{velvet_result.velvetg_stderr}"
-          end
-          log.info "Finished running assembly"
-          finishm_graph.velvet_result_directory = velvet_result.result_directory
         end
-      else
-        log.info "Using previous assembly stored in #{options[:previous_assembly] }"
-        velvet_result = Bio::Velvet::Result.new
-        velvet_result.result_directory = options[:previous_assembly]
+        tempfile.close
+        singles = read_inputs.fasta_singles
+        if singles and !singles.empty?
+          read_inputs.fasta_singles = [tempfile.path, singles].flatten
+        else
+          read_inputs.fasta_singles = [tempfile.path]
+        end
+        log.debug "Inputting probes into the assembly:\n#{File.open(tempfile.path).read}" if log.debug?
+
+        log.info "Assembling sampled reads with velvet"
+        # Bit of a hack, but have to use -short1 as the anchors because then start and end anchors will have node IDs 1,2,... etc.
+        use_binary = options[:use_textual_sequence_file] ? '' : '-create_binary'
+        velvet_result = Bio::Velvet::Runner.new.velvet(
+          options[:velvet_kmer_size],
+          "#{read_inputs.velvet_read_arguments} #{use_binary}",
+          "-read_trkg yes -cov_cutoff #{options[:assembly_coverage_cutoff] } -tour_bus no",
+          :output_assembly_path => options[:output_assembly_path]
+          )
+        if log.debug?
+          log.debug "velveth stdout: #{velvet_result.velveth_stdout}"
+          log.debug "velveth stderr: #{velvet_result.velveth_stderr}"
+          log.debug "velvetg stdout: #{velvet_result.velvetg_stdout}"
+          log.debug "velvetg stderr: #{velvet_result.velvetg_stderr}"
+        end
+        log.info "Finished running assembly"
         finishm_graph.velvet_result_directory = velvet_result.result_directory
       end
-
-      # Check that the probe reads given are present in the assembly passed here
-      sequence_store = parse_velvet_binary_reads(velvet_result.result_directory)
-      finishm_graph.velvet_sequences = sequence_store
-      if !check_probe_sequences(probe_sequences, sequence_store)
-        raise "Probe sequences changed since previous velvet assembly!"
-      end
-
-      log.info "Parsing the graph output from velvet"
-      opts = {}
-      unless options[:parse_all_noded_reads]
-        #Ignore parsing reads that are not probes, as we don't care and this just takes up extra computational resources
-        opts[:dont_parse_noded_reads] = true
-      end
-      graph = Bio::Velvet::Graph.parse_from_file(
-        File.join(velvet_result.result_directory, 'LastGraph'),
-        opts
-        )
-      log.info "Finished parsing graph: found #{graph.nodes.length} nodes and #{graph.arcs.length} arcs"
-
-      log.info "Beginning parse of graph using velvet's parsing C code.."
-      read_probing_graph = Bio::Velvet::Underground::Graph.parse_from_file File.join(velvet_result.result_directory, 'LastGraph')
-      log.info "Completed velvet code parsing velvet graph"
-
-      if options[:serialize_parsed_graph_file]
-        log.info "Storing a binary version of the graph file for later use at #{options[:serialize_parsed_graph_file] }"
-        File.open(options[:serialize_parsed_graph_file],'wb') do |f|
-          f.print Marshal.dump(graph)
-        end
-        log.info "Stored a binary representation of the velvet graph at #{options[:serialize_parsed_graph_file] }"
-      end
     else
-      log.info "Restoring graph file from #{options[:previously_serialized_parsed_graph_file] }.."
-      graph = Marshal.load(File.open(options[:previously_serialized_parsed_graph_file]))
-      log.info "Restoration complete"
+      log.info "Using previous assembly stored in #{options[:previous_assembly] }"
+      velvet_result = Bio::Velvet::Result.new
+      velvet_result.result_directory = options[:previous_assembly]
+      finishm_graph.velvet_result_directory = velvet_result.result_directory
     end
 
+    # Check that the probe reads given are present in the assembly passed here
+    sequence_store = parse_velvet_binary_reads(velvet_result.result_directory)
+    finishm_graph.velvet_sequences = sequence_store
+    if !check_probe_sequences(probe_sequences, sequence_store)
+      raise "Probe sequences changed since previous velvet assembly!"
+    end
+
+    log.info "Parsing the graph output from velvet"
+    opts = {}
+    unless options[:parse_all_noded_reads]
+      #Ignore parsing reads that are not probes, as we don't care and this just takes up extra computational resources
+      opts[:dont_parse_noded_reads] = true
+    end
+    graph = Bio::Velvet::Graph.parse_from_file(
+      File.join(velvet_result.result_directory, 'LastGraph'),
+      opts
+      )
+    log.info "Finished parsing graph: found #{graph.nodes.length} nodes and #{graph.arcs.length} arcs"
+
+    log.info "Beginning parse of graph using velvet's parsing C code.."
+    read_probing_graph = Bio::Velvet::Underground::Graph.parse_from_file File.join(velvet_result.result_directory, 'LastGraph')
+    log.info "Completed velvet code parsing velvet graph"
 
     # Find the anchor nodes again
     anchor_sequence_ids = probe_read_ids.to_a.sort
@@ -263,7 +239,7 @@ class Bio::FinishM::GraphGenerator
 
     probe_sequences.each_with_index do |probe, i|
       log.debug "Checking probe sequence \##{i+1}" if log.debug?
-      if sequence_store[i+1] != probe
+      if sequence_store[i+1].upcase != probe.upcase
         log.error "Probe sequence \##{i+1} has changed - perhaps the wrong velvet assembly directory was specified, or a fresh assembly is required?"
         return false
       end
