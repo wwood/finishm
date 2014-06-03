@@ -2,136 +2,6 @@ require 'bio-velvet'
 require 'bio'
 require 'pry'
 
-class Bio::FinishM::ProbedGraph
-  attr_accessor :probe_nodes, :probe_node_directions, :probe_node_reads, :graph
-
-  attr_accessor :velvet_result_directory
-
-  # Were all the probe recovered through the process?
-  def completely_probed?
-    !(@probe_nodes.find{|node| node.nil?})
-  end
-
-  def missing_probe_indices
-    missings = []
-    @probe_nodes.each_with_index do |probe, i|
-      missings.push(i+1) if probe.nil?
-    end
-    return missings
-  end
-
-  # Make a Bio::Velvet::Graph::OrientedNodeTrail with just one
-  # step in it - the node that corresponds to the probe_index
-  def initial_path_from_probe(probe_index)
-    initial_path = Bio::Velvet::Graph::OrientedNodeTrail.new
-    node = @probe_nodes[probe_index]
-    raise "No node found for probe #{probe_index}" if node.nil?
-    direction = @probe_node_directions[probe_index]
-
-    way = direction ?
-    Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST :
-      Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST
-    initial_path.add_node node, way
-    return initial_path
-  end
-
-  # Return a Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode
-  # corresponding to the index of the probe and its direction
-  def velvet_oriented_node(probe_index)
-    node = @probe_nodes[probe_index]
-    if node.nil?
-      return nil
-    else
-      return initial_path_from_probe(probe_index)[0]
-    end
-  end
-
-  # The leash is the number of base pairs from the start of the probe,
-  # but the path finding algorithm simply uses the combined length of all
-  # the nodes without reference to the actual probe sequence. So if the
-  # probe is near the end of a long node, then path finding may fail.
-  # So adjust the leash length to account for this (or keep the nil
-  # if the starting_leash_length is nil)
-  def adjusted_leash_length(probe_index, starting_leash_length)
-    return nil if starting_leash_length.nil?
-
-    read = @probe_node_reads[probe_index]
-    return read.offset_from_start_of_node+starting_leash_length
-  end
-end
-
-# A class representing reads or sets of reads to be assembled
-class Bio::FinishM::ReadInput
-  READ_INPUT_SYMBOLS = [
-    :fasta_singles, :fastq_singles, :fasta_singles_gz, :fastq_singles_gz,
-    :interleaved_fasta, :interleaved_fastq, :interleaved_fasta_gz, :interleaved_fastq_gz,
-    ]
-  READ_INPUT_SYMBOLS.each do |sym|
-    attr_accessor sym
-  end
-
-  # Given an OptionParser, add options to it, which parse out read-related options
-  def add_options(option_parser, options)
-    {
-      '--fasta' => :fasta_singles,
-      '--fastq' => :fastq_singles,
-      '--fasta-gz' => :fasta_singles_gz,
-      '--fastq-gz' => :fastq_singles_gz,
-      '--interleaved-fasta' => :interleaved_fasta,
-      '--interleaved-fastq' => :interleaved_fastq,
-      '--interleaved-fasta-gz' => :interleaved_fasta_gz,
-      '--interleaved-fastq-gz' => :interleaved_fastq_gz,
-      }.each do |flag, sym|
-        option_parser.on("#{flag} PATH", Array, "One or more paths to reads, comma separated") do |arg|
-          options[sym] = arg
-        end
-      end
-  end
-
-  # Require at least 1 set of reads to be given, of any type
-  def validate_options(options, argv)
-    return nil if options[:previous_assembly] #bit of a hack, but hey
-    READ_INPUT_SYMBOLS.each do |sym|
-      return nil if options[sym]
-    end
-    return "No definition of reads for assembly was found"
-  end
-
-  # Parse options from options hash into instance variables for this object
-  def parse_options(options)
-    READ_INPUT_SYMBOLS.each do |sym|
-      send("#{sym}=",options[sym]) if options[sym]
-    end
-  end
-
-  # Output a string to be used on the command line with velvet
-  def velvet_read_arguments
-    readset_index = 1
-    args = ''
-    #Put paired sequences first in the hash (in Ruby, hashes are ordered) so that if they are paired, then odd numbered sequences
-    # are read1 and even numbered sequences are read2
-    {
-      :interleaved_fasta => '-fasta -shortPaired',
-      :interleaved_fastq => '-fastq -shortPaired',
-      :interleaved_fasta_gz => '-fasta.gz -shortPaired',
-      :interleaved_fastq_gz => '-fastq.gz -shortPaired',
-      :fasta_singles => '-fasta -short',
-      :fastq_singles => '-fastq -short',
-      :fasta_singles_gz => '-fasta.gz -short',
-      :fastq_singles_gz => '-fastq.gz -short',
-      }.each do |sym, velvet_flag|
-        paths = send(sym)
-        unless paths.nil? or paths.empty?
-          args += " #{velvet_flag}"
-          paths.each do |path|
-            args += " #{path}"
-          end
-        end
-      end
-    return args
-  end
-end
-
 class Bio::FinishM::GraphGenerator
   include Bio::FinishM::Logging
 
@@ -184,7 +54,9 @@ class Bio::FinishM::GraphGenerator
   # :serialize_parsed_graph_file: after assembly, parse the graph in, and serialize the ruby object for later. Value of this option is the path to the save file.
   # :previously_serialized_parsed_graph_file: read in a previously serialized graph file, and continue from there
   # :parse_all_noded_reads: parse NodedRead objects for all nodes (default: only worry about the nodes containing the probe reads)
+  # :parse_sequence_file: if true, parse the sequence file and store as part of returned finishm_graph (default: true)
   def generate_graph(probe_sequences, read_inputs, options={})
+    options[:parse_sequence_file] ||= true
     graph = nil
     read_probing_graph = nil
     finishm_graph = Bio::FinishM::ProbedGraph.new
@@ -363,6 +235,33 @@ class Bio::FinishM::GraphGenerator
       log.info "Removed #{original_num_nodes-graph.nodes.length} nodes and #{original_num_arcs-graph.arcs.length} arcs, leaving #{graph.nodes.length} nodes and #{graph.arcs.length} arcs."
     end
 
+    if options[:parse_sequence_file]
+      # Read in actual sequence information
+      sequences_file_path = File.join assembly_directory, 'CnyUnifiedSeq'
+      log.info "Reading in the actual sequences of all reads from #{sequences_file_path}"
+      finishm_graph.velvet_sequences = Bio::Velvet::Underground::BinarySequenceStore.new sequences_file_path
+      log.info "Read in #{finishm_graph.velvet_sequences.length} sequences"
+    end
+
     return finishm_graph
+  end
+
+  # When re-using an assembly, sometimes need to make
+  # sure that the probe sequences used previously are the same
+  # as what is given this time. Given am Array of probe sequences
+  # and a binary_sequence_file, check the probe sequences are the
+  # consistent.
+  def check_probe_sequences(probe_sequences, sequence_store)
+    return true if probe_sequences.nil?
+
+    probe_sequences.each_with_index do |probe, i|
+      log.debug "Checking probe sequence \##{i+1}" if log.debug?
+      if binary_sequence_store[i+1] != probe
+        log.error "Probe sequence \##{i+1} has changed - perhaps the wrong velvet assembly directory was specified, or a fresh assembly is required?"
+        return false
+      end
+    end
+    log.debug "Presence of #{probe_sequences.length} probe sequences verified"
+    return true
   end
 end

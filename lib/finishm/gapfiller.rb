@@ -138,6 +138,7 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
     end
 
     # Do the actual graph building and/or initial reading
+    options[:parse_sequences] = true
     finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph(probe_sequences, read_input, options)
 
     # Output optional graphics.
@@ -186,12 +187,6 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
       :interesting_node_ids => Set.new(whitelisted_node_ids),
       })
     log.info "Finished re-reading read position information"
-
-    # Read in actual sequence information
-    sequences_file_path = File.join assembly_directory, 'CnyUnifiedSeq'
-    log.info "Reading in the actual sequences of all reads from #{sequences_file_path}"
-    sequences = Bio::Velvet::Underground::BinarySequenceStore.new sequences_file_path
-    log.info "Read in #{sequences.length} sequences"
 
 
     # Clean up the tmdir, if one was used.
@@ -271,7 +266,7 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
         trails = cartographer.find_trails_between_nodes(
           finishm_graph.graph, start_onode, end_onode, adjusted_leash_length, {
             :recoherence_kmer => options[:recoherence_kmer],
-            :sequences => sequences
+            :sequences => finishm_graph.velvet_sequences
             }
         )
         log.info "Found #{trails.trails.length} trails for #{gap.coords}"
