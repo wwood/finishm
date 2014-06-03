@@ -16,7 +16,7 @@ end
 TEST_DATA_DIR = File.join(File.dirname(__FILE__),'data')
 FINISHM_SCRIPT_PATH = File.join(File.dirname(__FILE__),'..','bin','finishm')
 
-Bio::Log::CLI.logger('stderr'); Bio::Log::CLI.trace('debug'); log = Bio::Log::LoggerPlus.new('finishm'); Bio::Log::CLI.configure('finishm'); Bio::Log::LoggerPlus.new('bio-velvet'); Bio::Log::CLI.configure('bio-velvet')
+#Bio::Log::CLI.logger('stderr'); Bio::Log::CLI.trace('debug'); log = Bio::Log::LoggerPlus.new('finishm'); Bio::Log::CLI.configure('finishm'); Bio::Log::LoggerPlus.new('bio-velvet'); Bio::Log::CLI.configure('bio-velvet')
 
 class GraphTesting
   def self.emit(arc_pairs)

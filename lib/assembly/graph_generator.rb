@@ -54,7 +54,6 @@ class Bio::FinishM::GraphGenerator
   # :serialize_parsed_graph_file: after assembly, parse the graph in, and serialize the ruby object for later. Value of this option is the path to the save file.
   # :previously_serialized_parsed_graph_file: read in a previously serialized graph file, and continue from there
   # :parse_all_noded_reads: parse NodedRead objects for all nodes (default: only worry about the nodes containing the probe reads)
-  # :parse_sequence_file: if true, parse the sequence file and store as part of returned finishm_graph (default: true)
   def generate_graph(probe_sequences, read_inputs, options={})
     options[:parse_sequence_file] ||= true
     graph = nil
@@ -110,6 +109,13 @@ class Bio::FinishM::GraphGenerator
         velvet_result = Bio::Velvet::Result.new
         velvet_result.result_directory = options[:previous_assembly]
         finishm_graph.velvet_result_directory = velvet_result.result_directory
+      end
+
+      # Check that the probe reads given are present in the assembly passed here
+      sequence_store = parse_velvet_binary_reads(velvet_result.result_directory)
+      finishm_graph.velvet_sequences = sequence_store
+      if !check_probe_sequences(probe_sequences, sequence_store)
+        raise "Probe sequences changed since previous velvet assembly!"
       end
 
       log.info "Parsing the graph output from velvet"
@@ -235,15 +241,16 @@ class Bio::FinishM::GraphGenerator
       log.info "Removed #{original_num_nodes-graph.nodes.length} nodes and #{original_num_arcs-graph.arcs.length} arcs, leaving #{graph.nodes.length} nodes and #{graph.arcs.length} arcs."
     end
 
-    if options[:parse_sequence_file]
-      # Read in actual sequence information
-      sequences_file_path = File.join assembly_directory, 'CnyUnifiedSeq'
-      log.info "Reading in the actual sequences of all reads from #{sequences_file_path}"
-      finishm_graph.velvet_sequences = Bio::Velvet::Underground::BinarySequenceStore.new sequences_file_path
-      log.info "Read in #{finishm_graph.velvet_sequences.length} sequences"
-    end
-
     return finishm_graph
+  end
+
+  # Read in the reads from a velvet result
+  def parse_velvet_binary_reads(velvet_result_directory)
+    sequences_file_path = File.join velvet_result_directory, 'CnyUnifiedSeq'
+    log.info "Reading in the actual sequences of all reads from #{sequences_file_path}"
+    sequences = Bio::Velvet::Underground::BinarySequenceStore.new sequences_file_path
+    log.info "Read in #{sequences.length} sequences"
+    return sequences
   end
 
   # When re-using an assembly, sometimes need to make
@@ -256,7 +263,7 @@ class Bio::FinishM::GraphGenerator
 
     probe_sequences.each_with_index do |probe, i|
       log.debug "Checking probe sequence \##{i+1}" if log.debug?
-      if binary_sequence_store[i+1] != probe
+      if sequence_store[i+1] != probe
         log.error "Probe sequence \##{i+1} has changed - perhaps the wrong velvet assembly directory was specified, or a fresh assembly is required?"
         return false
       end
