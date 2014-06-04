@@ -115,13 +115,21 @@ module Bio
             end
           end
 
-          # Finished depth first search. Now we have a set of nodes and distances
+          # Finished depth first search. Now we have a set of nodes and distances.
+          # Check if the nodes
           finishm_graph.probe_nodes.each_with_index do |node, i|
             next if i <= probe_node_index # only return the 'upper triangle' of the distance matrices
 
-            # Disallow hitting probes if they are
-
             finish = finishing_nodes[i]
+
+            # Disallow hitting probes if they are both on the same node, but
+            # not facing each other.
+            # -->    <--- OK
+            # <--    --> not ok
+            # <--    <-- not ok
+            # -->    --> not ok
+            binding.pry
+
             if minimum_node_distances.key?(finish)
               min_distance = minimum_node_distances[finish]
               log.info "Found a connection between probes #{probe_node_index} and #{i}, distance: #{min_distance}"

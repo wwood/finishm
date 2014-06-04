@@ -29,4 +29,35 @@ describe 'finishm wander' do
         ] #TODO: fix this bug where the entire contig is one node, creating a false join
     end
   end
+
+  it 'should work like scripting 1 node thing except calling it directly' do
+    random = nil
+    Bio::FlatFile.foreach("#{TEST_DATA_DIR }/wander/1/random1.fa") do |s|
+      random = s.seq
+      break
+    end
+
+    Tempfile.open('testing') do |t|
+    #File.open('/tmp/contigs','w') do |t|
+      t.puts '>first300'
+      t.puts random[0...300]
+      t.puts '>last400'
+      t.puts random[600..-1]
+      t.close
+
+      Tempfile.open('output_connections') do |conns|
+        conns.close
+
+        wanderer = Bio::FinishM::Wanderer.new
+        wanderer.run(Bio::FinishM::Wanderer::DEFAULT_OPTIONS.merge(
+          Bio::FinishM::GraphGenerator::DEFAULT_OPTIONS).merge({
+          :contigs_file => t.path,
+          :output_connection_file => conns.path,
+          :fasta_singles => "#{TEST_DATA_DIR}/wander/1/random1.sammy.fa",
+          :contig_end_length => 100,
+          :output_assembly_path => '/tmp/v',
+          }))
+      end
+    end
+  end
 end

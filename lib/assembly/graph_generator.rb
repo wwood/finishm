@@ -5,11 +5,13 @@ require 'pry'
 class Bio::FinishM::GraphGenerator
   include Bio::FinishM::Logging
 
+  DEFAULT_OPTIONS = {
+    :velvet_kmer_size => 51,
+    :assembly_coverage_cutoff => 3.5,
+    }
+
   def add_options(option_parser, options)
-    options.merge!({
-      :velvet_kmer_size => 51,
-      :assembly_coverage_cutoff => 3.5,
-      })
+    options.merge!(DEFAULT_OPTIONS)
     option_parser.on("--assembly-kmer NUMBER", "when assembling, use this kmer length [default: #{options[:velvet_kmer_size] }]") do |arg|
       options[:velvet_kmer_size] = arg.to_i
     end
@@ -151,6 +153,7 @@ class Bio::FinishM::GraphGenerator
           nr.read_id = cnr.read_id
           nr.offset_from_start_of_node = cnr.offset_from_start_of_node
           nr.start_coord = cnr.start_coord
+          nr.direction = direction
           # collect
           [node, direction, nr]
         end

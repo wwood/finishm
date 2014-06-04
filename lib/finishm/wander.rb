@@ -1,6 +1,12 @@
 class Bio::FinishM::Wanderer
   include Bio::FinishM::Logging
 
+  DEFAULT_OPTIONS = {
+    :contig_end_length => 200,
+    :graph_search_leash_length => 20000,
+    :unscaffold_first => false,
+    }
+
   # Collect desciptions about the probes so that they can be inspected more easily given a probe index
   class ProbeDescription
     attr_accessor :sequence_name, :side
@@ -34,11 +40,7 @@ class Bio::FinishM::Wanderer
 
     \n\n"
 
-    options.merge!({
-      :contig_end_length => 200,
-      :graph_search_leash_length => 20000,
-      :unscaffold_first => false,
-    })
+    options.merge!(DEFAULT_OPTIONS)
 
     optparse_object.separator "\nRequired arguments:\n\n"
     optparse_object.on("--contigs FILE", "fasta file of single contig containing Ns that are to be closed [required]") do |arg|
@@ -84,7 +86,7 @@ class Bio::FinishM::Wanderer
     end
   end
 
-  def run(options, argv)
+  def run(options, argv=[])
     # Read in all the contigs sequences, removing those that are too short
     probe_sequences = []
     sequence_names = []
