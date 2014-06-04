@@ -24,7 +24,7 @@ class Bio::FinishM::GraphGenerator
     option_parser.on("--velvet-directory PATH", "Output assembly intermediate files to this directory [default: use temporary directory, delete afterwards]") do |arg|
       options[:output_assembly_path] = arg
     end
-    option_parser.on("--already-assembled-velvet-directory PATH", "Skip until after assembly in this process, and start from this assembly directory created during a previous run of this script [default: off]") do |arg|
+    option_parser.on("--already-assembled-velvet-directory PATH", "If an assembly directory has been specified previously with --velvet-directory, re-use this assembly rather than re-doing the assembly [default: off]") do |arg|
       options[:previous_assembly] = arg
     end
   end
