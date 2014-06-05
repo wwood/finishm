@@ -133,7 +133,7 @@ class Bio::FinishM::GraphGenerator
       finder = Bio::AssemblyGraphAlgorithms::NodeFinder.new
       log.info "Finding probe nodes in the assembly"
       c_graph_endings = finder.find_unique_nodes_with_sequence_ids(read_probing_graph, anchor_sequence_ids)
-      log.debug "Converting probe nodes found in C graph to probe nodes found in Ruby-paresed graph"
+      log.debug "Converting probe nodes found in C graph to Ruby analogues and adding to Ruby-parsed graph"
       endings = c_graph_endings.collect do |node_direction_read|
         if node_direction_read.empty?
           # No probe found

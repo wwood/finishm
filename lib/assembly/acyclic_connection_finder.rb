@@ -128,7 +128,8 @@ module Bio
             # <--    --> not ok
             # <--    <-- not ok
             # -->    --> not ok
-            binding.pry
+            #binding.pry
+            #TODO: deal with the bug where 2 probes are on the same node
 
             if minimum_node_distances.key?(finish)
               min_distance = minimum_node_distances[finish]

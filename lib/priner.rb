@@ -39,6 +39,7 @@ require 'assembly/contig_printer'
 require 'assembly/bubbly_assembler'
 require 'assembly/dijkstra'
 require 'assembly/single_ended_assembler'
+require 'assembly/single_coherent_wanderer'
 
 require 'finishm/primers'
 require 'finishm/primers_check'

@@ -133,10 +133,10 @@ class Bio::FinishM::Wanderer
     finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph(probe_sequences, read_input, options)
 
     # Loop over the ends, trying to make connections from each one
-    cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
+    cartographer = Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer.new
 
     log.info "Finding possible connections with a depth first search"
-    first_connections = cartographer.depth_first_search_with_leash(finishm_graph, options[:graph_search_leash_length])
+    first_connections = cartographer.wander(finishm_graph, options[:graph_search_leash_length], 1, finishm_graph.velvet_sequences)
     log.info "Found #{first_connections.length} connections with less distance than the leash length, out of a possible #{probe_sequences.length*(probe_sequences.length-1) / 2}"
 
     probe_descriptions = []
