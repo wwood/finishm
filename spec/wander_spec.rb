@@ -26,7 +26,7 @@ describe 'finishm wander' do
       puts output
       output.split("\n").should == [
         "first300:end\tlast400:start\t500"
-        ] #TODO: fix this bug where the entire contig is one node, creating a false join
+        ] #TODO: fix this bug where the distance is incorrectly reported
     end
   end
 
