@@ -45,6 +45,10 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer
       # While there are more node sets in the queue
       while distanced_head_nodes = pqueue.dequeue
         log.debug "Dequeued #{distanced_head_nodes}" if log.debug?
+        if log.info? and node_to_head_node_sets.length % 100 == 0
+          log.info "So far worked with #{node_to_head_node_sets.length} distinct nodes in the assembly graph"
+        end
+
         settable = distanced_head_nodes.to_settable
         if minimum_head_nodes_distances.key?(settable) and
           distanced_head_nodes.distance >= minimum_head_nodes_distances[distanced_head_nodes.to_settable].distance
@@ -104,15 +108,17 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer
           if overall_min_distanced_set.nil? or
             overall_min_distanced_set.distance > min_distanced_set.distance
 
-            # TODO: check for position and orientation if start and finish nodes are
-            # on the same velvet node. Share with non-recoherent version of this code?
-            # -->    <--- OK
-            # <--    --> not ok
-            # <--    <-- not ok
-            # -->    --> not ok
+            if probes_on_single_node_ok?(finishm_graph, probe_node_index, i)
+              log.debug "Verified that probe indices #{probe_node_index}/#{i} are not failing on a 1 node basis" if log.debug?
+            else
+              log.debug "Failed to verify that probe indices #{probe_node_index}/#{i} are not failing on a 1 node basis" if log.debug?
+              next
+            end
+
             overall_min_distanced_set = min_distanced_set
           end
         end
+        next if overall_min_distanced_set.nil? #no connection found - the only connection was a fake one
 
         min_distance = overall_min_distanced_set.distance
         log.info "Found a connection between probes #{probe_node_index+1} and #{i+1}, distance: #{min_distance}"
@@ -120,6 +126,51 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer
       end
     end
     return to_return
+  end
+
+  # Check for position and orientation if start and finish nodes are
+  # on the same velvet node. Return true if OK as below or if the nodes
+  # are different
+  # -->    <--- OK
+  # <--    --> not ok (unless the node is circular)
+  # <--    <-- not ok
+  # -->    --> not ok
+  def probes_on_single_node_ok?(finishm_graph, start_node_index, end_node_index)
+    node1 = finishm_graph.probe_nodes[start_node_index]
+    node2 = finishm_graph.probe_nodes[end_node_index]
+    return true if node1.node_id != node2.node_id
+
+    node1_direction = finishm_graph.probe_node_directions[start_node_index]
+    node2_direction = finishm_graph.probe_node_directions[end_node_index]
+    node1_offset = direction_independent_offset_of_noded_read_from_start_of_node(
+      node1, finishm_graph.probe_node_reads[start_node_index])
+    node2_offset = direction_independent_offset_of_noded_read_from_start_of_node(
+      node1, finishm_graph.probe_node_reads[end_node_index])
+    log.debug "Validating for 1 node problems #{start_node_index}/#{end_node_index} #{node1_direction}/#{node2_direction} offsets #{node1_offset}/#{node2_offset}" if log.debug?
+    #binding.pry
+    if node1_direction == false and node2_direction == true and
+      node1_offset < node2_offset
+      return true
+    end
+
+    if node1_direction == true and node2_direction == false
+      onode = finishm_graph.velvet_oriented_node(start_node_index)
+      neighbours = finishm_graph.graph.neighbours_of(onode.node, onode.first_side).collect{|n| n.node_id}
+      return true if neighbours.include?(node1)
+    end
+
+    return false
+  end
+
+  private
+  def direction_independent_offset_of_noded_read_from_start_of_node(velvet_node, velvet_noded_read)
+    if velvet_noded_read.direction == false
+      return velvet_noded_read.offset_from_start_of_node
+    elsif velvet_noded_read.direction == true
+      return velvet_node.corresponding_contig_length - velvet_noded_read.offset_from_start_of_node
+    else
+      raise "programming error - velvet_noded_read does not have valid direction"
+    end
   end
 
   # An oriented node some distance from the origin of exploration

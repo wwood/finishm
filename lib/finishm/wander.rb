@@ -5,6 +5,7 @@ class Bio::FinishM::Wanderer
     :contig_end_length => 200,
     :graph_search_leash_length => 20000,
     :unscaffold_first => false,
+    :recoherence_kmer => 1,
     }
 
   # Collect desciptions about the probes so that they can be inspected more easily given a probe index
@@ -53,8 +54,11 @@ class Bio::FinishM::Wanderer
     Bio::FinishM::ReadInput.new.add_options(optparse_object, options)
 
     optparse_object.separator "\nOptional arguments:\n\n"
-    optparse_object.on("--overhang NUM", Integer, "Start assembling this far from the ends of the contigs [default: #{options[:contig_end_length]}]") do |arg|
+    optparse_object.on("--overhang NUM", Integer, "Start assembling this far from the ends of the contigs [default: #{options[:contig_end_length] }]") do |arg|
       options[:contig_end_length] = arg.to_i
+    end
+    optparse_object.on("--recoherence-kmer NUM", Integer, "Use a kmer longer than the original velvet one, to help remove bubbles and circular paths [default: none]") do |arg|
+      options[:recoherence_kmer] = arg
     end
     optparse_object.on("--leash-length NUM", Integer, "Don't explore too far in the graph, only this far and not much more [default: #{options[:graph_search_leash_length]}]") do |arg|
       options[:graph_search_leash_length] = arg
@@ -136,7 +140,7 @@ class Bio::FinishM::Wanderer
     cartographer = Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer.new
 
     log.info "Finding possible connections with a depth first search"
-    first_connections = cartographer.wander(finishm_graph, options[:graph_search_leash_length], 1, finishm_graph.velvet_sequences)
+    first_connections = cartographer.wander(finishm_graph, options[:graph_search_leash_length], options[:recoherence_kmer], finishm_graph.velvet_sequences)
     log.info "Found #{first_connections.length} connections with less distance than the leash length, out of a possible #{probe_sequences.length*(probe_sequences.length-1) / 2}"
 
     probe_descriptions = []
@@ -213,4 +217,8 @@ class Bio::FinishM::Wanderer
 
     log.info "All done."
   end
+
+class WanderResult
+  attr_accessor :connections
+end
 end
