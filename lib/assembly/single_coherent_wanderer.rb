@@ -21,8 +21,13 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer
     end
 
     # Search from each probed node in the graph
-    # TODO: necessary to search from the last probe node? Likely not.
+    # TODO: is there a better way to implement this by somehow searching with
+    # all probe nodes at once, rather than starting fresh with each probe?
     finishm_graph.probe_nodes.each_with_index do |probe_node, probe_node_index|
+
+      # Don't explore from the last node, as no new connections are established
+      next if probe_node_index == finishm_graph.probe_nodes.length - 1
+
       # Go all the way to the leash length,
       # and then search to see if any of the other nodes have been come across
       log.info "Exploring from probe node \##{probe_node_index+1} (node #{probe_node.node_id}/#{finishm_graph.probe_node_directions[probe_node_index] })"
