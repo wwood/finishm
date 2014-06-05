@@ -23,10 +23,9 @@ describe 'finishm wander' do
       command = "#{path_to_script} --quiet --fasta #{TEST_DATA_DIR}/wander/1/random1.sammy.fa --contigs #{t.path} --output-connections /dev/stdout --overhang 100 --assembly-kmer 51"
       #puts command
       output = Bio::Commandeer.run command
-      puts output
       output.split("\n").should == [
         "first300:end\tlast400:start\t500"
-        ] #TODO: fix this bug where the distance is incorrectly reported
+        ]
     end
   end
 

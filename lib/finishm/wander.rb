@@ -13,7 +13,7 @@ class Bio::FinishM::Wanderer
     attr_accessor :sequence_name, :side
 
     def to_s
-      "#{@sequence_name}.#{@side}"
+      "#{@sequence_name}:#{@side}"
     end
   end
 
@@ -157,15 +157,36 @@ class Bio::FinishM::Wanderer
     end
 
     # Write out connections to the given file
+    distance_calibrator = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
     File.open(options[:output_connection_file], 'w') do |out|
       first_connections.each do |node_indices, distance|
+
+        calibrated_distance = distance_calibrator.calibrate_distance_accounting_for_probes(
+          finishm_graph,
+          node_indices[0],
+          node_indices[1],
+          distance
+          )
         sequence_names_and_directions = node_indices.collect do |i|
           probe_descriptions[i].to_s
         end
-        out.puts [
-          sequence_names_and_directions,
-          distance
-        ].flatten.join("\t")
+
+        # It is possible that a connection just larger than the leash length is returned.
+        # weed these out.
+        if calibrated_distance > options[:graph_search_leash_length]
+          if log.debug?
+            conn = [
+              sequence_names_and_directions,
+              distance
+              ].flatten
+            log.debug "Disregarding connection #{conn} because it was ultimately outside the allowable leash length"
+          end
+        else
+          out.puts [
+            sequence_names_and_directions,
+            calibrated_distance
+            ].flatten.join("\t")
+        end
       end
     end
 

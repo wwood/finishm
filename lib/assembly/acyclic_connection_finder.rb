@@ -41,6 +41,25 @@ module Bio
         end
       end
 
+      # Algorithms like SingleCoherentWanderer#wander give an overly optimistic
+      # base pair distance between two probes, because the length of the node
+      # containing the probe at either end is not accounted for.
+      #
+      # Return the calibrated distance i.e. the true base pair distance between
+      # the start of each node pair. Returned is the given distance plus the
+      # distance between the start of each probe and the end of the containing
+      # node.
+      def calibrate_distance_accounting_for_probes(finishm_graph, probe1_index, probe2_index, distance)
+        to_return = distance
+
+        # add the first probe side
+        to_return += finishm_graph.probe_node_reads[probe1_index].offset_from_start_of_node
+        # add second probe
+        to_return += finishm_graph.probe_node_reads[probe2_index].offset_from_start_of_node
+        #Hmm, that was easy.
+        return to_return
+      end
+
       # Takes a set of probes, and try to see which ones connect together within the leash length.
       #
       # However this method does not determine the paths between each pair of nodes,

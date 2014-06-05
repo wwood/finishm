@@ -147,9 +147,15 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer
     node2_offset = direction_independent_offset_of_noded_read_from_start_of_node(
       node1, finishm_graph.probe_node_reads[end_node_index])
     log.debug "Validating for 1 node problems #{start_node_index}/#{end_node_index} #{node1_direction}/#{node2_direction} offsets #{node1_offset}/#{node2_offset}" if log.debug?
-    #binding.pry
-    if node1_direction == false and node2_direction == true and
+
+    # true/false and probe1 left of probe2, immediately below, is the most intuitive.
+    # but false/true and probe1 right of probe2 is also valid
+    if node1_direction == true and node2_direction == false and
       node1_offset < node2_offset
+      return true
+    end
+    if node1_direction == false and node2_direction == true and
+      node1_offset > node2_offset
       return true
     end
 
@@ -164,9 +170,9 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer
 
   private
   def direction_independent_offset_of_noded_read_from_start_of_node(velvet_node, velvet_noded_read)
-    if velvet_noded_read.direction == false
+    if velvet_noded_read.direction == true
       return velvet_noded_read.offset_from_start_of_node
-    elsif velvet_noded_read.direction == true
+    elsif velvet_noded_read.direction == false
       return velvet_node.corresponding_contig_length - velvet_noded_read.offset_from_start_of_node
     else
       raise "programming error - velvet_noded_read does not have valid direction"
