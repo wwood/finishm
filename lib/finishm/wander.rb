@@ -139,7 +139,7 @@ class Bio::FinishM::Wanderer
     # Loop over the ends, trying to make connections from each one
     cartographer = Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer.new
 
-    log.info "Finding possible connections with a depth first search"
+    log.info "Finding possible connections with recoherence kmer of #{options[:recoherence_kmer] }"
     first_connections = cartographer.wander(finishm_graph, options[:graph_search_leash_length], options[:recoherence_kmer], finishm_graph.velvet_sequences)
     log.info "Found #{first_connections.length} connections with less distance than the leash length, out of a possible #{probe_sequences.length*(probe_sequences.length-1) / 2}"
 
