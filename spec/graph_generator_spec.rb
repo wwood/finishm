@@ -60,6 +60,33 @@ describe 'graph_generator' do
     end
   end
 
+  it 'should find probes by probe names' do
+    # >32_1   63      0
+    # >32_2   64      0
+    # >33_1   65      0
+    # >33_2   66      0
+    # >34_1   67      0
+    # >34_2   68      0
+    # >35_1   69      0
+    # >35_2   70      0
+    names = %w(32_1 35_2)
+
+    Dir.mktmpdir do |tmpdir|
+      read_inputs = Bio::FinishM::ReadInput.new
+      read_inputs.fasta_singles_gz = [
+        File.join(File.dirname(__FILE__),'data','gapfilling','3','reads.fa.gz')
+        ]
+      # First assembly run is fine
+      probed_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_inputs, {
+        :assembly_coverage_cutoff => 0,
+        :velvet_kmer_size => 31,
+        :output_assembly_path => tmpdir,
+        :probe_read_names => names,
+        })
+      probed_graph.probe_node_reads.collect{|read| read.read_id}.should == [63,70]
+    end
+  end
+
   describe 'check_probe_sequences' do
     it 'should check_probe_sequences' do
       graph_gen = Bio::FinishM::GraphGenerator.new

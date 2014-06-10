@@ -39,6 +39,7 @@ class Bio::FinishM::GraphGenerator
   #
   # options:
   # :probe_reads: a list of sequence numbers (numbering as per velvet Sequence file)
+  # :probe_read_names: a list of sequence names (not IDs) that are probes (convert the names to IDs using the CnyUnifiedSeqNames file)
   # :velvet_kmer_size: kmer
   # :assembly_coverage_cutoff: coverage cutoff for nodes
   # :post_assembly_coverage_cutoff: apply this coverage cutoff to nodes after parsing assembly
@@ -129,7 +130,28 @@ class Bio::FinishM::GraphGenerator
     # Find the anchor nodes again
     anchor_sequence_ids = probe_read_ids.to_a.sort
     endings = []
-    unless probe_read_ids.empty? #don't bother trying to find probes if none exists
+    unless probe_read_ids.empty? and options[:probe_read_names].nil? #don't bother trying to find probes if none exists
+      # Convert read names to read IDs if required
+      if options[:probe_read_names]
+        # Probe reads are given as names, not IDs. What are the corresponding probes then?
+        entries = Bio::Velvet::CnyUnifiedSeqNamesFile.extract_entries_using_grep_hack(
+          File.join(velvet_result.result_directory, 'CnyUnifiedSeq.names'),
+          options[:probe_read_names]
+          )
+        if entries.length != options[:probe_read_names].length
+          raise "Unexpected number of probes recovered through names: expected #{options[:probe_read_names].length}, found #{entries.length}"
+        end
+        anchor_sequence_ids = []
+        options[:probe_read_names].each do |name| #maintain order of them as they are specified in the original array parameter
+          if entries[name].length > 1
+            raise "Found >1 sequence named #{name} in the assembly, being conservative and not continuing"
+          else
+            anchor_sequence_ids.push entries[name][0].read_id
+          end
+        end
+        log.info "Correctly recovered all #{anchor_sequence_ids.length} sequences using their names"
+      end
+
       finder = Bio::AssemblyGraphAlgorithms::NodeFinder.new
       log.info "Finding probe nodes in the assembly"
       c_graph_endings = finder.find_unique_nodes_with_sequence_ids(read_probing_graph, anchor_sequence_ids)

@@ -35,7 +35,7 @@ class Bio::FinishM::Visualiser
         read_id
       end
     end
-    optparse_object.on("--probe-ids-file PROBE_IDS", String, "explore from the probe IDs given in the file (1 probe ID per line). See also --leash-length [default: don't start from a node, explore the entire graph]") do |arg|
+    optparse_object.on("--probe-ids-file PROBE_IDS_FILE", String, "explore from the probe IDs given in the file (1 probe ID per line). See also --leash-length [default: don't start from a node, explore the entire graph]") do |arg|
       raise "Cannot specify both --probe-ids and --probe-ids-file sorry" if options[:interesting_probes]
       options[:interesting_probes] = []
       log.info "Reading probe IDs from file: `#{arg}'"
@@ -49,6 +49,21 @@ class Bio::FinishM::Visualiser
         options[:interesting_probes].push read_id
       end
       log.info "Read #{options[:interesting_probes].length} probes in"
+    end
+    optparse_object.on("--probe-names-file PROBE_NAMES_FILE", String, "explore from the probe names (i.e. the first word in the fasta/fastq header) given in the file (1 probe name per line). See also --leash-length [default: don't start from a node, explore the entire graph]") do |arg|
+      raise "Cannot specify any two of --probe-names-file, --probe-ids and --probe-ids-file sorry" if options[:interesting_probes]
+      options[:interesting_probes] = []
+      log.info "Reading probe names from file: `#{arg}'"
+      File.foreach(arg) do |line|
+        line.strip!
+        next if line == '' or line.nil?
+        read_id = line.to_i
+        if read_id.to_s != line or read_id < 1 or read_id.nil?
+          raise "Unable to parse probe ID #{line}, from file #{arg}, cannot continue"
+        end
+        options[:interesting_probe_names].push read_id
+      end
+      log.info "Read #{options[:interesting_probe_names].length} probes names in"
     end
     optparse_object.on("--node-ids NODE_IDS", Array, "explore from these nodes in the graph (comma separated). Node IDs are the nodes in the velvet graph. See also --leash-length [default: don't start from a node, explore the entire graph]") do |arg|
       options[:interesting_nodes] = arg.collect do |read|
@@ -102,14 +117,19 @@ class Bio::FinishM::Visualiser
     viser = Bio::Assembly::ABVisualiser.new
     gv = nil
 
-    if options[:interesting_probes]
+    if options[:interesting_probes] or options[:interesting_probe_names]
       # Looking based on probes
-      if options[:interesting_probes].length > 5
-        log.info "Targeting #{options[:interesting_probes].length} probes #{options[:interesting_probes][0..4].join(', ') }, ..."
+      if options[:interesting_probe_names]
+        log.info "Targeting #{options[:interesting_probe_names].length} probes through their names e.g. `#{options[:interesting_probe_names] }'"
+        options[:probe_read_names] = options[:interesting_probe_names]
       else
-        log.info "Targeting #{options[:interesting_probes].length} probes #{options[:interesting_probes].inspect}"
+        if options[:interesting_probes].length > 5
+          log.info "Targeting #{options[:interesting_probes].length} probes #{options[:interesting_probes][0..4].join(', ') }, ..."
+        else
+          log.info "Targeting #{options[:interesting_probes].length} probes #{options[:interesting_probes].inspect}"
+        end
+        options[:probe_reads] = options[:interesting_probes]
       end
-      options[:probe_reads] = options[:interesting_probes]
       options[:remove_unconnected_nodes] = true
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
 
