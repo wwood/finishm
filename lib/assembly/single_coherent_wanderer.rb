@@ -53,7 +53,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer
       while distanced_head_nodes = pqueue.dequeue
         log.debug "Dequeued #{distanced_head_nodes}" if log.debug?
         if log.info? and node_to_head_node_sets.length % 128 == 0 and node_to_head_node_sets.length > last_logged_node_count
-          log.info "So far worked with #{node_to_head_node_sets.length} distinct nodes in the assembly graph"
+          log.info "So far worked with #{node_to_head_node_sets.length} distinct nodes in the assembly graph, at min distance #{distanced_head_nodes.distance}"
           last_logged_node_count = node_to_head_node_sets.length
         end
 

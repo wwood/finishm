@@ -152,9 +152,9 @@ class Bio::FinishM::GraphGenerator
         log.info "Correctly recovered all #{anchor_sequence_ids.length} sequences using their names"
       end
 
-      finder = Bio::AssemblyGraphAlgorithms::NodeFinder.new
+      finder = Bio::FinishM::CProbeNodeFinder.new
       log.info "Finding probe nodes in the assembly"
-      c_graph_endings = finder.find_unique_nodes_with_sequence_ids(read_probing_graph, anchor_sequence_ids)
+      c_graph_endings = finder.find_probes(read_probing_graph, anchor_sequence_ids)
       log.debug "Converting probe nodes found in C graph to Ruby analogues and adding to Ruby-parsed graph"
       endings = c_graph_endings.collect do |node_direction_read|
         if node_direction_read.empty?

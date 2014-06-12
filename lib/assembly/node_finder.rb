@@ -27,7 +27,8 @@ module Bio
 #        return best_node, best_noded_read.direction
 #      end
 
-      def find_unique_nodes_with_sequence_ids(graph, sequence_ids)
+      #
+      def find_unique_nodes_with_sequence_ids(graph, sequence_ids, options={})
         # Create data structure
         endings = {}
         sequence_ids.each do |seq_id|
@@ -35,7 +36,9 @@ module Bio
         end
 
         # Fill data structure with candidate nodes
+
         graph.nodes.each do |node|
+          next if options[:target_node_ids] and !options[:target_node_ids].include?(node.node_id)
           next if node.short_reads.nil?
           node.short_reads.each do |read|
             if endings[read.read_id]

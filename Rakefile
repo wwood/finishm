@@ -14,14 +14,23 @@ require 'rake'
 require 'jeweler'
 Jeweler::Tasks.new do |gem|
   # gem is a Gem::Specification... see http://docs.rubygems.org/read/chapter/20 for more options
-  gem.name = "priner"
-  gem.homepage = "http://github.com/wwood/priner"
-  gem.license = "MIT"
-  gem.summary = %Q{TODO: one-line summary of your gem}
-  gem.description = %Q{TODO: longer description of your gem}
+  gem.name = "finishm"
+  gem.homepage = "http://github.com/wwood/finishm"
+  gem.license = "GPL"
+  gem.summary = %Q{Genome improvement and finishing with or without further sequencing effort}
+  gem.description = %Q{De-novo assemblies generally only provide draft genomes. FinishM is aimed at improving these draft assemblies.}
   gem.email = "donttrustben near gmail.com"
   gem.authors = ["Ben J. Woodcroft"]
   # dependencies defined in Gemfile
+
+  gem.extensions = "ext/mkrf_conf.rb"
+
+  # by default, velvet as a git submodule is not included when making the gem
+  # but we need it to be.
+  gem.files.include "ext/src/src/*"
+  gem.files.include "ext/src/Makefile"
+  gem.files.include "ext/src/License"
+  gem.files.include "ext/src/third-party/**/*"
 end
 Jeweler::RubygemsDotOrgTasks.new
 

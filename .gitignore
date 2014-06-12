@@ -49,3 +49,4 @@ pkg
 #*.rbc
 bin/read_selection_by_kmer
 Gemfile.lock
+lib/external/libfinishm.so*

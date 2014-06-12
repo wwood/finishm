@@ -20,7 +20,7 @@ class Bio::FinishM::Wanderer
   def add_options(optparse_object, options)
     optparse_object.banner = "\nUsage: finishm wander --contigs <contig_file> --fastq-gz <reads..> --output-connections <output.csv>
 
-    Takes a set of contigs/scaffolds and finds connections in the graph between them. A connection here is given as
+    Takes a set of contigs/scaffolds from a genome and finds connections in the graph between them. A connection here is given as
     the length of the shortest path between them, without actually computing all the paths.
 
     This can be used for scaffolding, because if a contig end only connects to one other contig end, then

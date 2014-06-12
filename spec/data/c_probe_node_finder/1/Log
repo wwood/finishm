@@ -1,0 +1,756 @@
+Thu Jun  5 13:50:40 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-663-1rx3qul /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 13:50:41 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Thu Jun  5 13:51:50 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-707-cg0vdm /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 13:51:51 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Thu Jun  5 15:14:07 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-3214-bxv4rw /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 15:14:07 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Thu Jun  5 15:14:31 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-3226-msza0n /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 15:14:31 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Thu Jun  5 15:15:11 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-3251-i2i91i /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 15:15:12 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Thu Jun  5 15:15:26 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-3263-1jayngw /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 15:15:26 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Thu Jun  5 15:15:41 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-3277-1x8qri /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 15:15:41 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Thu Jun  5 15:15:54 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-3296-fcppi /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 15:15:54 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Thu Jun  5 15:16:05 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-3322-pnzd4t /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 15:16:06 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Thu Jun  5 15:16:14 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-3335-k2lwnk /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 15:16:14 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Thu Jun  5 15:16:34 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-3351-1u544hg /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 15:16:34 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Thu Jun  5 15:17:36 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-3412-1mhx2xm /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 15:17:36 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Thu Jun  5 15:21:42 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-3454-1aoxw62 /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 15:21:42 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Thu Jun  5 15:27:21 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-3619-q9lrkn /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 15:27:21 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Thu Jun  5 15:27:58 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-3638-1vdyaa8 /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 15:27:58 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Thu Jun  5 15:29:59 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-3663-10cb0fe /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 15:30:00 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Thu Jun  5 15:30:38 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-3675-eoq68g /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 15:30:38 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Thu Jun  5 15:31:24 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-3701-ycedf2 /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 15:31:24 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Thu Jun  5 15:35:28 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-3780-u1fa8x /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 15:35:28 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Thu Jun  5 15:36:21 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-3796-yug6gq /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 15:36:21 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Thu Jun  5 15:36:41 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-3814-2a357n /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 15:36:41 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Thu Jun  5 15:37:20 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140605-3867-1kzxbp7 /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Thu Jun  5 15:37:20 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Fri Jun  6 15:36:41 2014
+ velveth /tmp/v 51 -fasta -short /tmp/probes.fa20140606-27704-frqv2s /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/wander/1/random1.sammy.fa -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Fri Jun  6 15:36:42 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 3.5 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 1 nodes and n50 of 950, max 950, total 950, using 602/602 reads
+Tue Jun 10 17:15:39 2014
+ velveth /tmp/v 31 -fasta -short /tmp/probes.fa20140610-14931-9854y1 -fasta.gz -short /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/gapfilling/3/reads.fa.gz -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Tue Jun 10 17:15:39 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 0 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 4 nodes and n50 of 435, max 437, total 1092, using 444/444 reads
+Tue Jun 10 17:17:13 2014
+ velveth /tmp/v 31 -fasta -short /tmp/probes.fa20140610-15035-8xsomd -fasta.gz -short /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/gapfilling/3/reads.fa.gz -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Tue Jun 10 17:17:14 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 0 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 4 nodes and n50 of 435, max 437, total 1092, using 444/444 reads
+Tue Jun 10 17:17:52 2014
+ velveth /tmp/v 31 -fasta -short /tmp/probes.fa20140610-15057-1na7rjw -fasta.gz -short /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/gapfilling/3/reads.fa.gz -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Tue Jun 10 17:17:53 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 0 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 4 nodes and n50 of 435, max 437, total 1092, using 444/444 reads
+Tue Jun 10 17:19:12 2014
+ velveth /tmp/v 31 -fasta -short /tmp/probes.fa20140610-15112-1chdrye -fasta.gz -short /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/gapfilling/3/reads.fa.gz -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Tue Jun 10 17:19:12 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 0 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 4 nodes and n50 of 435, max 437, total 1092, using 444/444 reads
+Tue Jun 10 17:21:05 2014
+ velveth /tmp/v 31 -fasta -short /tmp/probes.fa20140610-15136-1phgs7o -fasta.gz -short /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/gapfilling/3/reads.fa.gz -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Tue Jun 10 17:21:06 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 0 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 4 nodes and n50 of 435, max 437, total 1092, using 444/444 reads
+Tue Jun 10 17:21:26 2014
+ velveth /tmp/v 31 -fasta -short /tmp/probes.fa20140610-15152-mq1qoz -fasta.gz -short /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/gapfilling/3/reads.fa.gz -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Tue Jun 10 17:21:26 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 0 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 4 nodes and n50 of 435, max 437, total 1092, using 444/444 reads
+Tue Jun 10 17:21:50 2014
+ velveth /tmp/v 31 -fasta -short /tmp/probes.fa20140610-15173-1ylne8g -fasta.gz -short /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/gapfilling/3/reads.fa.gz -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Tue Jun 10 17:21:51 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 0 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 4 nodes and n50 of 435, max 437, total 1092, using 444/444 reads
+Tue Jun 10 17:26:02 2014
+ velveth /tmp/v 31 -fasta -short /tmp/probes.fa20140610-15284-e1feij -fasta.gz -short /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/gapfilling/3/reads.fa.gz -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Tue Jun 10 17:26:02 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 0 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 4 nodes and n50 of 435, max 437, total 1092, using 444/444 reads
+Tue Jun 10 17:26:11 2014
+ velveth /tmp/v 31 -fasta -short /tmp/probes.fa20140610-15300-1ke7k7g -fasta.gz -short /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/gapfilling/3/reads.fa.gz -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Tue Jun 10 17:26:11 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 0 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 4 nodes and n50 of 435, max 437, total 1092, using 444/444 reads
+Tue Jun 10 17:27:13 2014
+ velveth /tmp/v 31 -fasta -short /tmp/probes.fa20140610-15363-1mvayyf -fasta.gz -short /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/gapfilling/3/reads.fa.gz -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Tue Jun 10 17:27:13 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 0 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 4 nodes and n50 of 435, max 437, total 1092, using 444/444 reads
+Tue Jun 10 17:27:40 2014
+ velveth /tmp/v 31 -fasta -short /tmp/probes.fa20140610-15382-1uxfxdc -fasta.gz -short /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/gapfilling/3/reads.fa.gz -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Tue Jun 10 17:27:40 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 0 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 4 nodes and n50 of 435, max 437, total 1092, using 444/444 reads
+Tue Jun 10 17:28:09 2014
+ velveth /tmp/v 31 -fasta -short /tmp/probes.fa20140610-15403-kg169u -fasta.gz -short /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/gapfilling/3/reads.fa.gz -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Tue Jun 10 17:28:09 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 0 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 4 nodes and n50 of 435, max 437, total 1092, using 444/444 reads
+Wed Jun 11 11:50:05 2014
+ velveth /tmp/v 31 -fasta -short /tmp/probes.fa20140611-32519-c4h475 -fasta.gz -short /mnt/rudd_gut/srv/home/uqbwoodc/git/priner/spec/data/gapfilling/3/reads.fa.gz -create_binary
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Wed Jun 11 11:50:05 2014
+ velvetg /tmp/v -read_trkg yes -cov_cutoff 0 -tour_bus no
+Version 1.2.08
+Copyright 2007, 2008 Daniel Zerbino (zerbino@ebi.ac.uk)
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Compilation settings:
+CATEGORIES = 2
+MAXKMERLENGTH = 255
+
+Final graph has 5 nodes and n50 of 435, max 437, total 1206, using 544/544 reads
