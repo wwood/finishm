@@ -89,4 +89,26 @@ describe 'finishm wander' do
       end
     end
   end
+
+  it 'should croak when some seqs are too short' do
+    random = nil
+    Bio::FlatFile.foreach("#{TEST_DATA_DIR }/wander/1/random1.fa") do |s|
+      random = s.seq
+      break
+    end
+
+    Tempfile.open('testing') do |t|
+    #File.open('/tmp/contigs','w') do |t|
+      t.puts '>first50'
+      t.puts random[0...50]
+      t.puts '>last50'
+      t.puts random[random.length-50..-1]
+      t.close
+      puts `cat #{t.path}`
+      command = "#{path_to_script} --quiet --fasta #{TEST_DATA_DIR}/wander/1/random1.sammy.fa --contigs #{t.path} --output-connections /dev/stdout --overhang 100 --assembly-kmer 51"
+      puts command
+      expect{Bio::Commandeer.run command}.to raise_error
+    end
+
+  end
 end

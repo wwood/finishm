@@ -60,11 +60,14 @@ class Bio::FinishM::Wanderer
     optparse_object.on("--recoherence-kmer NUM", Integer, "Use a kmer longer than the original velvet one, to help remove bubbles and circular paths [default: none]") do |arg|
       options[:recoherence_kmer] = arg
     end
-    optparse_object.on("--leash-length NUM", Integer, "Don't explore too far in the graph, only this far and not much more [default: #{options[:graph_search_leash_length]}]") do |arg|
+    optparse_object.on("--leash-length NUM", Integer, "Don't explore too far in the graph, only this far and not much more [default: #{options[:graph_search_leash_length] }]") do |arg|
       options[:graph_search_leash_length] = arg
     end
-    optparse_object.on("--unscaffold-first", "Break the scaffolds in the contigs file apart, and then wander between the resultant contigs[default: #{options[:unscaffold_first]}]") do |arg|
+    optparse_object.on("--unscaffold-first", "Break the scaffolds in the contigs file apart, and then wander between the resultant contigs[default: #{options[:unscaffold_first] }]") do
       options[:unscaffold_first] = true
+    end
+    optparse_object.on("--proceed-on-short-contigs", "By default, when overly short contigs are encountered, finishm croaks. This option stops the croaking [default: #{options[:proceed_on_short_contigs] }]") do
+      options[:proceed_on_short_contigs] = true
     end
 
     Bio::FinishM::GraphGenerator.new.add_options optparse_object, options
@@ -94,9 +97,11 @@ class Bio::FinishM::Wanderer
     # Read in all the contigs sequences, removing those that are too short
     probe_sequences = []
     sequence_names = []
+    overly_short_sequence_count = 0
     process_sequence = lambda do |name, seq|
       if seq.length < 2*options[:contig_end_length]
         log.warn "Not attempting to make connections from this contig, as it is overly short: #{name}"
+        overly_short_sequence_count += 1
         nil
       else
         sequence_names.push name
@@ -129,6 +134,13 @@ class Bio::FinishM::Wanderer
         process_sequence.call seq.definition, seq.seq
       end
     end
+
+    if overly_short_sequence_count > 0
+      unless options[:proceed_on_short_contigs]
+        raise "Not proceding as some contigs are too short (length < 2 * overhang). You might try: (1) omitting the smaller contigs, (2) reducing the --overhang parameter, or (3) using --proceed-on-short-contigs to continue optimistically ignoring the #{overly_short_sequence_count} short contigs"
+      end
+    end
+
     log.info "Searching from #{probe_sequences.length} different contig ends (#{probe_sequences.length / 2} contigs)"
 
     # Generate the graph with the probe sequences in it.
