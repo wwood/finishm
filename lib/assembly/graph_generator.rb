@@ -138,12 +138,11 @@ class Bio::FinishM::GraphGenerator
           File.join(velvet_result.result_directory, 'CnyUnifiedSeq.names'),
           options[:probe_read_names]
           )
-        if entries.length != options[:probe_read_names].length
-          raise "Unexpected number of probes recovered through names: expected #{options[:probe_read_names].length}, found #{entries.length}"
-        end
         anchor_sequence_ids = []
         options[:probe_read_names].each do |name| #maintain order of them as they are specified in the original array parameter
-          if entries[name].length > 1
+          if entries[name].empty?
+            raise "Unable to find probe `#{name}' in the probe reads file - was it included in the assembly?"
+          elsif entries[name].length > 1
             raise "Found >1 sequence named #{name} in the assembly, being conservative and not continuing"
           else
             anchor_sequence_ids.push entries[name][0].read_id

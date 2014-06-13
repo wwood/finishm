@@ -1,12 +1,12 @@
 
 require 'bio-commandeer'
-TEST_DATA_DIR = File.join(File.dirname(__FILE__),'data','visualise')
+require 'spec_helper'
 
 describe 'finishm visualise' do
   path_to_script = File.join(File.dirname(__FILE__),'..','bin','finishm visualise')
 
   it 'should visualise an entire graph' do
-    command = "#{path_to_script} --quiet --already-assembled-velvet-directory #{TEST_DATA_DIR}/1 --assembly-dot /dev/stdout"
+    command = "#{path_to_script} --quiet --already-assembled-velvet-directory #{TEST_DATA_DIR}/visualise/1 --assembly-dot /dev/stdout"
     stdout = Bio::Commandeer.run(command)
     stdout.should == <<END_OF_DOT
 digraph G {
@@ -58,7 +58,7 @@ END_OF_DOT
   end
 
   it 'should visualise particular nodes of interest' do
-    command = "#{path_to_script} --quiet --already-assembled-velvet-directory #{TEST_DATA_DIR}/1 --assembly-dot /dev/stdout --node-ids 1,17 --leash-length 300"
+    command = "#{path_to_script} --quiet --already-assembled-velvet-directory #{TEST_DATA_DIR}/visualise/1 --assembly-dot /dev/stdout --node-ids 1,17 --leash-length 300"
     stdout = Bio::Commandeer.run(command)
     stdout.should == <<END_OF_DOT
 digraph G {
@@ -75,5 +75,31 @@ digraph G {
 	3 -> 17 [arrowhead=none, pos="259.08,222.98 272.15,213.77 285.85,201.26 293,186 314.11,140.92 314.11,119.08 293,74 285.91,58.872 272.4,46.454 259.43,37.27"];
 }
 END_OF_DOT
+  end
+
+  it 'should visualise --probe-names-file' do
+    Tempfile.open('testing') do |t|
+      t.puts '14_1'
+      t.puts '15_1'
+      t.close
+      Tempfile.open('testing_svg') do |svg_tmp|
+        command = "#{path_to_script} --quiet --fasta #{TEST_DATA_DIR}/wander/1/random1.sammy.fa --assembly-dot /dev/stdout --probe-names-file #{t.path}"
+        stdout = Bio::Commandeer.run(command)
+        stdout.match(/^digraph G/).nil?.should == false
+        stdout.match(/n1_length947_coverage21/).nil?.should == false
+      end
+    end
+  end
+
+  it 'should fail to visualise when --probe-names-file has bad entries' do
+    Tempfile.open('testing') do |t|
+      t.puts '14_1'
+      t.puts '15_1not-a-read'
+      t.close
+      Tempfile.open('testing_svg') do |svg_tmp|
+        command = "#{path_to_script} --quiet --fasta #{TEST_DATA_DIR}/wander/1/random1.sammy.fa --assembly-dot /dev/stdout --probe-names-file #{t.path}"
+        expect{Bio::Commandeer.run(command)}.to raise_error
+      end
+    end
   end
 end

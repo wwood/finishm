@@ -52,16 +52,12 @@ class Bio::FinishM::Visualiser
     end
     optparse_object.on("--probe-names-file PROBE_NAMES_FILE", String, "explore from the probe names (i.e. the first word in the fasta/fastq header) given in the file (1 probe name per line). See also --leash-length [default: don't start from a node, explore the entire graph]") do |arg|
       raise "Cannot specify any two of --probe-names-file, --probe-ids and --probe-ids-file sorry" if options[:interesting_probes]
-      options[:interesting_probes] = []
+      options[:interesting_probe_names] = []
       log.info "Reading probe names from file: `#{arg}'"
       File.foreach(arg) do |line|
         line.strip!
         next if line == '' or line.nil?
-        read_id = line.to_i
-        if read_id.to_s != line or read_id < 1 or read_id.nil?
-          raise "Unable to parse probe ID #{line}, from file #{arg}, cannot continue"
-        end
-        options[:interesting_probe_names].push read_id
+        options[:interesting_probe_names].push line
       end
       log.info "Read #{options[:interesting_probe_names].length} probes names in"
     end
