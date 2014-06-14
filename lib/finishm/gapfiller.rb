@@ -37,7 +37,7 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
     optparse_object.on("--leash-length NUM", Integer, "Don't explore too far in the graph, only this many base pairs and not (much) more [default: #{options[:graph_search_leash_length] }]") do |arg|
       options[:graph_search_leash_length] = arg
     end
-    optparse_object.on("--disambiguation-kmer NUM", Integer, "Use a kmer longer than the original velvet one, to help remove bubbles and circular paths [default: none] }]") do |arg|
+    optparse_object.on("--recoherence-kmer NUM", Integer, "Use a kmer longer than the original velvet one, to help remove bubbles and circular paths [default: none]") do |arg|
       options[:recoherence_kmer] = arg
     end
 

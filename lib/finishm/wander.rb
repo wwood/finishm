@@ -137,7 +137,9 @@ class Bio::FinishM::Wanderer
 
     if overly_short_sequence_count > 0
       unless options[:proceed_on_short_contigs]
-        raise "Not proceding as some contigs are too short (length < 2 * overhang). You might try: (1) omitting the smaller contigs, (2) reducing the --overhang parameter, or (3) using --proceed-on-short-contigs to continue optimistically ignoring the #{overly_short_sequence_count} short contigs"
+        raise "Not proceding as some contigs are too short (length < 2 * overhang). You might try: "+
+          "(1) omitting the smaller contigs, (2) reducing the --overhang parameter, or "+
+          "(3) using --proceed-on-short-contigs to continue optimistically ignoring the #{overly_short_sequence_count} short contigs"
       end
     end
 

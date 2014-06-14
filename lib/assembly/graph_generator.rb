@@ -79,10 +79,17 @@ class Bio::FinishM::GraphGenerator
         end
         log.debug "Inputting probes into the assembly:\n#{File.open(tempfile.path).read}" if log.debug?
 
+        runner = Bio::Velvet::Runner.new
+        required_version = '1.2.08-wwood_less_clipping'
+        found_version = runner.binary_version
+        if found_version != required_version
+          raise "Detected velvet version incompatible with FinishM: #{found_version}, expected #{required_version} which is available from https://github.com/wwood/velvet (on branch less_clipping)"
+        end
+
         log.info "Assembling sampled reads with velvet"
         # Bit of a hack, but have to use -short1 as the anchors because then start and end anchors will have node IDs 1,2,... etc.
         use_binary = options[:use_textual_sequence_file] ? '' : '-create_binary'
-        velvet_result = Bio::Velvet::Runner.new.velvet(
+        velvet_result = runner.velvet(
           options[:velvet_kmer_size],
           "#{read_inputs.velvet_read_arguments} #{use_binary}",
           "-read_trkg yes -cov_cutoff #{options[:assembly_coverage_cutoff] } -tour_bus no",
