@@ -178,16 +178,17 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
     end
     log.info "Found #{whitelisted_node_ids.length} nodes within leash length of the probe nodes."
 
-    # Re-parse in the graph noded_reads
-    graph_file_path = File.join assembly_directory, 'LastGraph'
-    log.info "Re-reading velvet graph file #{graph_file_path} to fill read position information in the reachable nodes"
-    sequences_of_interest = finishm_graph.graph.parse_additional_noded_reads(graph_file_path, {
-      :grep_hack => 500,
-      :interesting_read_ids => Set.new((0...probe_sequences.length)),
-      :interesting_node_ids => Set.new(whitelisted_node_ids),
-      })
-    log.info "Finished re-reading read position information"
-
+    # Re-parse in the graph noded_reads if recoherent
+    unless options[:recoherence_kmer].nil?
+      graph_file_path = File.join assembly_directory, 'LastGraph'
+      log.info "Re-reading velvet graph file #{graph_file_path} to fill read position information in the reachable nodes"
+      finishm_graph.graph.parse_additional_noded_reads(graph_file_path, {
+        :grep_hack => 500,
+        :interesting_read_ids => Set.new((0...probe_sequences.length)),
+        :interesting_node_ids => Set.new(whitelisted_node_ids),
+        })
+      log.info "Finished re-reading read position information"
+    end
 
     # Clean up the tmdir, if one was used.
     if using_tmp_assembly_directory
