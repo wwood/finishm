@@ -80,7 +80,7 @@ class Bio::FinishM::GraphGenerator
         log.debug "Inputting probes into the assembly:\n#{File.open(tempfile.path).read}" if log.debug?
 
         runner = Bio::Velvet::Runner.new
-        required_version = '1.2.08-wwood_less_clipping'
+        required_version = '1.2.10-wwood_less_clipping'
         found_version = runner.binary_version
         if found_version != required_version
           raise "Detected velvet version incompatible with FinishM: #{found_version}, expected #{required_version} which is available from https://github.com/wwood/velvet (on branch less_clipping)"
