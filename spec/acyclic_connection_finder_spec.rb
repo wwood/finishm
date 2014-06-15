@@ -516,4 +516,36 @@ describe "AcyclicConnectionFinder" do
       [1,2,3,4],
     ]
   end
+
+  it 'should calibrate when both start and end nodes are the same' do
+    fail
+  end
+
+  it 'should calibrate when start and end nodes are different' do
+    probe_sequences = [
+      'GCATACGTATGCATGTTGCGCTGTTTGACCCGAAATGGTGCCCGGAGCAAGGCTTAGCATCCAATGCAGATAGCCCAGCTCTACTCA',
+      'ACTGGAGTCGGCGCGATCGCGGCGGTTAGTAGGCTCTTGAGTACCCATGCTTCCTCAGCTCTATGATGAACCCAGTGCCTGGGCGCCCATT',
+      ]
+    reads = Bio::FinishM::ReadInput.new
+    reads.parse_options ({
+      :fasta_gz_singles => [
+        File.join(TEST_DATA_DIR,'acyclic_connection_finder','1','random1.sammy.fa.gz'),
+        File.join(TEST_DATA_DIR,'acyclic_connection_finder','1','random2.sammy.fa.gz'),
+        ],
+      })
+    graph = Bio::FinishM::GraphGenerator.new.generate_graph(probe_sequences, reads,
+      {:velvet_kmer_size => 51,
+        :assembly_coverage_cutoff => 0.5,
+        }
+      )
+    # Number	Name	Length
+    # 1	probe_fwd	87
+    # 2	probe_rev_revcom	91
+    distancer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
+    distancer.calibrate_distance_accounting_for_probes(
+      graph, 0, 1, 24
+      ).should == 0
+
+    fail "do more testing here"
+  end
 end

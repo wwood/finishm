@@ -50,14 +50,28 @@ module Bio
       # distance between the start of each probe and the end of the containing
       # node.
       def calibrate_distance_accounting_for_probes(finishm_graph, probe1_index, probe2_index, distance)
-        to_return = distance
+        read1 = finishm_graph.probe_node_reads[probe1_index]
+        read2 = finishm_graph.probe_node_reads[probe2_index]
+        probe_node1 = finishm_graph.probe_nodes[probe1_index]
+        probe_node2 = finishm_graph.probe_nodes[probe2_index]
 
-        # add the first probe side
-        to_return += finishm_graph.probe_node_reads[probe1_index].offset_from_start_of_node
-        # add second probe
-        to_return += finishm_graph.probe_node_reads[probe2_index].offset_from_start_of_node
-        #Hmm, that was easy.
-        return to_return
+        # If the start and end nodes are the same, that's a special case:
+        if finishm_graph.probe_nodes[probe1_index].node_id == finishm_graph.probe_nodes[probe2_index].node_id
+          if (read1.direction == true and read2.direction == false) or
+            (read1.direction == false and read2.direction == true)
+            return probe_node1.length - read1.offset_from_start_of_node - read2.offset_from_start_of_node - finishm_graph.graph.hash_length
+          else
+            raise "Programming error: to connect within a single contig two probes must have opposite directions: found #{read1.direction} and #{read2.direction}"
+          end
+        else
+          # Usual case - start and end nodes are different nodes
+          to_return = distance
+          # add the first probe side
+          to_return += probe_node1.length-read1.offset_from_start_of_node-finishm_graph.graph.hash_length
+          # add the second probe side
+          to_return += probe_node2.length-read1.offset_from_start_of_node-finishm_graph.graph.hash_length
+          return to_return
+        end
       end
     end
   end

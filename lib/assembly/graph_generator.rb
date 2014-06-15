@@ -87,6 +87,8 @@ class Bio::FinishM::GraphGenerator
         end
 
         log.info "Assembling sampled reads with velvet"
+        raise "Need to specify -cov_cutoff" if options[:assembly_coverage_cutoff].nil?
+        raise "Need to specify a kmer size" if options[:velvet_kmer_size].nil?
         # Bit of a hack, but have to use -short1 as the anchors because then start and end anchors will have node IDs 1,2,... etc.
         use_binary = options[:use_textual_sequence_file] ? '' : '-create_binary'
         velvet_result = runner.velvet(
