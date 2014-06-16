@@ -148,14 +148,23 @@ class Bio::FinishM::GraphGenerator
           options[:probe_read_names]
           )
         anchor_sequence_ids = []
+        double_counts = 0
         options[:probe_read_names].each do |name| #maintain order of them as they are specified in the original array parameter
           if entries[name].empty?
             raise "Unable to find probe `#{name}' in the probe reads file - was it included in the assembly?"
-          elsif entries[name].length > 1
+          elsif entries[name].length > 2
             raise "Found >1 sequence named #{name} in the assembly, being conservative and not continuing"
           else
+            if entries[name].length == 2
+              # Possibly just each side of a pair? Assume the first read is the one we want.
+              double_counts += 1
+              log.debug "Found 2 sequences for #{name}" if log.debug?
+            end
             anchor_sequence_ids.push entries[name][0].read_id
           end
+        end
+        if double_counts > 0
+          log.info "#{double_counts} reads were found twice (likely as pairs), using the first provided one of each pair"
         end
         log.info "Correctly recovered all #{anchor_sequence_ids.length} sequences using their names"
       end
