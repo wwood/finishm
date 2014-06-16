@@ -54,7 +54,9 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       log.debug "Set key is #{set_key}" if log.debug?
 
       # Unless the path validates, forget it.
-      if !validate_last_node_of_path_by_recoherence(current_path, recoherence_kmer, sequence_hash)
+      if recoherence_kmer.nil?
+        # Continue, assume that it validates if there is no recoherence_kmer
+      elsif !validate_last_node_of_path_by_recoherence(current_path, recoherence_kmer, sequence_hash)
         log.debug "Path did not validate, skipping" if log.debug?
         next
       elsif log.debug?
@@ -108,6 +110,8 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
   end
 
   def array_trail_to_settable(trail, recoherence_kmer)
+    return trail.last.to_settable if recoherence_kmer.nil?
+
     cumulative_length = 0
     i = trail.length - 1
     while i >= 0 and cumulative_length < recoherence_kmer

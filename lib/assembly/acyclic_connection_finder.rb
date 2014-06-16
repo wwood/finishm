@@ -29,16 +29,10 @@ module Bio
         initial_path = Bio::Velvet::Graph::OrientedNodeTrail.new
         initial_path.add_oriented_node initial_oriented_node
 
-        if options[:recoherence_kmer]
-          finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
-          return finder.find_all_connections_between_two_nodes(
-            graph, initial_path, terminal_oriented_node, leash_length, options[:recoherence_kmer], options[:sequences]
-            )
-        else
-          return Bio::AssemblyGraphAlgorithms::PathsBetweenNodesFinder.new.find_all_connections_between_two_nodes(
-            graph, initial_path, terminal_oriented_node, leash_length
-            )
-        end
+        finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
+        return finder.find_all_connections_between_two_nodes(
+          graph, initial_path, terminal_oriented_node, leash_length, options[:recoherence_kmer], options[:sequences]
+          )
       end
 
       # Algorithms like SingleCoherentWanderer#wander give an overly short
