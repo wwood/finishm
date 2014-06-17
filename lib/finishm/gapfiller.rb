@@ -163,28 +163,11 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
       end
     end
 
-    # Find all nodes within the leash length of the probe nodes, so that the noded_reads of
-    # of these nodes can be read in in another pass of the LastGraph file
-    log.info "Finding nodes connectected to the probe nodes within the leash length.."
-    whitelisted_node_ids = Set.new
-    dijkstra = Bio::AssemblyGraphAlgorithms::Dijkstra.new
-    finishm_graph.probe_nodes.each_index do |i|
-      onode = finishm_graph.initial_path_from_probe(i).trail[0]
-      min_distances = dijkstra.min_distances(finishm_graph.graph, onode, :leash_length => options[:graph_search_leash_length])
-      min_distances.keys.each do |array|
-        node_id = array[0]
-        whitelisted_node_ids << node_id
-      end
-    end
-    log.info "Found #{whitelisted_node_ids.length} nodes within leash length of the probe nodes."
-
     # Clean up the tmdir, if one was used.
     if using_tmp_assembly_directory
       log.debug "Removing tmpdir that held the assembly `#{assembly_directory}'.."
       FileUtils.remove_entry assembly_directory
     end
-
-
 
     # Do the gap-filling and print out the results
     cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
