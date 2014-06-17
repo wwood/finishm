@@ -8,7 +8,7 @@ class Bio::FinishM::HybridGraph
     @bio_velvet_graph = bio_velvet_graph
     @bio_velvet_underground_graph = bio_velvet_underground_graph
 
-    @nodes = NodeArray.new(bio_velvet_graph, bio_velvet_underground_graph)
+    @nodes = NodeArray.new(bio_velvet_graph, bio_velvet_underground_graph, self)
   end
 
   def method_missing(method_sym, *args, &block)
@@ -18,9 +18,10 @@ class Bio::FinishM::HybridGraph
   class NodeArray
     include Enumerable
 
-    def initialize(bio_velvet_graph, bio_velvet_underground_graph)
+    def initialize(bio_velvet_graph, bio_velvet_underground_graph, parent_graph)
       @bio_velvet_graph = bio_velvet_graph
       @bio_velvet_underground_graph = bio_velvet_underground_graph
+      @parent_graph = parent_graph
     end
 
     def []=(node_id, value)
@@ -30,6 +31,7 @@ class Bio::FinishM::HybridGraph
     def [](node_id)
       bio_velvet_node = @bio_velvet_graph.nodes[node_id]
       bio_velvet_node.short_reads = @bio_velvet_underground_graph.nodes[node_id].short_reads
+      bio_velvet_node.parent_graph = @parent_graph
       return bio_velvet_node
     end
 
