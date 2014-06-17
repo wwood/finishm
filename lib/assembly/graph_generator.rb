@@ -126,15 +126,18 @@ class Bio::FinishM::GraphGenerator
       #Ignore parsing reads that are not probes, as we don't care and this just takes up extra computational resources
       opts[:dont_parse_noded_reads] = true
     end
-    graph = Bio::Velvet::Graph.parse_from_file(
+    bio_velvet_graph = Bio::Velvet::Graph.parse_from_file(
       File.join(velvet_result.result_directory, 'LastGraph'),
       opts
       )
-    log.info "Finished parsing graph: found #{graph.nodes.length} nodes and #{graph.arcs.length} arcs"
+    log.info "Finished parsing graph: found #{bio_velvet_graph.nodes.length} nodes and #{bio_velvet_graph.arcs.length} arcs"
 
     log.info "Beginning parse of graph using velvet's parsing C code.."
     read_probing_graph = Bio::Velvet::Underground::Graph.parse_from_file File.join(velvet_result.result_directory, 'LastGraph')
     log.info "Completed velvet code parsing velvet graph"
+
+    # Make the two graphs into a hybrid one
+    graph = Bio::FinishM::HybridGraph.new(bio_velvet_graph, read_probing_graph)
 
     # Find the anchor nodes again
     anchor_sequence_ids = probe_read_ids.to_a.sort
