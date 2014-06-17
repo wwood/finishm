@@ -2,6 +2,8 @@
 class Bio::FinishM::HybridGraph
   include Bio::FinishM::Logging
 
+  attr_reader :nodes
+
   def initialize(bio_velvet_graph, bio_velvet_underground_graph)
     @bio_velvet_graph = bio_velvet_graph
     @bio_velvet_underground_graph = bio_velvet_underground_graph

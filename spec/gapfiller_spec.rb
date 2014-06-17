@@ -2,8 +2,7 @@ require 'systemu'
 require 'tempfile'
 require 'bio'
 require 'bio-commandeer'
-
-TEST_DATA_DIR = File.join(File.dirname(__FILE__),'data','gapfilling')
+require 'spec_helper'
 
 describe 'finishm gap closer' do
   path_to_script = File.join(File.dirname(__FILE__),'..','bin','finishm gapfill')
@@ -13,7 +12,7 @@ describe 'finishm gap closer' do
   sequence3 = 'GCTGGCGGCGTGCCTAACACATGTAAGTCGAACGGGACTGGGGGCAACTCCAGTTCAGTGGCAGACGGGTGCGTAACACGTGAGCAACTTGTCCGACGGCGGGGGATAGCCGGCCCAACGGCCGGGTAATACCGCGTACGCTCGTTTAGGGACATCCCTGAATGAGGAAAGCCGTAAGGCACCGACGGAGAGGCTCGCGGCCTATCAGCTAGTTGGCGGGGTAACGGCCCACCAAGGCGACGACGGGTAGCTGGTCTGAGAGGATGGCCAGCCACATTGGGACTGAGACACGGCCCAGACTCCTACGGGAGGCAGCAGTGGGGAATCTTGCGCAATGGCCGCAAGGCTGACGCAGCGACGCCGCGTGTGGGATGACGGCCTTCGGGTTGTAAACCACTGTCGGGAGGAACGAATACTCGGCTAGTCCGAGGGTGACGGTACCTCCAAAGGAAGCACCGGCTAACTCCGTGCCAGCAGCCGCGGTAATACGGAGGGTGCGAGCGTTGTCCGGAATCACTGGGCGTAAAGGGCGCGTAGGTGGCCCGTTAAGTGGCTGGTGAAATCCCGGGGCTCAACTCCGGGGCTGCCGGTCAGACTGGCGAGCTAGAGCACGGTAGGGGCAGATGGAATTCCCGGTGTAGCGGTGGAATGCGTAGATATCGGGAAGAATACCAGTGGCGAAGGCGTTCTGCTGGGCCGTTGCTGACACTGAGGCGCGACAGCGTGGGGAGCAAACAGGATTAGATACCCTGGTAGTCCACGCCGTAAACGATGGACACTAGACGTCGGGGGGAGCGACCCTCCCGGTGTCGTCGCTAACGCAGTAAGTGTCCCGCCTGGGGAGTACGGCCGCAAGGCTGAAACTCAAAGGAATTGACGGGGGCCCGCACAAGCGGTGGAGCATGTGGTTTAATTCGAAGCAACGCGAAGAACCTTACCTGGGCTTGACATGCTGGTGCAAGCCGGTGGAAACATCGGCCCCTCTTCGGAGCGCCAGCAC'
 
   it 'should scripting test ok with a 1 node thing' do
-    command = "#{path_to_script} --quiet --fasta-gz #{TEST_DATA_DIR}/3/reads.fa.gz --contigs #{TEST_DATA_DIR}/3/with_gaps.fa --output-fasta /dev/stdout"
+    command = "#{path_to_script} --quiet --fasta-gz #{TEST_DATA_DIR}/gapfilling/3/reads.fa.gz --contigs #{TEST_DATA_DIR}/gapfilling/3/with_gaps.fa --output-fasta /dev/stdout"
     status, stdout, stderr = systemu command
 
     stderr.should eq("")
@@ -25,8 +24,9 @@ describe 'finishm gap closer' do
     revseq = Bio::Sequence::NA.new(sequence3_wtih_gaps).reverse_complement.to_s.upcase
 
     rev = ">rev\n"+revseq
-    command = "#{path_to_script} --quiet --fasta-gz #{TEST_DATA_DIR}/3/reads.fa.gz --contigs /dev/stdin --output-fasta /dev/stdout"
+    command = "#{path_to_script} --quiet --fasta-gz #{TEST_DATA_DIR}/gapfilling/3/reads.fa.gz --contigs /dev/stdin --output-fasta /dev/stdout"
     stdout = Bio::Commandeer.run(command, :stdin => rev)
+
     stdout.should == ">rev\n" + Bio::Sequence::NA.new(sequence3).reverse_complement.to_s.upcase + "\n"
   end
 
@@ -37,7 +37,7 @@ describe 'finishm gap closer' do
       ('N'*13)+
       sequence3[610..-1]
     input = ">input2gaps\n"+input_seq
-    command = "#{path_to_script} --quiet --fasta-gz #{TEST_DATA_DIR}/3/reads.fa.gz --contigs /dev/stdin --output-fasta /dev/stdout"
+    command = "#{path_to_script} --quiet --fasta-gz #{TEST_DATA_DIR}/gapfilling/3/reads.fa.gz --contigs /dev/stdin --output-fasta /dev/stdout"
     stdout = Bio::Commandeer.run(command, :stdin => input)
     stdout.should == ">input2gaps\n" + sequence3 + "\n"
   end
@@ -52,7 +52,7 @@ describe 'finishm gap closer' do
         'N'*50,
       sequence2[400..-1]
       ].join("\n")
-    command = "#{path_to_script} --quiet --fasta-gz #{TEST_DATA_DIR}/3/reads.fa.gz,#{TEST_DATA_DIR}/4/reads.fa.gz, --contigs /dev/stdin --output-fasta /dev/stdout"
+    command = "#{path_to_script} --quiet --fasta-gz #{TEST_DATA_DIR}/gapfilling/3/reads.fa.gz,#{TEST_DATA_DIR}/gapfilling/4/reads.fa.gz, --contigs /dev/stdin --output-fasta /dev/stdout"
     stdout = Bio::Commandeer.run(command, :stdin => input)
     stdout.should == ">seq1\n" + sequence3 + "\n>seq2\n" + sequence2+"\n"
   end
@@ -66,7 +66,7 @@ describe 'finishm gap closer' do
         sequence2[400..-1]
       ].join("\n")
     # 3/reads.fa.gz is the wrong set of reads, so no connection should be made
-    command = "#{path_to_script} --quiet --fasta-gz #{TEST_DATA_DIR}/3/reads.fa.gz --contigs /dev/stdin --output-fasta /dev/stdout"
+    command = "#{path_to_script} --quiet --fasta-gz #{TEST_DATA_DIR}/gapfilling/3/reads.fa.gz --contigs /dev/stdin --output-fasta /dev/stdout"
     stdout = Bio::Commandeer.run(command, :stdin => input)
     stdout.should == input+"\n"
   end
