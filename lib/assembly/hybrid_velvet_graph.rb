@@ -1,18 +1,15 @@
 # A velvet Graph where the nodes and arcs are in Ruby, but the NodedReads are in C
-class Bio::FinishM::HybridGraph
+class Bio::FinishM::HybridGraph < Bio::Velvet::Graph
   include Bio::FinishM::Logging
 
-  attr_reader :nodes
-
   def initialize(bio_velvet_graph, bio_velvet_underground_graph)
-    @bio_velvet_graph = bio_velvet_graph
     @bio_velvet_underground_graph = bio_velvet_underground_graph
 
     @nodes = NodeArray.new(bio_velvet_graph, bio_velvet_underground_graph, self)
-  end
-
-  def method_missing(method_sym, *args, &block)
-    @bio_velvet_graph.send(method_sym, *args, &block)
+    @hash_length = bio_velvet_graph.hash_length
+    @number_of_nodes = bio_velvet_graph.number_of_nodes
+    @number_of_sequences = bio_velvet_graph.number_of_sequences
+    @arcs = bio_velvet_graph.arcs
   end
 
   class NodeArray
@@ -50,3 +47,4 @@ class Bio::FinishM::HybridGraph
     end
   end
 end
+
