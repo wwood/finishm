@@ -44,6 +44,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     end
 
     current_oriented_node_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
+    last_number_of_problems_observed_checkpoint = 0
 
     while current_path = pqueue.dequeue
       path_length = current_path.length_in_bp
@@ -94,6 +95,11 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         problem.min_distance = path_length
         problem.known_paths.push current_path.copy
         problems[set_key] = problem
+
+        num_done = problems.length
+        if num_done > 0 and num_done % 512 == 0
+          log.info "So far worked with #{num_done} head node sets, up to distance #{path_length}" if log.info?
+        end
 
         # explore the forward neighbours
         push_next_neighbours.call current_path
