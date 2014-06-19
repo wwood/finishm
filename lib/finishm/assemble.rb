@@ -77,7 +77,6 @@ class Bio::FinishM::Assembler
     # Generate the graph
     read_input = Bio::FinishM::ReadInput.new
     read_input.parse_options options
-    options[:parse_all_noded_reads] = true if options[:recoherence_kmer]
     finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
     graph = finishm_graph.graph
 
@@ -95,6 +94,7 @@ class Bio::FinishM::Assembler
       ].each do |opt|
         assembler.assembly_options[opt] = options[opt]
       end
+    assembler.assembly_options[:sequences] = finishm_graph.velvet_sequences
 
     if options[:initial_node_shorthand]
       initial_trail = Bio::Velvet::Graph::OrientedNodeTrail.create_from_shorthand(options[:initial_node_shorthand], graph)

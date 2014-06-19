@@ -83,8 +83,15 @@ subcommands = {
   end},
 }
 
+subcommand = nil
+if ARGV[0].match(/finishm$/) #if debugging e.g. 'pry finishm wander ..'
+  subcommand = ARGV.shift
+  subcommand = ARGV.shift
+else
+  # not debugging
+  subcommand = ARGV.shift
+end
 
-subcommand = ARGV.shift
 if subcommand.nil?
   $stderr.puts global
   exit 1

@@ -60,7 +60,9 @@ describe "FinishM assemble" do
     trails = nil
     Dir.mktmpdir do |tmpdir|
       Dir.chdir(tmpdir) do
-        trails = Bio::Commandeer.run "#{FINISHM_SCRIPT_PATH} assemble --no-progressbar --assembly-kmer 51 --recoherence-kmer 90 --quiet --output-contigs /dev/stdout --fasta-gz #{TEST_DATA_DIR}/gapfilling/6/reads.random1.fa.gz,#{TEST_DATA_DIR}/gapfilling/6/reads.random2.fa.gz"
+        cmd = "#{FINISHM_SCRIPT_PATH} assemble --no-progressbar --assembly-kmer 51 --recoherence-kmer 90 --quiet --output-contigs /dev/stdout --fasta-gz #{TEST_DATA_DIR}/gapfilling/6/reads.random1.fa.gz,#{TEST_DATA_DIR}/gapfilling/6/reads.random2.fa.gz"
+        puts cmd
+        trails = Bio::Commandeer.run cmd
       end
     end
     trails.should == '>contig1
