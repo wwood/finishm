@@ -84,7 +84,7 @@ subcommands = {
 }
 
 subcommand = nil
-if ARGV[0].match(/finishm$/) #if debugging e.g. 'pry finishm wander ..'
+if ARGV[0] and ARGV[0].match(/finishm$/) #if debugging e.g. 'pry finishm wander ..'. But be careful of finishm no arguments
   subcommand = ARGV.shift
   subcommand = ARGV.shift
 else
