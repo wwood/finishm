@@ -20,21 +20,20 @@ global = OptionParser.new do |opts|
 
   FinishM is a collection of tasks related to assembly and metagenome assembly. Available commands:
 
+    wander\tTry to connect contigs (experimental)
+    gapfill\tFill assembly gaps (N characters) (experimental)
+    explore\tWhat happens in the graph beyond the end of my contig(s)? (experimental)
+    visualise\tVisualise the DeBruijn graph (experimental)
+
+  Commands for PCR finishing:
+
     primers\tdesign primers for multi-primer multi-lane PCR experimental setup (experimental)
     primers_check\ttest a set of primers for incompatibility (experimental)
     finish\tprocess results from multi-primer multi-lane PCR experimental setup (experimental)
-    gapfill\tFill assembly gaps (N characters) (experimental)
-    wander\tTry to connect contigs (experimental)
-    explore\tWhat happens in the graph beyond the end of my contig(s)? (experimental)
-    visualise\tVisualise the DeBruijn graph (experimental)
 
   Utility modes:
 
     sequence\tGiven a defined sequence of nodes, what is the corresponding sequence?
-
-  Ideas that failed on a conceptual level. Why am I even listing them?:
-
-    fluff\tTry to get a set of pan-genome contigs from a strain heterogenous coassembly
     \n\n"
 end
 global.order!

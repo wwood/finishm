@@ -33,7 +33,7 @@ class Bio::FinishM::HybridGraph < Bio::Velvet::Graph
     end
 
     def delete(node)
-      raise "method not implemented"
+      @bio_velvet_graph.nodes.delete node
     end
 
     def length
