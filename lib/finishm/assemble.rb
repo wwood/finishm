@@ -96,15 +96,6 @@ class Bio::FinishM::Assembler
         assembler.assembly_options[opt] = options[opt]
       end
 
-    # Read sequence data if required
-    if options[:recoherence_kmer]
-      sequences_file_path = File.join finishm_graph.velvet_result_directory, 'CnyUnifiedSeq'
-      log.info "Reading in the actual sequences of all reads from #{sequences_file_path}"
-      sequences = Bio::Velvet::Underground::BinarySequenceStore.new sequences_file_path
-      log.info "Read in #{sequences.length} sequences"
-      assembler.assembly_options[:sequences] = sequences
-    end
-
     if options[:initial_node_shorthand]
       initial_trail = Bio::Velvet::Graph::OrientedNodeTrail.create_from_shorthand(options[:initial_node_shorthand], graph)
       log.info "Starting to assemble from #{initial_trail.to_shorthand}.."
