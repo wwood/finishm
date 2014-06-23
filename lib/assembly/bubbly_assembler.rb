@@ -11,7 +11,7 @@ end
 
 
 
-class Bio::AssemblyGraphAlgorithms::BubblyAssembler
+class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
   include Bio::FinishM::Logging
 
   # Starting at a node within a graph, walk through the graph
@@ -20,12 +20,12 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler
   #
   # Return an Array of Path arrays, a MetaPath, where each path array are the different paths
   # that can be taken at each fork point
-  def assemble_from_node(velvet_graph, starting_path, leash_length)
+  def assemble_from_node(starting_path, leash_length)
     current_bubble = nil
 
     metapath = MetaPath.new
     starting_path.each do |oriented_node|
-      log.debug "adding onode at the start: #{oriented_node}" if log.debug?
+      log.debug "adding onode at the start: #{oriented_node.to_shorthand}" if log.debug?
       metapath << oriented_node
     end
 
@@ -36,8 +36,8 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler
 
     while true
       if current_bubble.nil?
-        log.debug "Starting a non-bubble from #{metapath.inspect}" if log.debug?
-        while oriented_neighbours = metapath.last.next_neighbours(velvet_graph)
+        log.debug "Starting a non-bubble from #{metapath.to_shorthand}" if log.debug?
+        while oriented_neighbours = metapath.last.next_neighbours(@graph)
           if oriented_neighbours.empty?
             # This is just a straight out dead end, and we can go no further.
             metapath.fate = MetaPath::DEAD_END_FATE
@@ -74,7 +74,8 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler
       else
         # We are in a bubble. Go get some.
         path_index, node_id, first_side = queue.shift
-        log.debug "In a bubble, dequeued path #{path_index}, onode #{onode.inspect}"
+        log.debug "In a bubble: #{current_bubble.to_shorthand}" if log.debug?
+        log.debug "dequeued path #{path_index}, node #{node_id}/#{first_side}" if log.debug?
         if path_index.nil?
           # finished, we can go no further. Do we treat this as fluff or as the end of a contig?
           raise "hmm"
@@ -82,8 +83,18 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler
           # are we now converged?
           if current_bubble.node_converges_bubble?(node_id, first_side)
             # convergement!
-            clean_bubble = current_bubble.coverge_on(node_id, first_side)
-            metapath << clean_bubble
+            clean_bubble = current_bubble.converge_on(node_id, first_side)
+            # convert clean_bubble int an array of OrientedNodeTrail objects
+            trails = []
+            clean_bubble.each do |trail_of_settabled|
+              trail = Bio::Velvet::Graph::OrientedNodeTrail.new
+              trail.add_setabled_nodes(trail_of_settabled, @graph)
+              trails.push trail
+            end
+            metapath << trails
+            onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(
+              @graph.nodes[node_id], first_side
+            )
             metapath << onode
             queue = create_new_queue.call
             current_bubble = nil
@@ -97,7 +108,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler
               return metapath
             else
               # Trekking onwards in the bubble. Add this to the path, and queue up the next neighbours
-              neighbours = velvet_graph.neighbours_of_node_id(node_id, first_side)
+              neighbours = @graph.neighbours_of_node_id(node_id, first_side)
               if neighbours.empty?
                 # Dead end. fail? Fluff?
                 raise "hmm2"
@@ -108,8 +119,8 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler
                 # Add the next neighbours as those to be processed
                 new_path_indices.each_with_index do |path_id, i|
                   queue.enqueue(
-                    [path_id, neighbours[i]],
-                    current_bubble.path_length(path_id)
+                    [path_id, neighbours[i].node_id, neighbours[i].first_side],
+                    current_bubble.path_length(path_id, @graph)
                     )
                 end
               end
@@ -137,7 +148,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler::MetaPath < Array
   end
 
   def last
-    self[self.length-1]
+    self[-1]
   end
 
   # Returns true if this oriented node is in any path
@@ -147,9 +158,11 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler::MetaPath < Array
 
   def <<(oriented_node_or_path_array)
     if oriented_node_or_path_array.kind_of?(Array)
-      #its a bubble
-      oriented_node_or_path_array.each do |onode|
-        @all_nodes << onode.to_settable
+      #its a bubble, an Array of arrays
+      oriented_node_or_path_array.each do |trail|
+        trail.each do |onode|
+          @all_nodes << onode.to_settable
+        end
       end
     else
       #its a plain old oriented node
@@ -158,6 +171,19 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler::MetaPath < Array
     super
   end
   alias_method :push, :<<
+
+  def to_shorthand
+    to_return = []
+    each do |e|
+      if e.kind_of?(Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode)
+        to_return.push e.to_shorthand
+      else
+        # e.g.
+        to_return.push "(#{e.collect{|e2| e2.to_shorthand}.join(',')})"
+      end
+    end
+    return to_return.join(',')
+  end
 end
 
 class Bio::AssemblyGraphAlgorithms::BubblyAssembler::Bubble < Array
@@ -169,11 +195,11 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler::Bubble < Array
     to_test = [node_id, first_side]
     each do |other_path|
       unless other_path.key?(to_test)
-        log.debug "#{to_test} is not a convergent node because it fails on #{other_path.inspect}" if log.debug?
+        log.debug "#{to_test} is not a convergent node because it fails on #{other_path}" if log.debug?
         return false
       end
     end
-    log.debug "#{to_test} was a bubble convergent node"
+    log.debug "#{to_test} was a bubble convergent node" if log.debug?
     return true
   end
 
@@ -181,7 +207,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler::Bubble < Array
   def add_oriented_node(path_id, oriented_node)
     self[path_id] ||= {}
     # yey ordered hashes in ruby. Assumes nodes are never removed from paths.
-    self[path_id][oriented_node] = self[path_id].length
+    self[path_id][oriented_node.to_settable] = self[path_id].length
     return nil
   end
 
@@ -189,6 +215,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler::Bubble < Array
   # the path in the bubble, splitting it if necessary. Return an Array
   # of path indices corresponding to the path indices that the neighbours
   # were added to.
+  #TODO: make a ceiling on the maximal number of nodes allowable in a graph, not just leash length
   def add_one_or_more_neighbours(path_id, neighbours)
     path = self[path_id]
     first = nil
@@ -214,10 +241,10 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler::Bubble < Array
   end
 
   # Return the length of the path in base pairs.
-  def path_length(path_id)
+  def path_length(path_id, graph)
     to_return = 0
-    self[path_id].collect do |onode, i|
-      to_return += onode.node.length_alone
+    self[path_id].collect do |onode_settabled, i|
+      to_return += graph.nodes[onode_settabled[0]].length_alone
     end
     to_return
   end
@@ -225,17 +252,35 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler::Bubble < Array
   # The given oriented node is in all paths. Return an array of paths
   # (an array of arrays) that includes all nodes up until the given node
   # (but not including it)
-  def converge_on(oriented_node)
+  def converge_on(node_id, first_side)
+    to_test = [node_id, first_side]
     collect do |hash|
       new_array = []
-      hash.each do |onode, i|
-        if oriented_node == onode
+      hash.each do |onode_settabled, i|
+        if onode_settabled == to_test
           break
         else
-          new_array << onode
+          new_array << onode_settabled
         end
       end
       new_array
     end
+  end
+
+  def to_shorthand
+    to_return = []
+    each do |path|
+      path_shorthand = []
+      path.each do |settabled, i|
+        first_side = settabled[1]
+        if first_side == :start_is_first
+          path_shorthand.push "#{settabled[0]}s"
+        else
+          path_shorthand.push "#{settabled[0]}e"
+        end
+      end
+      to_return.push path_shorthand.join(',')
+    end
+    return to_return.join('|')
   end
 end

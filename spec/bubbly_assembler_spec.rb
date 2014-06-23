@@ -7,7 +7,7 @@ class GraphTesting
     to_return = []
     metapath.collect do |node_or_arr|
       if node_or_arr.kind_of?(Array)
-        to_return.push node_or_arr.collect{|onode| onode.node_id}
+        to_return.push node_or_arr.collect{|otrail| otrail.length == 1 ? otrail[0].node_id : otrail.collect{|onode| onode.node_id}}
       elsif node_or_arr.kind_of?(Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode)
         to_return.push node_or_arr.node_id
       else
@@ -25,8 +25,8 @@ describe "Bubble Assembler" do
       [1,2],
       [2,3],
     ], 1, 3)
-    cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new
-    metapath = cartographer.assemble_from_node(graph, initial_path, nil)
+    cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
+    metapath = cartographer.assemble_from_node(initial_path, nil)
     GraphTesting.metapath_to_array(metapath).should == [1,2,3]
   end
 
@@ -37,10 +37,34 @@ describe "Bubble Assembler" do
       [1,4],
       [4,3],
       [3,5],
-    ], 1, 3)
-    cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new
-    metapath = cartographer.assemble_from_node(graph, initial_path, nil)
+    ], 1, 5)
+    cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
+    metapath = cartographer.assemble_from_node(initial_path, nil)
     GraphTesting.metapath_to_array(metapath).should == [1,[2,4],3,5]
+  end
+
+  it 'should be able to get out of the middle of a simple path' do
+  fail
+  end
+
+  it 'should be able to get out of the middle of a path when it is bubbly' do
+  fail
+  end
+
+  it 'should be able to assemble several contigs' do
+  fail
+  end
+
+  it 'should be able to use recoherence to get around an inter-genome repeat' do
+  fail
+  end
+
+  it 'should respect the leash length' do
+  fail
+  end
+
+  it 'should handle 3 way bubbles that don\'t al converge on the same bubble' do
+  fail
   end
 end
 
@@ -56,5 +80,17 @@ describe 'metapath' do
     metapath << onode
     metapath.length.should == 1
     metapath[0].should == onode
+  end
+
+  it 'should be able to output a reference contig' do
+  fail
+  end
+
+  it 'should be able to iterate over variants from the reference contig' do
+  fail
+  end
+
+  it 'should be able to write out a reference and VCF format file' do
+  fail
   end
 end

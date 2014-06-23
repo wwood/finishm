@@ -259,6 +259,15 @@ module Bio
           @trail.push oriented_node
         end
 
+        # Given an Array of [node_id, start_or_end] pairs
+        # add these to the trail
+        def add_setabled_nodes(setabled_nodes, graph)
+          setabled_nodes.each do |pair|
+            raise "programming error" if pair.length != 2
+            add_node graph.nodes[pair[0]], pair[1]
+          end
+        end
+
         def each(&block)
           @trail.each(&block)
         end
