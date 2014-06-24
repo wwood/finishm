@@ -135,7 +135,7 @@ end
 
 
 
-class Bio::AssemblyGraphAlgorithms::BubblyAssembler::MetaPath < Array
+class Bio::AssemblyGraphAlgorithms::BubblyAssembler::MetaPath
   DIVERGES_FATE = 'diverges'
   DEAD_END_FATE = 'dead end'
   CIRCUIT_FATE = 'circuit'
@@ -143,12 +143,21 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler::MetaPath < Array
   # How does this metapath end?
   attr_accessor :fate
 
+  include Enumerable
+
   def initialize
+    @internal_array = []
     @all_nodes = Set.new
   end
 
+  def each
+    @internal_array.each do |e|
+      yield e
+    end
+  end
+
   def last
-    self[-1]
+    @internal_array [-1]
   end
 
   # Returns true if this oriented node is in any path
@@ -168,21 +177,44 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler::MetaPath < Array
       #its a plain old oriented node
       @all_nodes << oriented_node_or_path_array.to_settable
     end
-    super
+    @internal_array << oriented_node_or_path_array
   end
   alias_method :push, :<<
 
   def to_shorthand
     to_return = []
-    each do |e|
+    @internal_array.each do |e|
       if e.kind_of?(Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode)
         to_return.push e.to_shorthand
       else
         # e.g.
-        to_return.push "(#{e.collect{|e2| e2.to_shorthand}.join(',')})"
+        to_return.push "(#{e.collect{|e2| e2.to_shorthand}.join(',') })"
       end
     end
     return to_return.join(',')
+  end
+
+  def reverse!
+    # Do regular reversal
+    @internal_array.reverse!
+
+    # Reverse all the internal bubbles
+    @internal_array.collect! do |e|
+      if e.kind_of?(Bio::AssemblyGraphAlgorithms::BubblyAssembler::Bubble)
+        e.reverse
+      else
+        e
+      end
+    end
+    return nil
+  end
+
+  def length
+    @internal_array.length
+  end
+
+  def [](index)
+    @internal_array[index]
   end
 end
 

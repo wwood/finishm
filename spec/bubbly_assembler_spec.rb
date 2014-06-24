@@ -43,6 +43,27 @@ describe "Bubble Assembler" do
     GraphTesting.metapath_to_array(metapath).should == [1,[2,4],3,5]
   end
 
+  it 'should handle 3 way bubbles that don\'t all converge on the same bubble' do
+    graph, initial_path, terminal = GraphTesting.emit_ss([
+      [1,2],
+      [2,3],
+      [3,4],
+      [4,5],
+      [2,6],
+      [6,7],
+      [7,5],
+      [6,4],
+      [7,8],
+    ], 1, 8)
+    cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
+    metapath = cartographer.assemble_from_node(initial_path, nil)
+    GraphTesting.metapath_to_array(metapath).should == [1,2,[[3,4],[6,4],[6,7]],5,6]
+  end
+
+  it 'should deal with fluff in the middle of a bubble' do
+    fail
+  end
+
   it 'should be able to get out of the middle of a simple path' do
   fail
   end
@@ -60,10 +81,6 @@ describe "Bubble Assembler" do
   end
 
   it 'should respect the leash length' do
-  fail
-  end
-
-  it 'should handle 3 way bubbles that don\'t al converge on the same bubble' do
   fail
   end
 end
@@ -92,5 +109,9 @@ describe 'metapath' do
 
   it 'should be able to write out a reference and VCF format file' do
   fail
+  end
+
+  it 'should reverse!' do
+    fail
   end
 end
