@@ -39,6 +39,7 @@ require 'assembly/all_orfs'
 require 'assembly/contig_printer'
 require 'assembly/dijkstra'
 require 'assembly/single_coherent_wanderer'
+require 'assembly/connection_interpreter'
 
 require 'assembly/single_ended_assembler'
 require 'assembly/bubbly_assembler'

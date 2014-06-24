@@ -9,7 +9,15 @@ class Bio::FinishM::ConnectionInterpreter
     @graph = Yargraph::UndirectedGraph.new
     @circular_probes = []
     @sequences = sequences
-    @connections = connections
+
+    # Setup hash of setable to original
+    # Assume there is only 1 connection between two contig ends
+    @connection_hash = {}
+    connections.each do |conn|
+      key = conn.to_settable
+      raise "Duplicate connections not handled (yet?)" if @connection_hash.key?(key)
+      @connection_hash[key] = conn
+    end
 
     # Add connections
     connections.each do |conn|
@@ -20,27 +28,32 @@ class Bio::FinishM::ConnectionInterpreter
       end
     end
 
-    # Connect the start and the end of each probe together
-    probes = graph.vertices.to_a
-    sequences.each do |name, seq|
-      start_probe = Probe.new
-      start_probe.contig_name = name
-      start_probe.side = :start
-      end_probe = Probe.new
-      end_probe.contig_name = name
-      end_probe.side = :end
+    # Connect the start and the end of each probe together - no need to any more coz not using the
+    # hamiltonian thing any more.
+#     probes = @graph.vertices.to_a
+#     sequences.each do |name, seq|
+#       start_probe = Probe.new
+#       start_probe.sequence_name = name
+#       start_probe.side = :start
+#       end_probe = Probe.new
+#       end_probe.sequence_name = name
+#       end_probe.side = :end
 
-      graph.add_edge start_probe.to_settable, end_probe.to_settable
-    end
+#       @graph.add_edge start_probe.to_settable, end_probe.to_settable
+#     end
 
-    log.debug "Created a graph with #{@graph.vertices.to_a.length} verticies" if log.debug?
+    log.debug "Created a graph with #{@graph.vertices.to_a.length} vertices and #{@graph.edges.length} edges" if log.debug?
+  end
+
+  def connections
+    @connection_hash.values
   end
 
   # Return sequences that exclusively connect the start to the end. In particular,
-  # return the sequence name
+  # return an Array of sequence names
   def circular_sequences
     to_return = []
-    @connections.each do |conn|
+    connections.each do |conn|
       if conn.probe1.sequence_name == conn.probe2.sequence_name and
         conn.probe1.side != conn.probe2.side and
         @graph.edges[conn.probe1.to_settable].length == 1 and
@@ -53,23 +66,34 @@ class Bio::FinishM::ConnectionInterpreter
   end
 
 
-  # Return an Array of Connection objects that represent edges that must exist
-  # in all hamiltonian cycles of the given contig set. These can likely
-  # be scaffolded together.
-  def likely_inter_contig_connections
-    edge_result = @graph.some_edges_in_all_hamiltonian_cycles
+  # Return an Array of Connection objects that represent edges where
+  # there is only a single connection from both side
+  def doubly_single_contig_connections
+    likelies = []
 
-    cross_contig_connections = []
-    edge_result.edges_in_all.each do |v1, v2|
-      if v1[0] != v2[0] #dont count edges that connect starts to ends of the same contig
+    already_seen_connections = Set.new
+
+    @graph.vertices.each do |v|
+      # If there is only 1 connection on both sides, then go with that
+      neighbours = @graph.neighbours(v)
+      log.debug "Testing connection between #{v} and #{neighbours}"
+      if neighbours.length == 1 and @graph.neighbours(neighbours[0]).length == 1
+        log.debug "Connection passed the doubly-test" if log.debug?
+        neighbour = neighbours[0]
+
         conn = Connection.new
-        conn.probe1 = Probe.new(v1)
-        conn.probe2 = Probe.new(v2)
-        cross_contig_connections.push conn
+        conn.probe1 = Probe.new(v)
+        conn.probe2 = Probe.new(neighbour)
+        settable = conn.to_settable
+        # Record the connection unless it is duplicate
+        unless already_seen_connections.include?(settable)
+          likelies.push @connection_hash[settable]
+          already_seen_connections << settable
+        end
       end
     end
 
-    return cross_contig_connections
+    return likelies
   end
 
   # Single linkage cluster the likely_inter_contig_connections
@@ -78,13 +102,13 @@ class Bio::FinishM::ConnectionInterpreter
     # It is like an
     # assembly problem because each vertex can only be connected to
     # two others - 1 intra-contig and 1 inter-contig (unless it is circular)
-    likelies = likely_inter_contig_connections
-    likelies_edge_set = EdgeSet.new
+    likelies = doubly_single_contig_connections
+    likelies_edge_set = Yargraph::UndirectedGraph::EdgeSet.new
     likelies.each do |conn|
       likelies_edge_set.add_edge conn.probe1.to_settable, conn.probe2.to_settable
     end
 
-    scaffolded_paths = path
+    scaffolded_paths = []
 
     # while there is more elements in the likelies set
     while !likelies.empty?
@@ -152,9 +176,28 @@ class Bio::FinishM::ConnectionInterpreter
   end
 
   class Connection
+    # Probe objects
     attr_accessor :probe1, :probe2
 
     attr_accessor :distance
+
+    def to_s
+      [@probe1, @probe2].join('/')+":#{@distance}"
+    end
+
+    def to_settable
+      if @probe1.sequence_name < @probe2.sequence_name
+        return [@probe1.to_settable, @probe2.to_settable].flatten
+      elsif @probe1.sequence_name == @probe2.sequence_name
+        if @probe1.side < @probe2.side
+          return [@probe1.to_settable, @probe2.to_settable].flatten
+        else
+          return [@probe2.to_settable, @probe1.to_settable].flatten
+        end
+      else
+        return [@probe2.to_settable, @probe1.to_settable].flatten
+      end
+    end
   end
 
   class Probe
@@ -170,6 +213,11 @@ class Bio::FinishM::ConnectionInterpreter
 
     def to_settable
       [@sequence_name, @side]
+    end
+
+    def to_s
+      side = @side == :start ? 's' : 'e'
+      "#{@sequence_name}#{side}"
     end
   end
 end

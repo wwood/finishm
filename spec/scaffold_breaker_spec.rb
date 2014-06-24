@@ -1,10 +1,7 @@
 require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
 require 'tempfile'
 
-#Bio::Log::CLI.logger('stderr'); Bio::Log::CLI.trace('debug'); log = Bio::Log::LoggerPlus.new('finishm'); Bio::Log::CLI.configure('finishm'); Bio::Log::CLI.configure('bio-velvet')
-
-
-describe "ReadInput" do
+describe "ScaffoldBreaker" do
   it 'should break contigs easy' do
     breaker = Bio::FinishM::ScaffoldBreaker.new
 
