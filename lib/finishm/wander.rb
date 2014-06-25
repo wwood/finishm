@@ -33,7 +33,7 @@ class Bio::FinishM::Wanderer
 
     Example:
 
-    finishm wander --contigs contigs.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --output-connections connections.csv
+finishm wander --contigs contigs.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --output-directory finishm_wander_results
 
     That will create a collapsed de-Bruijn graph from reads.1.fq.gz and reads.2.fq.gz, then try to find connections between
     the starts and the ends of the contigs in contigs.fasta through the de-Bruijn graph. Any connections found
@@ -47,8 +47,8 @@ class Bio::FinishM::Wanderer
     optparse_object.on("--contigs FILE", "fasta file of single contig containing Ns that are to be closed [required]") do |arg|
       options[:contigs_file] = arg
     end
-    optparse_object.on("--output-connections PATH", "Output connections in tab-separated format [required]") do |arg|
-      options[:output_connection_file] = arg
+    optparse_object.on("--output-directory PATH", "Output results to this directory [required]") do |arg|
+      options[:output_directory] = arg
     end
     optparse_object.separator "\nThere must be some definition of reads too:\n\n" #TODO improve this help
     Bio::FinishM::ReadInput.new.add_options(optparse_object, options)
@@ -69,6 +69,9 @@ class Bio::FinishM::Wanderer
     optparse_object.on("--proceed-on-short-contigs", "By default, when overly short contigs are encountered, finishm croaks. This option stops the croaking [default: #{options[:proceed_on_short_contigs] }]") do
       options[:proceed_on_short_contigs] = true
     end
+    optparse_object.on("--output-connections PATH", "Output connections in tab-separated format [required]") do |arg|
+      options[:output_connection_file] = arg
+    end
 
     Bio::FinishM::GraphGenerator.new.add_options optparse_object, options
   end
@@ -77,11 +80,11 @@ class Bio::FinishM::Wanderer
     #TODO: give a better description of the error that has occurred
     #TODO: require reads options
     if argv.length != 0
-      return "Dangling argument(s) found e.g. #{argv[0]}"
+      return "Dangling argument(s) found e.g. #{argv[0] }"
     else
       [
         :contigs_file,
-        :output_connection_file
+        :output_directory
       ].each do |sym|
         if options[sym].nil?
           return "No option found to specify #{sym}."
@@ -94,6 +97,10 @@ class Bio::FinishM::Wanderer
   end
 
   def run(options, argv=[])
+    # First make sure the output directory is available and writeable, coz a late trivial error ain't cool
+    output_directory = setup_output_directory options[:output_directory]
+    raise "more work on doing output dir required"
+
     # Read in all the contigs sequences, removing those that are too short
     probe_sequences = []
     sequence_names = []
@@ -204,56 +211,49 @@ class Bio::FinishM::Wanderer
       end
     end
 
-    # Make an undirected graph to represent the connections so it is easier to work with
-#     graph = Yargraph::UndirectedGraph.new
-#     all_probe_indices = (0...finishm_graph.probe_nodes.length).to_a
-#     all_probe_indices.each{|i| graph.add_vertex i}
-#     first_connections.keys.each{|join| graph.add_edge join[0], join[1]}
 
-#     # Print out which contig ends have no connections
-#     unconnected_probe_indices = []
-#     graph.vertices.each do |vertex_i|
-#       unconnected_probe_indices.push vertex_i if graph.degree(vertex_i) == 0
-#     end
-#     log.info "Found #{unconnected_probe_indices.length} contig ends that had no connection to any other contig"
-#     unless unconnected_probe_indices.empty?
-#       log.warn "Unconnected contig ends such as this indicate an error with the assembly - perhaps it is incomplete or there has been a misassembly."
-#     end
-#     unconnected_probe_indices.each do |unconnected|
-#       log.warn "#{probe_descriptions[i]} was not connected to any other contig ends"
-#     end
 
-#     # find probes with exactly one connection
-#     singly_connected_indices = []
-#     graph.vertices.each do |vertex_i|
-#       singly_connected_indices.push vertex_i if graph.degree(vertex_i) == 1
-#     end
-#     log.info "Found #{singly_connected_indices.length} contig ends that connect to exactly one other contig ends, likely indicating that they can be scaffolded together:"
-#     singly_connected_indices.each do |i|
-#       neighbour = graph.neighbours[i][0] #there must be only 1 neighbour by the definition of degree
-#       desc = probe_descriptions[i]
-#       neighbour_desc = probe_descriptions[neighbour]
-#       log.info "The connection between #{desc} and #{neighbour} appears to be a good one"
-#     end
 
-#     # If we are working with a scaffold, compare the original scaffolding with graph
-#     # as it now is
-#     if options[:unscaffold_first]
-#       # Of each connection in the scaffold, is that also an edge here? One would expect so given a sensible leash length
-#       scaffolds.each do |scaffold|
-#         last_contig = nil
-#         scaffolds.contigs.each_with_index do |contig, contig_index|
-#         end
-#       end
-#     end
+    #     # If we are working with a scaffold, compare the original scaffolding with graph
+    #     # as it now is
+    #     if options[:unscaffold_first]
+    #       # Of each connection in the scaffold, is that also an edge here? One would expect so given a sensible leash length
+    #       scaffolds.each do |scaffold|
+    #         last_contig = nil
+    #         scaffolds.contigs.each_with_index do |contig, contig_index|
+    #         end
+    #       end
+    #     end
 
-#     #TODO: implemented this in repo hamiltonian_cycler, need to incorporate it here. See also a script in luca/bbbin that uses that library.
-#     #TODO: look for hamiltonian paths as well as hamiltonian cycles
+    #     #TODO: implemented this in repo hamiltonian_cycler, need to incorporate it here. See also a script in luca/bbbin that uses that library.
+    #     #TODO: look for hamiltonian paths as well as hamiltonian cycles
 
     log.info "All done."
   end
 
-class WanderResult
-  attr_accessor :connections
-end
+  def setup_output_directory(given_directory)
+    output_directory = File.absolute_path(given_directory)
+    log.debug "Using output directory: #{output_directory}" if log.debug?
+
+    if File.exist?(output_directory)
+      if !File.directory?(output_directory)
+        log.error "Specified --output-directory #{output_directory} exists but is a file and not a directory. Cannot continue."
+        exit 1
+      elsif !File.writeable?(output_directory)
+        log.error "Specified --output-directory #{output_directory} is not writeable. Cannot continue."
+        exit 1
+      else
+        log.debug "Already existing output directory #{output_directory} seems usable"
+      end
+    else
+      # Creating a new output directory
+      Dir.mkdir(output_directory)
+    end
+
+    return output_directory
+  end
+
+  class WanderResult
+    attr_accessor :connections
+  end
 end

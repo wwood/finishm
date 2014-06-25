@@ -109,6 +109,27 @@ describe 'finishm wander' do
       puts command
       expect{Bio::Commandeer.run command}.to raise_error
     end
+  end
 
+  it 'should be graceful when the output directory is a file' do
+    Tempfile.open('testing') do |out|
+      Tempfile.open('testing') do |t|
+        t.puts '>first300'
+        t.puts random[0...300]
+        t.puts '>last400'
+        t.puts random[600..-1]
+        t.close
+
+        command = "#{path_to_script} --output-directory #{out.path} --quiet --fasta #{TEST_DATA_DIR}/wander/1/random1.sammy.fa --contigs #{t.path} --output-connections /dev/stdout --overhang 100 --assembly-kmer 51"
+        fail
+        puts command
+        Bio::Commandeer.run command
+        expect{Bio::Commandeer.run command}.to raise_error
+      end
+    end
+  end
+
+  it 'should be graceful when the output directory cannot be written' do
+    fail
   end
 end

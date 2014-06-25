@@ -15,7 +15,7 @@ class Bio::FinishM::ConnectionInterpreter
     @connection_hash = {}
     connections.each do |conn|
       key = conn.to_settable
-      raise "Duplicate connections not handled (yet?)" if @connection_hash.key?(key)
+      raise "Duplicate connections not handled (yet?), found #{conn} => #{key}" if @connection_hash.key?(key)
       @connection_hash[key] = conn
     end
 
@@ -27,20 +27,6 @@ class Bio::FinishM::ConnectionInterpreter
         @graph.add_edge conn.probe1.to_settable, conn.probe2.to_settable
       end
     end
-
-    # Connect the start and the end of each probe together - no need to any more coz not using the
-    # hamiltonian thing any more.
-#     probes = @graph.vertices.to_a
-#     sequences.each do |name, seq|
-#       start_probe = Probe.new
-#       start_probe.sequence_name = name
-#       start_probe.side = :start
-#       end_probe = Probe.new
-#       end_probe.sequence_name = name
-#       end_probe.side = :end
-
-#       @graph.add_edge start_probe.to_settable, end_probe.to_settable
-#     end
 
     log.debug "Created a graph with #{@graph.vertices.to_a.length} vertices and #{@graph.edges.length} edges" if log.debug?
   end
