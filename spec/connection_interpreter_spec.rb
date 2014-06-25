@@ -36,7 +36,7 @@ class GraphTesting
     seqs = {}
     conns.each_with_index do |conn, i|
       [conn.probe1, conn.probe2].each_with_index do |probe, j|
-        seqs[probe.sequence_name] ||= (["#{i}#{j}"]*10).join(',')
+        seqs[probe.sequence_name] ||= (['A']*10).join
       end
     end
     return conns, seqs
@@ -100,8 +100,100 @@ describe "ConnectionInterpreter" do
     conns, seqs = GraphTesting.create_connections([
       [1,2],
       ])
-    Bio::FinishM::ConnectionInterpreter.new(
+    observed = Bio::FinishM::ConnectionInterpreter.new(
       conns, seqs
-      ).scaffolds.should == ['a']
+      ).scaffolds
+    observed.should be_kind_of(Array)
+    observed.length.should == 1
+    o = observed[0]
+    o.should be_kind_of(Bio::FinishM::ConnectionInterpreter::Scaffold)
+    o.name.should == 'scaffold1'
+    o.sequence.should == 'AAAAAAAAAANNNNNNNNNNAAAAAAAAAA'
+    o.contigs.collect{|c| c.scaffold_position_start}.should == [0,20]
+    o.contigs.collect{|c| c.scaffold_position_end}.should == [9,29]
+    observed.collect{|o| o.circular?}.uniq.should == [false]
+  end
+
+  it 'should scaffold 3 contigs together' do
+    conns, seqs = GraphTesting.create_connections([
+      [1,2],
+      [2,3],
+      ])
+    observed = Bio::FinishM::ConnectionInterpreter.new(
+      conns, seqs
+      ).scaffolds
+    observed.should be_kind_of(Array)
+    observed.length.should == 1
+    o = observed[0]
+    o.should be_kind_of(Bio::FinishM::ConnectionInterpreter::Scaffold)
+    o.name.should == 'scaffold1'
+    o.sequence.should == 'AAAAAAAAAANNNNNNNNNNAAAAAAAAAANNNNNNNNNNAAAAAAAAAA'
+    o.contigs.collect{|c| c.scaffold_position_start}.should == [0,20,40]
+    o.contigs.collect{|c| c.scaffold_position_end}.should == [9,29,49]
+    observed.collect{|o| o.circular?}.uniq.should == [false]
+  end
+
+  it 'should scaffold two separate scaffolds and a leftover' do
+    conns, seqs = GraphTesting.create_connections([
+      [1,2],
+      [3,4],
+      ])
+    seqs['contig99'] = 'ATGC'
+    observed = Bio::FinishM::ConnectionInterpreter.new(
+      conns, seqs
+      ).scaffolds
+    observed.should be_kind_of(Array)
+    observed.length.should == 3
+    o = observed[0]
+    o.should be_kind_of(Bio::FinishM::ConnectionInterpreter::Scaffold)
+    o.name.should == 'scaffold1'
+    o.sequence.should == 'AAAAAAAAAANNNNNNNNNNAAAAAAAAAA'
+    o.contigs.collect{|c| c.scaffold_position_start}.should == [0,20]
+    o.contigs.collect{|c| c.scaffold_position_end}.should == [9,29]
+    o = observed[1]
+    o.should be_kind_of(Bio::FinishM::ConnectionInterpreter::Scaffold)
+    o.name.should == 'scaffold2'
+    o.sequence.should == 'AAAAAAAAAANNNNNNNNNNAAAAAAAAAA'
+    o.contigs.collect{|c| c.scaffold_position_start}.should == [0,20]
+    o.contigs.collect{|c| c.scaffold_position_end}.should == [9,29]
+    o = observed[2]
+    o.should be_kind_of(Bio::FinishM::ConnectionInterpreter::Scaffold)
+    o.contigs[0].original_name.should == 'contig99'
+    o.sequence.should == 'ATGC'
+    observed.collect{|o| o.circular?}.uniq.should == [false]
+  end
+
+  it 'should scaffold single contig circular scaffolds' do
+    conns, seqs = GraphTesting.create_connections([
+      [1,1],
+      ])
+    observed = Bio::FinishM::ConnectionInterpreter.new(
+      conns, seqs
+      ).scaffolds
+    observed.should be_kind_of(Array)
+    observed.length.should == 1
+    o = observed[0]
+    o.should be_kind_of(Bio::FinishM::ConnectionInterpreter::Scaffold)
+    o.name.should == 'singleton1'
+    o.sequence.should == 'AAAAAAAAAA'
+    o.contigs.collect{|c| c.scaffold_position_start}.should == [0]
+    o.contigs.collect{|c| c.scaffold_position_end}.should == [9]
+    o.circular?.should == true
+  end
+
+  it 'should scaffold multi-contig circular scaffolds' do
+    conns, seqs = GraphTesting.create_connections([
+      [1,2],
+      [2,3],
+      [3,1],
+      [9,10],
+      ])
+    seqs['contig99'] = 'ATGC'
+    observed = Bio::FinishM::ConnectionInterpreter.new(
+      conns, seqs
+      ).scaffolds
+    observed.length.should == 3
+    observed.collect{|o| o.circular?}.should == [true, false, false]
+    observed[0].contigs.collect{|c| c.original_name}.should == %w(3 1 2)
   end
 end
