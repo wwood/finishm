@@ -15,6 +15,13 @@ class Bio::FinishM::Wanderer
     def to_s
       "#{@sequence_name}:#{@side}"
     end
+
+    def connection_probe
+      probe = Bio::FinishM::ConnectionInterpreter::Probe.new
+      probe.sequence_name = @sequence_name
+      probe.side = @side
+      return probe
+    end
   end
 
   def add_options(optparse_object, options)
@@ -177,38 +184,44 @@ finishm wander --contigs contigs.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --
       probe_descriptions.push desc
     end
 
-    # Write out connections to the given file
+    # Gather connections ready for output
     distance_calibrator = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
-    File.open(options[:output_connection_file], 'w') do |out|
-      first_connections.each do |node_indices, distance|
+    all_connections = []
+    first_connections.each do |node_indices, distance|
+      calibrated_distance = distance_calibrator.calibrate_distance_accounting_for_probes(
+        finishm_graph,
+        node_indices[0],
+        node_indices[1],
+        distance
+        )
 
-        calibrated_distance = distance_calibrator.calibrate_distance_accounting_for_probes(
-          finishm_graph,
-          node_indices[0],
-          node_indices[1],
-          distance
-          )
-        sequence_names_and_directions = node_indices.collect do |i|
-          probe_descriptions[i].to_s
-        end
-
-        # It is possible that a connection just larger than the leash length is returned.
-        # weed these out.
-        if calibrated_distance > options[:graph_search_leash_length]
-          if log.debug?
-            conn = [
-              sequence_names_and_directions,
-              distance
-              ].flatten
-            log.debug "Disregarding connection #{conn} because it was ultimately outside the allowable leash length"
-          end
-        else
-          out.puts [
-            sequence_names_and_directions,
-            calibrated_distance
-            ].flatten.join("\t")
-        end
+      sequence_names_and_directions = node_indices.collect do |i|
+        probe_descriptions[i].to_s
       end
+
+      # It is possible that a connection just larger than the leash length is returned.
+      # weed these out.
+      if calibrated_distance > options[:graph_search_leash_length]
+        if log.debug?
+          conn = [
+            sequence_names_and_directions,
+            distance
+            ].flatten
+          log.debug "Disregarding connection #{conn} because it was ultimately outside the allowable leash length"
+        end
+      else
+        out.puts [
+          sequence_names_and_directions,
+          calibrated_distance
+          ].flatten.join("\t")
+      end
+    end
+
+    # Write out connections to the given file
+
+    File.open(options[:output_connection_file], 'w') do |out|
+      raise
+
     end
 
 
