@@ -196,4 +196,8 @@ describe "ConnectionInterpreter" do
     observed.collect{|o| o.circular?}.should == [true, false, false]
     observed[0].contigs.collect{|c| c.original_name}.should == %w(3 1 2)
   end
+
+  it 'should croak when confusing connections are provided' do
+    fail
+  end
 end

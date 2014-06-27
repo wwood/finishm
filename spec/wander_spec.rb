@@ -13,19 +13,29 @@ describe 'finishm wander' do
       break
     end
 
-    Tempfile.open('testing') do |t|
-    #File.open('/tmp/contigs','w') do |t|
-      t.puts '>first300'
-      t.puts random[0...300]
-      t.puts '>last400'
-      t.puts random[600..-1]
-      t.close
-      command = "#{path_to_script} --quiet --fasta #{TEST_DATA_DIR}/wander/1/random1.sammy.fa --contigs #{t.path} --output-connections /dev/stdout --overhang 100 --assembly-kmer 51"
-      #puts command
-      output = Bio::Commandeer.run command
-      output.split("\n").should == [
-        "first300:end\tlast400:start\t500"
-        ]
+    Dir.mktmpdir do |tmpdir|
+      Tempfile.open('testing') do |t|
+      #File.open('/tmp/contigs','w') do |t|
+        #Tempfile.open('scaffolds') do |scaffs|
+        File.open('/tmp/scaffolds','w') do |scaffs|
+          scaffs.close
+          t.puts '>first300'
+          t.puts random[0...300]
+          t.puts '>last400'
+          t.puts random[600..-1]
+          t.close
+          command = "#{path_to_script} --quiet --fasta #{TEST_DATA_DIR}/wander/1/random1.sammy.fa --contigs #{t.path} --output-connections /dev/stdout --overhang 100 --assembly-kmer 51 --output-scaffolds #{scaffs.path}"
+          output = Bio::Commandeer.run command
+          output.split("\n").should == [
+            "first300:end\tlast400:start\t399"
+            ]
+
+          scaffolds = []
+          Bio::FlatFile.foreach(scaffs.path){|s| scaffolds.push s}
+          scaffolds.collect{|s| s.definition}.should == %w(scaffold1)
+          scaffolds[0].seq.should == random[0...300] + 'N'*10 + random[600..-1]
+        end
+      end
     end
   end
 
@@ -104,32 +114,12 @@ describe 'finishm wander' do
       t.puts '>last50'
       t.puts random[random.length-50..-1]
       t.close
-      puts `cat #{t.path}`
       command = "#{path_to_script} --quiet --fasta #{TEST_DATA_DIR}/wander/1/random1.sammy.fa --contigs #{t.path} --output-connections /dev/stdout --overhang 100 --assembly-kmer 51"
-      puts command
       expect{Bio::Commandeer.run command}.to raise_error
     end
   end
 
-  it 'should be graceful when the output directory is a file' do
-    Tempfile.open('testing') do |out|
-      Tempfile.open('testing') do |t|
-        t.puts '>first300'
-        t.puts random[0...300]
-        t.puts '>last400'
-        t.puts random[600..-1]
-        t.close
+  it 'should output scaffolds' do
 
-        command = "#{path_to_script} --output-directory #{out.path} --quiet --fasta #{TEST_DATA_DIR}/wander/1/random1.sammy.fa --contigs #{t.path} --output-connections /dev/stdout --overhang 100 --assembly-kmer 51"
-        fail
-        puts command
-        Bio::Commandeer.run command
-        expect{Bio::Commandeer.run command}.to raise_error
-      end
-    end
-  end
-
-  it 'should be graceful when the output directory cannot be written' do
-    fail
   end
 end

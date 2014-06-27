@@ -8,22 +8,6 @@ class Bio::FinishM::Wanderer
     :recoherence_kmer => 1,
     }
 
-  # Collect desciptions about the probes so that they can be inspected more easily given a probe index
-  class ProbeDescription
-    attr_accessor :sequence_name, :side
-
-    def to_s
-      "#{@sequence_name}:#{@side}"
-    end
-
-    def connection_probe
-      probe = Bio::FinishM::ConnectionInterpreter::Probe.new
-      probe.sequence_name = @sequence_name
-      probe.side = @side
-      return probe
-    end
-  end
-
   def add_options(optparse_object, options)
     optparse_object.banner = "\nUsage: finishm wander --contigs <contig_file> --fastq-gz <reads..> --output-connections <output.csv>
 
@@ -54,9 +38,15 @@ finishm wander --contigs contigs.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --
     optparse_object.on("--contigs FILE", "fasta file of single contig containing Ns that are to be closed [required]") do |arg|
       options[:contigs_file] = arg
     end
-    optparse_object.on("--output-directory PATH", "Output results to this directory [required]") do |arg|
-      options[:output_directory] = arg
+
+    optparse_object.separator "\nOutput modes:\n\n"
+    optparse_object.on("--output-scaffolds PATH", "Output scaffolds in FASTA format [required]") do |arg|
+      options[:output_scaffolds_file] = arg
     end
+    optparse_object.on("--output-connections PATH", "Output connections in tab-separated format [required]") do |arg|
+      options[:output_connection_file] = arg
+    end
+
     optparse_object.separator "\nThere must be some definition of reads too:\n\n" #TODO improve this help
     Bio::FinishM::ReadInput.new.add_options(optparse_object, options)
 
@@ -76,9 +66,6 @@ finishm wander --contigs contigs.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --
     optparse_object.on("--proceed-on-short-contigs", "By default, when overly short contigs are encountered, finishm croaks. This option stops the croaking [default: #{options[:proceed_on_short_contigs] }]") do
       options[:proceed_on_short_contigs] = true
     end
-    optparse_object.on("--output-connections PATH", "Output connections in tab-separated format [required]") do |arg|
-      options[:output_connection_file] = arg
-    end
 
     Bio::FinishM::GraphGenerator.new.add_options optparse_object, options
   end
@@ -91,11 +78,14 @@ finishm wander --contigs contigs.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --
     else
       [
         :contigs_file,
-        :output_directory
       ].each do |sym|
         if options[sym].nil?
           return "No option found to specify #{sym}."
         end
+      end
+      if options[:output_scaffolds_file].nil? and
+        options[:output_connection_file].nil?
+        return "Need to specify either output scaffolds or output connections file"
       end
 
       #if return nil from here, options all were parsed successfully
@@ -104,13 +94,9 @@ finishm wander --contigs contigs.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --
   end
 
   def run(options, argv=[])
-    # First make sure the output directory is available and writeable, coz a late trivial error ain't cool
-    output_directory = setup_output_directory options[:output_directory]
-    raise "more work on doing output dir required"
-
     # Read in all the contigs sequences, removing those that are too short
     probe_sequences = []
-    sequence_names = []
+    sequences_to_probe = {}
     overly_short_sequence_count = 0
     process_sequence = lambda do |name, seq|
       if seq.length < 2*options[:contig_end_length]
@@ -118,7 +104,7 @@ finishm wander --contigs contigs.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --
         overly_short_sequence_count += 1
         nil
       else
-        sequence_names.push name
+        sequences_to_probe[name] = seq
 
         sequence = seq.seq
         fwd2 = Bio::Sequence::NA.new(sequence[0...options[:contig_end_length]])
@@ -172,13 +158,14 @@ finishm wander --contigs contigs.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --
     log.info "Found #{first_connections.length} connections with less distance than the leash length, out of a possible #{probe_sequences.length*(probe_sequences.length-1) / 2}"
 
     probe_descriptions = []
+    sequence_names = sequences_to_probe.keys #Ruby hashes are sorted
     (0...finishm_graph.probe_nodes.length).each do |i|
-      desc = ProbeDescription.new
+      desc = Bio::FinishM::ConnectionInterpreter::Probe.new
       if i % 2 == 0
-        desc.side = 'start'
+        desc.side = :start
         desc.sequence_name = sequence_names[i / 2]
       else
-        desc.side = 'end'
+        desc.side = :end
         desc.sequence_name = sequence_names[(i-1) / 2]
       end
       probe_descriptions.push desc
@@ -195,51 +182,71 @@ finishm wander --contigs contigs.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --
         distance
         )
 
-      sequence_names_and_directions = node_indices.collect do |i|
-        probe_descriptions[i].to_s
-      end
-
       # It is possible that a connection just larger than the leash length is returned.
       # weed these out.
+      conn = Bio::FinishM::ConnectionInterpreter::Connection.new
+      conn.probe1 = probe_descriptions[node_indices[0]]
+      conn.probe2= probe_descriptions[node_indices[1]]
+      conn.distance = calibrated_distance
       if calibrated_distance > options[:graph_search_leash_length]
-        if log.debug?
-          conn = [
-            sequence_names_and_directions,
-            distance
-            ].flatten
-          log.debug "Disregarding connection #{conn} because it was ultimately outside the allowable leash length"
-        end
+        log.debug "Disregarding connection #{conn} because it was ultimately outside the allowable leash length" if log.debug?
       else
-        out.puts [
-          sequence_names_and_directions,
-          calibrated_distance
-          ].flatten.join("\t")
+        all_connections.push conn
       end
     end
 
-    # Write out connections to the given file
+    # Determine scaffolding connections
+    interpreter = Bio::FinishM::ConnectionInterpreter.new(all_connections, sequences_to_probe)
+    connections = interpreter.doubly_single_contig_connections
+    log.info "Found #{connections.length} connections between contigs that can be used for scaffolding" if log.info?
 
-    File.open(options[:output_connection_file], 'w') do |out|
-      raise
+    # Write scaffold file out
+    circular_scaffold_names = []
+    num_contigs_in_circular_scaffolds = 0
+    num_singleton_contigs = 0
+    num_scaffolded_contigs = 0
+    scaffolds = interpreter.scaffolds(connections)
+    scaffolds.each do |scaffold|
+      if scaffold.circular?
+        circular_scaffold_names.push name
+        num_contigs_in_circular_scaffolds += scaffold.contigs.length
+      elsif scaffold.contigs.length == 1
+        num_singleton_contigs += 1
+      else
+        num_scaffolded_contigs += scaffold.contigs.length
+      end
+    end
+    log.info "Found #{circular_scaffold_names.length} circular scaffolds encompassing #{num_contigs_in_circular_scaffolds} contigs"
+    log.info "#{num_scaffolded_contigs} contigs were incorporated into scaffolds"
+    log.info "#{num_singleton_contigs} contigs were not incorporated into any scaffolds"
 
+    unless options[:output_scaffolds_file].nil?
+      File.open(options[:output_scaffolds_file],'w') do |scaffold_file|
+        scaffolds.each do |scaffold|
+          name = scaffold.name
+          if scaffold.circular?
+            name += ' circular'
+          end
+
+          scaffold_file.puts ">#{name}"
+          # Output the NA sequence wrapped
+          scaffold_file.puts scaffold.sequence.gsub(/(.{80})/,"\\1\n").gsub(/\n$/,'')
+        end
+      end
     end
 
-
-
-
-    #     # If we are working with a scaffold, compare the original scaffolding with graph
-    #     # as it now is
-    #     if options[:unscaffold_first]
-    #       # Of each connection in the scaffold, is that also an edge here? One would expect so given a sensible leash length
-    #       scaffolds.each do |scaffold|
-    #         last_contig = nil
-    #         scaffolds.contigs.each_with_index do |contig, contig_index|
-    #         end
-    #       end
-    #     end
-
-    #     #TODO: implemented this in repo hamiltonian_cycler, need to incorporate it here. See also a script in luca/bbbin that uses that library.
-    #     #TODO: look for hamiltonian paths as well as hamiltonian cycles
+    # Write out all connections to the given file if wanted
+    unless options[:output_connection_file].nil?
+      File.open(options[:output_connection_file], 'w') do |out|
+        all_connections.each do |conn|
+          out.puts [
+            "#{conn.probe1.sequence_name}:#{conn.probe1.side}",
+            "#{conn.probe2.sequence_name}:#{conn.probe2.side}",
+            conn.distance
+            ].join("\t")
+        end
+      end
+    end
 
     log.info "All done."
   end
@@ -252,7 +259,7 @@ finishm wander --contigs contigs.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --
       if !File.directory?(output_directory)
         log.error "Specified --output-directory #{output_directory} exists but is a file and not a directory. Cannot continue."
         exit 1
-      elsif !File.writeable?(output_directory)
+      elsif !File.writable?(output_directory)
         log.error "Specified --output-directory #{output_directory} is not writeable. Cannot continue."
         exit 1
       else

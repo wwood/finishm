@@ -83,14 +83,14 @@ class Bio::FinishM::ConnectionInterpreter
   end
 
   # Single linkage cluster the likely_inter_contig_connections
-  # and the start to ends for each of the contigs.
-  def scaffolds
+  # and the start to ends for each of the contigs. Assumes
+  def scaffolds(contig_connections)
     # It is like an (easy)
     # assembly problem because each vertex can only be connected to
     # two others - 1 intra-contig and 1 inter-contig (unless it is circular)
-    likelies = doubly_single_contig_connections
+    contig_connections ||= doubly_single_contig_connections
     likelies_edge_set = Yargraph::UndirectedGraph::EdgeSet.new
-    likelies.each do |conn|
+    contig_connections.each do |conn|
       likelies_edge_set.add_edge conn.probe1.to_settable, conn.probe2.to_settable
     end
 
