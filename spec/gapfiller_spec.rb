@@ -13,11 +13,8 @@ describe 'finishm gap closer' do
 
   it 'should scripting test ok with a 1 node thing' do
     command = "#{path_to_script} --quiet --fasta-gz #{TEST_DATA_DIR}/gapfilling/3/reads.fa.gz --contigs #{TEST_DATA_DIR}/gapfilling/3/with_gaps.fa --output-fasta /dev/stdout"
-    status, stdout, stderr = systemu command
-
-    stderr.should eq("")
-    status.exitstatus.should eq(0)
-    stdout.should eq(">1111883_chopped_1-1000_with_some_gap_characters\n"+sequence3+"\n")
+    puts command
+    Bio::Commandeer.run(command).should == ">1111883_chopped_1-1000_with_some_gap_characters\n"+sequence3+"\n"
   end
 
   it 'should work with a 1 node but in reverse thing' do

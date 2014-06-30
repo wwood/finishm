@@ -13,11 +13,11 @@ describe 'finishm wander' do
       break
     end
 
-    Dir.mktmpdir do |tmpdir|
+    #Dir.mktmpdir do |tmpdir|
       Tempfile.open('testing') do |t|
-      #File.open('/tmp/contigs','w') do |t|
-        #Tempfile.open('scaffolds') do |scaffs|
-        File.open('/tmp/scaffolds','w') do |scaffs|
+      File.open('/tmp/contigs','w') do |t|
+        Tempfile.open('scaffolds') do |scaffs|
+        #File.open('/tmp/scaffolds','w') do |scaffs|
           scaffs.close
           t.puts '>first300'
           t.puts random[0...300]
@@ -33,7 +33,7 @@ describe 'finishm wander' do
           scaffolds = []
           Bio::FlatFile.foreach(scaffs.path){|s| scaffolds.push s}
           scaffolds.collect{|s| s.definition}.should == %w(scaffold1)
-          scaffolds[0].seq.should == random[0...300] + 'N'*10 + random[600..-1]
+          scaffolds[0].seq.should == random[0...300] + 'N'*399 + random[600..-1]
         end
       end
     end
@@ -117,9 +117,5 @@ describe 'finishm wander' do
       command = "#{path_to_script} --quiet --fasta #{TEST_DATA_DIR}/wander/1/random1.sammy.fa --contigs #{t.path} --output-connections /dev/stdout --overhang 100 --assembly-kmer 51"
       expect{Bio::Commandeer.run command}.to raise_error
     end
-  end
-
-  it 'should output scaffolds' do
-
   end
 end

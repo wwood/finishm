@@ -17,7 +17,7 @@ module Bio
 
       class AnchoredConnection
         # The identifiers of the probe reads in the velvet assembly graph
-        attr_accessor :start_probe_read_id, :end_probe_read_id
+        attr_accessor :start_probe_noded_read, :end_probe_noded_read
 
         # The nodes in the graph that contain the start_probe_read_id and end_probe_read_id
         attr_accessor :start_probe_node, :end_probe_node
@@ -92,7 +92,7 @@ module Bio
 
           # Find start index
           begin_node = anchored_connection.start_probe_node
-          begin_noded_read = begin_node.short_reads.find{|noded_read| noded_read.read_id == anchored_connection.start_probe_read_id}
+          begin_noded_read = anchored_connection.start_probe_noded_read
           raise if begin_noded_read.nil?
           if begin_noded_read.start_coord != 0
             log.error "Unexpectedly the start of the begin probe not did not form part of the path, possibly indicating misassembly and use of untested code: #{begin_noded_read.inspect}"
@@ -104,7 +104,7 @@ module Bio
 
           # Find end index
           end_node = anchored_connection.end_probe_node
-          end_noded_read = end_node.short_reads.find{|noded_read| noded_read.read_id == anchored_connection.end_probe_read_id}
+          end_noded_read = anchored_connection.end_probe_noded_read
           raise if end_noded_read.nil?
           if end_noded_read.start_coord != 0
             log.error "Unexpectedly the start of the begin probe not did not form part of the path, possibly indicating misassembly and use of untested code: #{end_noded_read.inspect}"

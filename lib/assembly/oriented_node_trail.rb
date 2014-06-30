@@ -393,6 +393,14 @@ module Bio
           return total_coverage / total_length
         end
 
+        def ==(another)
+          return false if trail.length != another.trail.length
+          each_with_index do |onode, i|
+            return false unless onode == another[i]
+          end
+          return true
+        end
+
         class OrientedNode
           attr_accessor :node, :first_side
 

@@ -6,7 +6,7 @@ class GraphTesting
     probes = first_second.collect do |namer|
       if namer.kind_of?(Fixnum)
         probe = Bio::FinishM::ConnectionInterpreter::Probe.new
-        probe.sequence_name = namer.to_s
+        probe.sequence_index = namer
         if doing_first
           probe.side = :end
           doing_first = false
@@ -17,7 +17,7 @@ class GraphTesting
 
       elsif matches = namer.match(/^(.+)([se])$/)
         probe = Bio::FinishM::ConnectionInterpreter::Probe.new
-        probe.sequence_name = matches[1]
+        probe.sequence_index = matches[1].to_i
         probe.side = matches[2] == 's' ? :start : :end
         probe #'return'
       else
@@ -36,7 +36,7 @@ class GraphTesting
     seqs = {}
     conns.each_with_index do |conn, i|
       [conn.probe1, conn.probe2].each_with_index do |probe, j|
-        seqs[probe.sequence_name] ||= (['A']*10).join
+        seqs[probe.sequence_index] ||= (['A']*10).join
       end
     end
     return conns, seqs
@@ -46,12 +46,12 @@ end
 describe "ConnectionInterpreter" do
   it 'should find doubly_single_contig_connections hello world' do
     conns, seqs = GraphTesting.create_connections([
-      %w(contig1s contig3e)
+      %w(1s 3e)
       ])
     Bio::FinishM::ConnectionInterpreter.new(
       conns, seqs
       ).doubly_single_contig_connections.collect{|c| c.to_s}.should == [
-        'contig1s/contig3e:10'
+        '1s/3e:10'
         ]
   end
 
@@ -62,7 +62,7 @@ describe "ConnectionInterpreter" do
       [3,1],
       ])
     Bio::FinishM::ConnectionInterpreter.new(
-      conns, seqs
+      conns, seqs.keys
       ).doubly_single_contig_connections.collect{|c| c.to_s}.sort.should == [
         '1e/2s:10',
         '2e/3s:10',
@@ -78,7 +78,7 @@ describe "ConnectionInterpreter" do
       [3,5],
       ])
     Bio::FinishM::ConnectionInterpreter.new(
-      conns, seqs
+      conns, seqs.keys
       ).doubly_single_contig_connections.collect{|c| c.to_s}.sort.should == [
         '1e/2s:10',
         '2e/3s:10',
@@ -90,7 +90,7 @@ describe "ConnectionInterpreter" do
       [1,1],
       ])
     Bio::FinishM::ConnectionInterpreter.new(
-      conns, seqs
+      conns, seqs.keys
       ).doubly_single_contig_connections.collect{|c| c.to_s}.sort.should == [
         '1e/1s:10',
         ].sort
@@ -100,17 +100,18 @@ describe "ConnectionInterpreter" do
     conns, seqs = GraphTesting.create_connections([
       [1,2],
       ])
-    observed = Bio::FinishM::ConnectionInterpreter.new(
-      conns, seqs
-      ).scaffolds
+    interpreter = Bio::FinishM::ConnectionInterpreter.new(
+      conns, seqs.keys
+      )
+    observed = interpreter.scaffolds(interpreter.doubly_single_contig_connections)
     observed.should be_kind_of(Array)
     observed.length.should == 1
     o = observed[0]
     o.should be_kind_of(Bio::FinishM::ConnectionInterpreter::Scaffold)
-    o.name.should == 'scaffold1'
-    o.sequence.should == 'AAAAAAAAAANNNNNNNNNNAAAAAAAAAA'
-    o.contigs.collect{|c| c.scaffold_position_start}.should == [0,20]
-    o.contigs.collect{|c| c.scaffold_position_end}.should == [9,29]
+    o.contigs.collect{|c| c.sequence_index}.should == [1,2]
+    o.contigs.collect{|c| c.direction}.should == [true, true]
+    o.gap_lengths.should === [10]
+    o.sequence(seqs).should == 'AAAAAAAAAANNNNNNNNNNAAAAAAAAAA'
     observed.collect{|o| o.circular?}.uniq.should == [false]
   end
 
@@ -119,17 +120,17 @@ describe "ConnectionInterpreter" do
       [1,2],
       [2,3],
       ])
-    observed = Bio::FinishM::ConnectionInterpreter.new(
-      conns, seqs
-      ).scaffolds
+    interpreter = Bio::FinishM::ConnectionInterpreter.new(
+      conns, seqs.keys
+      )
+    observed = interpreter.scaffolds(interpreter.doubly_single_contig_connections)
     observed.should be_kind_of(Array)
     observed.length.should == 1
     o = observed[0]
     o.should be_kind_of(Bio::FinishM::ConnectionInterpreter::Scaffold)
-    o.name.should == 'scaffold1'
-    o.sequence.should == 'AAAAAAAAAANNNNNNNNNNAAAAAAAAAANNNNNNNNNNAAAAAAAAAA'
-    o.contigs.collect{|c| c.scaffold_position_start}.should == [0,20,40]
-    o.contigs.collect{|c| c.scaffold_position_end}.should == [9,29,49]
+    o.sequence(seqs).should == 'AAAAAAAAAANNNNNNNNNNAAAAAAAAAANNNNNNNNNNAAAAAAAAAA'
+    o.contigs.collect{|c| c.sequence_index}.should == [1,2,3]
+    o.contigs.collect{|c| c.direction}.should == [true, true, true]
     observed.collect{|o| o.circular?}.uniq.should == [false]
   end
 
@@ -138,28 +139,28 @@ describe "ConnectionInterpreter" do
       [1,2],
       [3,4],
       ])
-    seqs['contig99'] = 'ATGC'
-    observed = Bio::FinishM::ConnectionInterpreter.new(
-      conns, seqs
-      ).scaffolds
+    seqs[99] = 'ATGC'
+    interpreter = Bio::FinishM::ConnectionInterpreter.new(
+      conns, seqs.keys
+      )
+    observed = interpreter.scaffolds(interpreter.doubly_single_contig_connections)
+
     observed.should be_kind_of(Array)
     observed.length.should == 3
     o = observed[0]
     o.should be_kind_of(Bio::FinishM::ConnectionInterpreter::Scaffold)
-    o.name.should == 'scaffold1'
-    o.sequence.should == 'AAAAAAAAAANNNNNNNNNNAAAAAAAAAA'
-    o.contigs.collect{|c| c.scaffold_position_start}.should == [0,20]
-    o.contigs.collect{|c| c.scaffold_position_end}.should == [9,29]
+    o.sequence(seqs).should == 'AAAAAAAAAANNNNNNNNNNAAAAAAAAAA'
+    o.contigs.collect{|c| c.sequence_index}.should == [1,2]
+    o.contigs.collect{|c| c.direction}.should == [true, true]
     o = observed[1]
     o.should be_kind_of(Bio::FinishM::ConnectionInterpreter::Scaffold)
-    o.name.should == 'scaffold2'
-    o.sequence.should == 'AAAAAAAAAANNNNNNNNNNAAAAAAAAAA'
-    o.contigs.collect{|c| c.scaffold_position_start}.should == [0,20]
-    o.contigs.collect{|c| c.scaffold_position_end}.should == [9,29]
+    o.sequence(seqs).should == 'AAAAAAAAAANNNNNNNNNNAAAAAAAAAA'
+    o.contigs.collect{|c| c.sequence_index}.should == [3,4]
+    o.contigs.collect{|c| c.direction}.should == [true, true]
     o = observed[2]
     o.should be_kind_of(Bio::FinishM::ConnectionInterpreter::Scaffold)
-    o.contigs[0].original_name.should == 'contig99'
-    o.sequence.should == 'ATGC'
+    o.contigs[0].sequence_index.should == 99
+    o.sequence(seqs).should == 'ATGC'
     observed.collect{|o| o.circular?}.uniq.should == [false]
   end
 
@@ -167,17 +168,18 @@ describe "ConnectionInterpreter" do
     conns, seqs = GraphTesting.create_connections([
       [1,1],
       ])
-    observed = Bio::FinishM::ConnectionInterpreter.new(
-      conns, seqs
-      ).scaffolds
+    interpreter = Bio::FinishM::ConnectionInterpreter.new(
+      conns, seqs.keys
+      )
+    observed = interpreter.scaffolds(interpreter.doubly_single_contig_connections)
+
     observed.should be_kind_of(Array)
     observed.length.should == 1
     o = observed[0]
     o.should be_kind_of(Bio::FinishM::ConnectionInterpreter::Scaffold)
-    o.name.should == 'singleton1'
-    o.sequence.should == 'AAAAAAAAAA'
-    o.contigs.collect{|c| c.scaffold_position_start}.should == [0]
-    o.contigs.collect{|c| c.scaffold_position_end}.should == [9]
+    o.sequence(seqs).should == 'AAAAAAAAAA'
+    o.contigs.collect{|c| c.sequence_index}.should == [1]
+    o.contigs.collect{|c| c.direction}.should == [true]
     o.circular?.should == true
   end
 
@@ -188,16 +190,41 @@ describe "ConnectionInterpreter" do
       [3,1],
       [9,10],
       ])
-    seqs['contig99'] = 'ATGC'
-    observed = Bio::FinishM::ConnectionInterpreter.new(
-      conns, seqs
-      ).scaffolds
+    seqs[87] = 'ATGC'
+    interpreter = Bio::FinishM::ConnectionInterpreter.new(
+      conns, seqs.keys
+      )
+    observed = interpreter.scaffolds(interpreter.doubly_single_contig_connections)
+
     observed.length.should == 3
     observed.collect{|o| o.circular?}.should == [true, false, false]
-    observed[0].contigs.collect{|c| c.original_name}.should == %w(3 1 2)
+    observed[0].contigs.collect{|c| c.sequence_index}.should == [3,1,2]
   end
 
-  it 'should croak when confusing connections are provided' do
-    fail
+  it 'should respect the given distance given in the Connection' do
+    conns, seqs = GraphTesting.create_connections([
+      %w(1s 3e)
+      ])
+    conns[0].distance = 5
+    interpreter = Bio::FinishM::ConnectionInterpreter.new(
+      conns, seqs.keys
+      )
+    observed = interpreter.scaffolds(interpreter.doubly_single_contig_connections)
+    observed.length.should == 1
+    observed[0].gap_lengths.should == [5]
+  end
+
+  it 'should be able to handle reverse scaffolding' do
+    conns, seqs = GraphTesting.create_connections([
+      [1,2],
+      ])
+    conns[0].probe1.side = :start #reverse both contigs
+    conns[0].probe2.side = :end
+    interpreter = Bio::FinishM::ConnectionInterpreter.new(
+      conns, seqs.keys
+      )
+    observed = interpreter.scaffolds(interpreter.doubly_single_contig_connections)
+    observed.length.should == 1
+    observed[0].sequence(seqs).should == 'TTTTTTTTTTNNNNNNNNNNTTTTTTTTTT'
   end
 end

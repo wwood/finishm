@@ -57,4 +57,25 @@ class Bio::FinishM::ProbedGraph
     read = @probe_node_reads[probe_index]
     return read.offset_from_start_of_node+starting_leash_length
   end
+
+  # Return a new ProbedGraph that is the same as the current one
+  # except that only probe specified in the given probe_indices enumerable
+  # are accepted
+  def subgraph(probe_indices)
+    to_return = Bio::FinishM::ProbedGraph.new
+    to_return.graph = @graph
+    to_return.velvet_result_directory = @velvet_result_directory
+    to_return.velvet_sequences = @velvet_sequences
+
+    to_return.probe_nodes = []
+    to_return.probe_node_directions = []
+    to_return.probe_node_reads = []
+    probe_indices.each do |i|
+      to_return.probe_nodes.push @probe_nodes[i]
+      to_return.probe_node_directions.push @probe_node_directions[i]
+      to_return.probe_node_reads.push @probe_node_reads[i]
+    end
+
+    return to_return
+  end
 end

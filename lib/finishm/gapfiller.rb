@@ -170,7 +170,6 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
     end
 
     # Do the gap-filling and print out the results
-    cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
     printer = Bio::AssemblyGraphAlgorithms::ContigPrinter.new
     num_total_trails = 0
     num_singly_filled = 0
@@ -187,28 +186,21 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
     end
     # Lambda to add a gap the the String representing the scaffold
     #TODO: if the trail is not filled then the wrong sequence is currently printed. BUG???
-    filler = lambda do |trails, following_contig, start_node, end_node_inward, start_probe_index, gapfilled_sequence, gap|
+    filler = lambda do |anchored_connection, following_contig, gapfilled_sequence, gap|
       gapfilled = nil
-      if trails.length == 1
+      if anchored_connection.paths.length == 1
         # If there is only 1 trail, then output scaffolding information
-        acon = Bio::AssemblyGraphAlgorithms::ContigPrinter::AnchoredConnection.new
-        acon.start_probe_node = start_node.node
-        acon.end_probe_node = end_node_inward.node
-        acon.start_probe_read_id = start_probe_index+1
-        acon.end_probe_read_id = start_probe_index+2
-        acon.start_probe_contig_offset = options[:contig_end_length]
-        acon.end_probe_contig_offset = options[:contig_end_length]
-        acon.paths = trails
+        num_singly_filled += 1
+
         gapfilled = printer.one_connection_between_two_contigs(
           finishm_graph.graph,
           gapfilled_sequence,
-          acon,
+          anchored_connection,
           following_contig.sequence
           )
-        num_singly_filled += 1
       else
         # Otherwise don't make any assumptions
-        num_unbridgable += 1 if trails.empty?
+        num_unbridgable += 1 if anchored_connection.paths.empty?
         # TODO: even the there is multiple trails, better info can still be output here
         gapfilled = gapfilled_sequence + 'N'*gap.length + following_contig.sequence
       end
@@ -216,7 +208,7 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
     end
 
     log.info "Searching for trails between the nodes within the assembly graph"
-    log.info "Using contig overhang length #{options[:contig_end_length]} and leash length #{options[:graph_search_leash_length]}"
+    log.info "Using contig overhang length #{options[:contig_end_length] } and leash length #{options[:graph_search_leash_length] }"
     gapfilled_sequence = ''
     last_scaffold = nil
 
@@ -224,69 +216,45 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
       gap_number = start_probe_index / 2
       gap = gaps[gap_number]
       log.info "Now working through gap number #{gap_number+1}: #{gap.coords}"
-      start_onode = finishm_graph.velvet_oriented_node(start_probe_index)
-      end_onode_inward = finishm_graph.velvet_oriented_node(start_probe_index+1)
-      if start_onode and end_onode_inward
-        # The probe from finishm_graph points in the wrong direction for path finding
-        end_onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
-        end_onode.node = end_onode_inward.node
-        end_onode.first_side = end_onode_inward.starts_at_start? ? Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST : Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
 
-        adjusted_leash_length = finishm_graph.adjusted_leash_length(start_probe_index, options[:graph_search_leash_length])
-        log.debug "Using adjusted leash length #{adjusted_leash_length }" if log.debug?
+      probe_index1 = start_probe_index
+      probe_index2 = start_probe_index+1
 
-        trails = cartographer.find_trails_between_nodes(
-          finishm_graph.graph, start_onode, end_onode, adjusted_leash_length, {
-            :recoherence_kmer => options[:recoherence_kmer],
-            :sequences => finishm_graph.velvet_sequences
-            }
-        )
-        log.info "Found #{trails.trails.length} trails for #{gap.coords}"
-        if trails.circular_paths_detected
-          log.warn "Circular path detected here, not attempting to gapfill"
-        end
-        # Convert the trails into OrientedNodePaths
-        trails = trails.collect do |trail|
-          path = Bio::Velvet::Graph::OrientedNodeTrail.new
-          path.trail = trail
-          path
-        end
+      connection = gapfill(finishm_graph, probe_index1, probe_index2, options)
+      log.info "Found #{connection.paths.length} trails for #{gap.coords}"
 
+      unless output_trails_file.nil?
         # print the sequences of the trails if asked for:
         trails.each_with_index do |trail, i|
           #TODO: need to output this as something more sensible e.g. VCF format
-          unless output_trails_file.nil?
-            output_trails_file.puts ">#{gap.coords}_trail#{i+1}"
-            output_trails_file.puts trail.sequence
-          end
-          num_total_trails += 1
+          output_trails_file.puts ">#{gap.coords}_trail#{i+1}"
+          output_trails_file.puts trail.sequence
         end
+      end
+      num_total_trails += connection.paths.length
 
-        # Output the updated sequence. Fill in the sequence if there is only 1 trail
-        if gap.scaffold == last_scaffold
-          # We are still building the current scaffold
-          #gapfilled_sequence += gap.scaffold.contigs[gap.number].sequence
-          log.debug "Before adding next chunk of contig, length of scaffold being built is #{gapfilled_sequence.length}" if log.debug?
-          gapfilled_sequence = filler.call trails, gap.scaffold.contigs[gap.number+1], start_onode, end_onode_inward, start_probe_index, gapfilled_sequence, gap
-          log.debug "After adding next chunk of contig, length of scaffold being built is #{gapfilled_sequence.length}" if log.debug?
-        else
-          # We are onto a new scaffold. Print the previous one (unless this the first one)
-          unless last_scaffold.nil?
-            # print the gapfilled (or not) scaffold.
-            print_scaffold.call(last_scaffold, gapfilled_sequence)
-          end
-          #reset
-          last_scaffold = gap.scaffold
-
-          #add the current gap (and the contig before it)
-          log.debug "Before adding first chunk of contig, length of scaffold being built is #{gapfilled_sequence.length}"
-          gapfilled_sequence = gap.scaffold.contigs[gap.number].sequence
-          log.debug "After adding first chunk of contig, length of scaffold being built is #{gapfilled_sequence.length}"
-          gapfilled_sequence = filler.call trails, gap.scaffold.contigs[gap.number+1], start_onode, end_onode_inward, start_probe_index, gapfilled_sequence, gap
-          log.debug "After adding first gap sequence and next contig, gapfilled sequence length is #{gapfilled_sequence.length}"
-        end
+      # Output the updated sequence. Fill in the sequence if there is only 1 trail
+      if gap.scaffold == last_scaffold
+        # We are still building the current scaffold
+        #gapfilled_sequence += gap.scaffold.contigs[gap.number].sequence
+        log.debug "Before adding next chunk of contig, length of scaffold being built is #{gapfilled_sequence.length}" if log.debug?
+        gapfilled_sequence = filler.call connection, gap.scaffold.contigs[gap.number+1], gapfilled_sequence, gap
+        log.debug "After adding next chunk of contig, length of scaffold being built is #{gapfilled_sequence.length}" if log.debug?
       else
-        raise "Unable to retrieve both probes from the graph for gap #{gap_number} (#{gap.coords}), fail"
+        # We are onto a new scaffold. Print the previous one (unless this the first one)
+        unless last_scaffold.nil?
+          # print the gapfilled (or not) scaffold.
+          print_scaffold.call(last_scaffold, gapfilled_sequence)
+        end
+        #reset
+        last_scaffold = gap.scaffold
+
+        #add the current gap (and the contig before it)
+        log.debug "Before adding first chunk of contig, length of scaffold being built is #{gapfilled_sequence.length}"
+        gapfilled_sequence = gap.scaffold.contigs[gap.number].sequence
+        log.debug "After adding first chunk of contig, length of scaffold being built is #{gapfilled_sequence.length}"
+        gapfilled_sequence = filler.call connection, gap.scaffold.contigs[gap.number+1], gapfilled_sequence, gap
+        log.debug "After adding first gap sequence and next contig, gapfilled sequence length is #{gapfilled_sequence.length}"
       end
     end
     print_scaffold.call(last_scaffold, gapfilled_sequence) # print the last scaffold
@@ -296,5 +264,51 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
 
     output_trails_file.close unless output_trails_file.nil?
     output_fasta_file.close
+  end
+
+  # Given a finishm graph, gapfill from the first probe to the second. Return a
+  # Bio::AssemblyGraphAlgorithms::ContigPrinter::AnchoredConnection object
+  def gapfill(finishm_graph, probe_index1, probe_index2, options)
+    start_onode = finishm_graph.velvet_oriented_node(probe_index1)
+    end_onode_inward = finishm_graph.velvet_oriented_node(probe_index2)
+    unless start_onode and end_onode_inward
+      raise "Unable to retrieve both probes from the graph for gap #{gap_number} (#{gap.coords}), fail"
+    end
+
+    # The probe from finishm_graph points in the wrong direction for path finding
+    end_onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
+    end_onode.node = end_onode_inward.node
+    end_onode.first_side = end_onode_inward.starts_at_start? ? Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST : Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
+
+    adjusted_leash_length = finishm_graph.adjusted_leash_length(probe_index1, options[:graph_search_leash_length])
+    log.debug "Using adjusted leash length #{adjusted_leash_length }" if log.debug?
+
+    cartographer = Bio::AssemblyGraphAlgorithms::AcyclicConnectionFinder.new
+    trails = cartographer.find_trails_between_nodes(
+      finishm_graph.graph, start_onode, end_onode, adjusted_leash_length, {
+        :recoherence_kmer => options[:recoherence_kmer],
+        :sequences => finishm_graph.velvet_sequences
+        }
+      )
+    if trails.circular_paths_detected
+      log.warn "Circular path detected here, not attempting to gapfill"
+    end
+    # Convert the trails into OrientedNodePaths
+    trails = trails.collect do |trail|
+      path = Bio::Velvet::Graph::OrientedNodeTrail.new
+      path.trail = trail
+      path
+    end
+
+    acon = Bio::AssemblyGraphAlgorithms::ContigPrinter::AnchoredConnection.new
+    acon.start_probe_node = finishm_graph.probe_nodes[probe_index1]
+    acon.end_probe_node = finishm_graph.probe_nodes[probe_index2]
+    acon.start_probe_noded_read = finishm_graph.probe_node_reads[probe_index1]
+    acon.end_probe_noded_read = finishm_graph.probe_node_reads[probe_index2]
+    acon.start_probe_contig_offset = options[:contig_end_length]
+    acon.end_probe_contig_offset = options[:contig_end_length]
+    acon.paths = trails
+
+    return acon
   end
 end

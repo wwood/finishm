@@ -41,35 +41,14 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
   # given, otherwise returns an array of found paths. Options for
   # assembly are specified in assembly_options
   def assemble
-    options = @assembly_options
-
     paths = []
 
     # Gather a list of nodes to try starting from
-    starting_nodes = []
-    if options[:min_coverage_of_start_nodes]
-      graph.nodes.each do |node|
-        unless node.coverage < options[:min_coverage_of_start_nodes]
-          starting_nodes.push node
-        end
-      end
-    else
-      starting_nodes = graph.nodes
-    end
+    starting_nodes = gather_starting_nodes
     log.info "Found #{starting_nodes.length} nodes to attempt assembly from"
 
     seen_nodes = Set.new
-    progress = nil
-    if options[:progressbar_io]
-      progress = ProgressBar.create(
-        :title => "Assembly",
-        :format => '%a %bᗧ%i %p%% %E %t',
-        :progress_mark  => ' ',
-        :remainder_mark => '･',
-        :total => starting_nodes.length,
-        :output => options[:progressbar_io]
-      )
-    end
+    progress = setup_progressbar
 
     # For each starting node, start the assembly process
     dummy_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
@@ -93,11 +72,12 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
       end
       # Have we already seen this path before?
       #TODO: add in recoherence logic here
-      if seen_nodes.include?(reversed_path_forward.trail[-1].to_settable)
+      if seen_nodes.include?(reversed_path_forward[-1].to_settable)
         log.debug "Already seen the last node of the reversed path forward: #{reversed_path_forward.trail[-1].to_shorthand}, giving up" if log.debug?
         next
       end
       # Assemble ahead again
+      log.debug "reversed_path_forward: #{reversed_path_forward.to_shorthand}" if log.debug?
       path, just_visited_onodes = assemble_from(reversed_path_forward)
 
       # Remove nodes that have already been seen to prevent duplication
@@ -106,8 +86,8 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
       log.debug "After removing already seen nodes the second time, path was #{path.length} nodes long" if log.debug?
 
       # Add the now seen nodes to the list
-      reversed_path_forward.each do |onode|
-        seen_nodes << onode.to_settable
+      just_visited_onodes.each do |onode_settable|
+        seen_nodes << onode_settable
       end
 
       # Record which nodes have already been visited, so they aren't visited again
@@ -127,6 +107,35 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
     progress.finish unless progress.nil?
 
     return paths
+  end
+
+  def gather_starting_nodes
+    if @assembly_options[:min_coverage_of_start_nodes]
+      starting_nodes = []
+      graph.nodes.each do |node|
+        unless node.coverage < @assembly_options[:min_coverage_of_start_nodes]
+          starting_nodes.push node
+        end
+      end
+      return starting_nodes
+    else
+      return graph.nodes
+    end
+  end
+
+  def setup_progressbar
+    progress = nil
+    if @assembly_options[:progressbar_io]
+      progress = ProgressBar.create(
+        :title => "Assembly",
+        :format => '%a %bᗧ%i %p%% %E %t',
+        :progress_mark  => ' ',
+        :remainder_mark => '･',
+        :total => starting_nodes.length,
+        :output => @assembly_options[:progressbar_io]
+      )
+    end
+    return progress
   end
 
   # Given a node, return a path that does not include any short tips, or nil if none is
@@ -224,6 +233,10 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
 
     path = initial_path.copy
     visited_onodes = Set.new
+    initial_path[0...-1].each do |onode| #Add all except the last node to already seen nodes list
+      visited_onodes << onode.to_settable
+    end
+
     dummy_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
     oneighbours = nil
     while true
@@ -306,7 +319,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
 
     visited_onodes << path[-1].to_settable
 
-    return path, visited_onodes, oneighbours
+    return path, visited_onodes
   end
 
   # Returns false iff there is a path longer than max_tip_length
@@ -314,6 +327,8 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
   # shortest path algorithm except that it finds the longest path, not the
   # shortest.
   def is_short_tip?(oriented_node)
+    max_tip_length = @assembly_options[:max_tip_length]
+
     stack = DS::Stack.new
     first = MaxDistancedOrientedNode.new
     first.onode = oriented_node
@@ -321,7 +336,6 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
     stack.push first
 
     cache = {}
-    max_tip_length = @assembly_options[:max_tip_length]
 
     while current_max_distanced_onode = stack.pop
       return false, [] if current_max_distanced_onode.distance > max_tip_length

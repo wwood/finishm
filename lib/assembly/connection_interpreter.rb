@@ -5,10 +5,10 @@ class Bio::FinishM::ConnectionInterpreter
   include Bio::FinishM::Logging
 
   # connections is an Enumerable of Probe object , sequences is a hash of name => DNA string
-  def initialize(connections, sequences)
+  def initialize(connections, sequence_ids)
     @graph = Yargraph::UndirectedGraph.new
     @circular_probes = []
-    @sequences = sequences
+    @sequence_ids = sequence_ids
 
     # Setup hash of setable to original
     # Assume there is only 1 connection between two contig ends
@@ -40,12 +40,12 @@ class Bio::FinishM::ConnectionInterpreter
   def circular_sequences
     to_return = []
     connections.each do |conn|
-      if conn.probe1.sequence_name == conn.probe2.sequence_name and
+      if conn.probe1.sequence_index == conn.probe2.sequence_index and
         conn.probe1.side != conn.probe2.side and
         @graph.edges[conn.probe1.to_settable].length == 1 and
         @graph.edges[conn.probe2.to_settable].length == 1
 
-        to_return.push conn.probe1.sequence_name
+        to_return.push conn.probe1.sequence_index
       end
     end
     return to_return
@@ -88,7 +88,6 @@ class Bio::FinishM::ConnectionInterpreter
     # It is like an (easy)
     # assembly problem because each vertex can only be connected to
     # two others - 1 intra-contig and 1 inter-contig (unless it is circular)
-    contig_connections ||= doubly_single_contig_connections
     likelies_edge_set = Yargraph::UndirectedGraph::EdgeSet.new
     contig_connections.each do |conn|
       likelies_edge_set.add_edge conn.probe1.to_settable, conn.probe2.to_settable
@@ -122,7 +121,7 @@ class Bio::FinishM::ConnectionInterpreter
 
         likelies_edge_set.delete next_probe, companion.to_settable
         if next_probe_probe.companion.to_settable == rights[0].to_settable
-          log.debug "Found multi-contig circularity between #{next_probe_probe.companion} and #{rights[0]}" if log.debug?
+          log.debug "Found multi-contig circularity between #{next_probe_probe.companion} and #{rights[0] }" if log.debug?
           circular = true
           break
         end
@@ -153,10 +152,9 @@ class Bio::FinishM::ConnectionInterpreter
     if log.debug?
       log.debug "Found #{scaffolded_paths.length} multi-contig scaffold(s):"
       scaffolded_paths.each do |path|
-        log.debug "Scaffold: #{path.collect{|e| e.to_s}.join(', ')}"
+        log.debug "Scaffold: #{path.collect{|e| e.to_s}.join(', ') }"
       end
     end
-
 
     # for each scaffolded set, create new scaffold object
     scaffolds = []
@@ -165,41 +163,42 @@ class Bio::FinishM::ConnectionInterpreter
       raise if path.length % 2 != 0
       scaffold = Scaffold.new
       scaffold.circular = path.circular
-      scaffold.name = "scaffold#{scaffolds.length+1}"
+      previous_probe = nil
       path.each_with_index do |probe, i|
-        next if i % 2 == 1
+        if i % 2 == 1
+          previous_probe = probe
+          next
+        end
         contig = UnscaffoldedContig.new
-        contig.original_name = probe.sequence_name
-        contig.scaffold = scaffold
-        seq = @sequences[probe.sequence_name]
+        contig.sequence_index = probe.sequence_index
         if probe.side == :start
-          contig.sequence = seq
+          contig.direction = true
         else
-          contig.sequence = Bio::Sequence::NA.new(seq).reverse_complement.to_s.upcase
+          contig.direction = false
         end
         scaffold.contigs ||= []
-        contig.scaffold_position_start = scaffold.sequence.length
-        contig.scaffold_position_start += 10 unless scaffold.contigs.empty?
-        contig.scaffold_position_end = contig.scaffold_position_start + seq.length - 1
+        unless scaffold.contigs.empty?
+          dummy_conn = Connection.new
+          dummy_conn.probe1 = previous_probe
+          dummy_conn.probe2 = probe
+          original_connection = @connection_hash[dummy_conn.to_settable]
+          scaffold.gap_lengths.push original_connection.distance
+        end
         scaffold.contigs.push contig
-        scaffolded_contigs << probe.sequence_name
+        scaffolded_contigs << probe.sequence_index
       end
       scaffolds.push scaffold
     end
 
     # for each contig that is not in a contig, add as singleton
-    @sequences.each do |name, seq|
-      unless scaffolded_contigs.include?(name)
+    @sequence_ids.each do |i|
+      unless scaffolded_contigs.include?(i)
         scaff = Scaffold.new
-        scaff.name = "singleton#{scaffolds.length+1}"
         contig = UnscaffoldedContig.new
-        contig.original_name = name
-        contig.scaffold = scaff
-        contig.sequence = seq
-        contig.scaffold_position_start = 0
-        contig.scaffold_position_end = seq.length-1
+        contig.sequence_index = i
+        contig.direction = true
         scaff.contigs = [contig]
-        if circular_single_contigs.include?(name)
+        if circular_single_contigs.include?(i)
           scaff.circular = true
         else
           scaff.circular = false
@@ -222,9 +221,9 @@ class Bio::FinishM::ConnectionInterpreter
     end
 
     def to_settable
-      if @probe1.sequence_name < @probe2.sequence_name
+      if @probe1.sequence_index < @probe2.sequence_index
         return [@probe1.to_settable, @probe2.to_settable].flatten
-      elsif @probe1.sequence_name == @probe2.sequence_name
+      elsif @probe1.sequence_index == @probe2.sequence_index
         if @probe1.side < @probe2.side
           return [@probe1.to_settable, @probe2.to_settable].flatten
         else
@@ -238,42 +237,73 @@ class Bio::FinishM::ConnectionInterpreter
 
   class Probe
     attr_accessor :side #:start or :end
-    attr_accessor :sequence_name #name of the underlying sequence
+    attr_accessor :sequence_index #ID of the underlying sequence as an Integer
 
     def initialize(settable_representation=nil)
       unless settable_representation.nil?
-        @sequence_name = settable_representation[0]
+        @sequence_index = settable_representation[0]
         @side = settable_representation[1]
       end
     end
 
     def to_settable
-      [@sequence_name, @side]
+      [@sequence_index, @side]
     end
 
     def to_s
       side = @side == :start ? 's' : 'e'
-      "#{@sequence_name}#{side}"
+      "#{@sequence_index}#{side}"
     end
 
     # Return a probe representing the other side of the contig
     def companion
       companion = Probe.new
-      companion.sequence_name = @sequence_name
+      companion.sequence_index = @sequence_index
       companion.side = @side == :start ? :end : :start
       return companion
     end
   end
 
-  class Scaffold < Bio::FinishM::ScaffoldBreaker::Scaffold
+  class Scaffold
+    attr_accessor :contigs, :gap_lengths
+
     attr_accessor :circular
     def circular?
       @circular
     end
+
+    def initialize
+      @contigs = []
+      @gap_lengths = []
+    end
+
+    def sequence(sequence_id_to_nucleotides_hash)
+      raise "Programming error" unless @contigs.length == @gap_lengths.length + 1
+      parts = []
+
+      add_sequence_of = lambda do |contig|
+        seq = sequence_id_to_nucleotides_hash[contig.sequence_index]
+        if contig.direction == true
+          parts.push seq
+        elsif contig.direction == false
+          parts.push Bio::Sequence::NA.new(seq).reverse_complement.to_s.upcase
+        else
+          raise "Programming error"
+        end
+      end
+
+      add_sequence_of.call @contigs[0]
+
+      @gap_lengths.each_with_index do |gap_length, i|
+        parts.push 'N'*gap_length
+        add_sequence_of.call @contigs[i+1]
+      end
+      return parts.join('')
+    end
   end
 
-  class UnscaffoldedContig < Bio::FinishM::ScaffoldBreaker::UnscaffoldedContig
-    attr_accessor :original_name
+  class UnscaffoldedContig
+    attr_accessor :sequence_index, :direction
   end
 
   class PossiblyCircularArray < Array

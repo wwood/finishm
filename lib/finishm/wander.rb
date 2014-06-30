@@ -9,7 +9,7 @@ class Bio::FinishM::Wanderer
     }
 
   def add_options(optparse_object, options)
-    optparse_object.banner = "\nUsage: finishm wander --contigs <contig_file> --fastq-gz <reads..> --output-connections <output.csv>
+    optparse_object.banner = "\nUsage: finishm wander --contigs <contig_file> --fastq-gz <reads..> --output-connections <output.csv> --output-scaffolds <output.fasta>
 
     Takes a set of contigs/scaffolds from a genome and finds connections in the graph between them. A connection here is given as
     the length of the shortest path between them, without actually computing all the paths.
@@ -24,11 +24,11 @@ class Bio::FinishM::Wanderer
 
     Example:
 
-finishm wander --contigs contigs.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --output-directory finishm_wander_results
+      finishm wander --contigs contigs.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --output-scaffolds scaffolds.fasta
 
     That will create a collapsed de-Bruijn graph from reads.1.fq.gz and reads.2.fq.gz, then try to find connections between
-    the starts and the ends of the contigs in contigs.fasta through the de-Bruijn graph. Any connections found
-    are output to connections.csv
+    the starts and the ends of the contigs in contigs.fasta through the de-Bruijn graph. The new scaffolds are then
+    output to scaffolds.fasta
 
     \n\n"
 
@@ -60,7 +60,7 @@ finishm wander --contigs contigs.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --
     optparse_object.on("--leash-length NUM", Integer, "Don't explore too far in the graph, only this far and not much more [default: #{options[:graph_search_leash_length] }]") do |arg|
       options[:graph_search_leash_length] = arg
     end
-    optparse_object.on("--unscaffold-first", "Break the scaffolds in the contigs file apart, and then wander between the resultant contigs[default: #{options[:unscaffold_first] }]") do
+    optparse_object.on("--unscaffold-first", "Break the scaffolds in the contigs file apart, and then wander between the resultant contigs. [default: #{options[:unscaffold_first] }]") do
       options[:unscaffold_first] = true
     end
     optparse_object.on("--proceed-on-short-contigs", "By default, when overly short contigs are encountered, finishm croaks. This option stops the croaking [default: #{options[:proceed_on_short_contigs] }]") do
@@ -96,7 +96,8 @@ finishm wander --contigs contigs.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --
   def run(options, argv=[])
     # Read in all the contigs sequences, removing those that are too short
     probe_sequences = []
-    sequences_to_probe = {}
+    contig_sequences = []
+    contig_names = []
     overly_short_sequence_count = 0
     process_sequence = lambda do |name, seq|
       if seq.length < 2*options[:contig_end_length]
@@ -104,7 +105,8 @@ finishm wander --contigs contigs.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --
         overly_short_sequence_count += 1
         nil
       else
-        sequences_to_probe[name] = seq
+        contig_sequences.push seq.to_s
+        contig_names.push name
 
         sequence = seq.seq
         fwd2 = Bio::Sequence::NA.new(sequence[0...options[:contig_end_length]])
@@ -117,7 +119,7 @@ finishm wander --contigs contigs.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --
       end
     end
 
-    scaffolds = nil #Array of Bio::FinishM::ScaffoldBreaker::Scaffold objects. Only set when options[:unscaffold_first] is true
+    scaffolds = nil #Array of Bio::FinishM::ScaffoldBreaker::Scaffold objects.
     scaffolded_contig_to_probe_ids = {}
     if options[:unscaffold_first]
       log.info "Unscaffolding scaffolds (before trying to connect them together again)"
@@ -150,23 +152,92 @@ finishm wander --contigs contigs.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --
     read_input.parse_options options
     finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph(probe_sequences, read_input, options)
 
+    log.info "Finding possible connections with recoherence kmer of #{options[:recoherence_kmer] }"
+    all_connections = probed_graph_to_connections(finishm_graph, contig_sequences, options)
+    log.debug "Finished actual wandering, found #{all_connections.length} connections" if log.debug?
+
+    # Determine scaffolding connections
+    interpreter = Bio::FinishM::ConnectionInterpreter.new(all_connections, (0...contig_sequences.length))
+    connections = interpreter.doubly_single_contig_connections
+    log.debug "Found #{connections.length} connections between contigs that can be used for scaffolding" if log.debug?
+    scaffolds = interpreter.scaffolds(connections)
+
+    # Gather some stats
+    circular_scaffold_names = []
+    num_contigs_in_circular_scaffolds = 0
+    num_singleton_contigs = 0
+    num_scaffolded_contigs = 0
+    scaffolds.each do |scaffold|
+      if scaffold.circular?
+        circular_scaffold_names.push name
+        num_contigs_in_circular_scaffolds += scaffold.contigs.length
+      elsif scaffold.contigs.length == 1
+        num_singleton_contigs += 1
+      else
+        num_scaffolded_contigs += scaffold.contigs.length
+      end
+    end
+    log.info "Found #{circular_scaffold_names.length} circular scaffolds encompassing #{num_contigs_in_circular_scaffolds} contigs"
+    log.info "#{num_scaffolded_contigs} contigs were incorporated into scaffolds"
+    log.info "#{num_singleton_contigs} contigs were not incorporated into any scaffolds"
+
+    unless options[:output_scaffolds_file].nil?
+      File.open(options[:output_scaffolds_file],'w') do |scaffold_file|
+        scaffolds.each_with_index do |scaffold, i|
+          name = nil
+          if scaffold.contigs.length == 1
+            name = "scaffold#{i+1}"
+          else
+            name = "scaffold#{i+1}"
+          end
+          if scaffold.circular?
+            name += ' circular'
+          end
+
+          scaffold_file.puts ">#{name}"
+          # Output the NA sequence wrapped
+          seq = scaffold.sequence(contig_sequences)
+          scaffold_file.puts seq.gsub(/(.{80})/,"\\1\n").gsub(/\n$/,'')
+        end
+      end
+    end
+
+    # Write out all connections to the given file if wanted
+    unless options[:output_connection_file].nil?
+      File.open(options[:output_connection_file], 'w') do |out|
+        all_connections.each do |conn|
+          out.puts [
+            "#{contig_names[conn.probe1.sequence_index]}:#{conn.probe1.side}",
+            "#{contig_names[conn.probe2.sequence_index]}:#{conn.probe2.side}",
+            conn.distance
+            ].join("\t")
+        end
+      end
+    end
+
+    log.info "All done."
+  end
+
+  # Given a probed graph, wander between all the nodes, and then return an
+  # instance of Bio::FinishM::ConnectionInterpreter::Scaffold. Required options:
+  # * :graph_search_leash_length
+  # * :recoherence_kmer
+  def probed_graph_to_connections(finishm_graph, contig_sequences, options)
     # Loop over the ends, trying to make connections from each one
     cartographer = Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer.new
 
-    log.info "Finding possible connections with recoherence kmer of #{options[:recoherence_kmer] }"
     first_connections = cartographer.wander(finishm_graph, options[:graph_search_leash_length], options[:recoherence_kmer], finishm_graph.velvet_sequences)
-    log.info "Found #{first_connections.length} connections with less distance than the leash length, out of a possible #{probe_sequences.length*(probe_sequences.length-1) / 2}"
+    log.debug "Initially found #{first_connections.length} connections with less distance than the leash length" if log.debug?
 
     probe_descriptions = []
-    sequence_names = sequences_to_probe.keys #Ruby hashes are sorted
     (0...finishm_graph.probe_nodes.length).each do |i|
       desc = Bio::FinishM::ConnectionInterpreter::Probe.new
       if i % 2 == 0
         desc.side = :start
-        desc.sequence_name = sequence_names[i / 2]
+        desc.sequence_index = i / 2
       else
         desc.side = :end
-        desc.sequence_name = sequence_names[(i-1) / 2]
+        desc.sequence_index = (i-1) / 2
       end
       probe_descriptions.push desc
     end
@@ -186,7 +257,7 @@ finishm wander --contigs contigs.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --
       # weed these out.
       conn = Bio::FinishM::ConnectionInterpreter::Connection.new
       conn.probe1 = probe_descriptions[node_indices[0]]
-      conn.probe2= probe_descriptions[node_indices[1]]
+      conn.probe2 = probe_descriptions[node_indices[1]]
       conn.distance = calibrated_distance
       if calibrated_distance > options[:graph_search_leash_length]
         log.debug "Disregarding connection #{conn} because it was ultimately outside the allowable leash length" if log.debug?
@@ -194,86 +265,6 @@ finishm wander --contigs contigs.fasta --fastq-gz reads.1.fq.gz,reads.2.fq.gz --
         all_connections.push conn
       end
     end
-
-    # Determine scaffolding connections
-    interpreter = Bio::FinishM::ConnectionInterpreter.new(all_connections, sequences_to_probe)
-    connections = interpreter.doubly_single_contig_connections
-    log.info "Found #{connections.length} connections between contigs that can be used for scaffolding" if log.info?
-
-    # Write scaffold file out
-    circular_scaffold_names = []
-    num_contigs_in_circular_scaffolds = 0
-    num_singleton_contigs = 0
-    num_scaffolded_contigs = 0
-    scaffolds = interpreter.scaffolds(connections)
-    scaffolds.each do |scaffold|
-      if scaffold.circular?
-        circular_scaffold_names.push name
-        num_contigs_in_circular_scaffolds += scaffold.contigs.length
-      elsif scaffold.contigs.length == 1
-        num_singleton_contigs += 1
-      else
-        num_scaffolded_contigs += scaffold.contigs.length
-      end
-    end
-    log.info "Found #{circular_scaffold_names.length} circular scaffolds encompassing #{num_contigs_in_circular_scaffolds} contigs"
-    log.info "#{num_scaffolded_contigs} contigs were incorporated into scaffolds"
-    log.info "#{num_singleton_contigs} contigs were not incorporated into any scaffolds"
-
-    unless options[:output_scaffolds_file].nil?
-      File.open(options[:output_scaffolds_file],'w') do |scaffold_file|
-        scaffolds.each do |scaffold|
-          name = scaffold.name
-          if scaffold.circular?
-            name += ' circular'
-          end
-
-          scaffold_file.puts ">#{name}"
-          # Output the NA sequence wrapped
-          scaffold_file.puts scaffold.sequence.gsub(/(.{80})/,"\\1\n").gsub(/\n$/,'')
-        end
-      end
-    end
-
-    # Write out all connections to the given file if wanted
-    unless options[:output_connection_file].nil?
-      File.open(options[:output_connection_file], 'w') do |out|
-        all_connections.each do |conn|
-          out.puts [
-            "#{conn.probe1.sequence_name}:#{conn.probe1.side}",
-            "#{conn.probe2.sequence_name}:#{conn.probe2.side}",
-            conn.distance
-            ].join("\t")
-        end
-      end
-    end
-
-    log.info "All done."
-  end
-
-  def setup_output_directory(given_directory)
-    output_directory = File.absolute_path(given_directory)
-    log.debug "Using output directory: #{output_directory}" if log.debug?
-
-    if File.exist?(output_directory)
-      if !File.directory?(output_directory)
-        log.error "Specified --output-directory #{output_directory} exists but is a file and not a directory. Cannot continue."
-        exit 1
-      elsif !File.writable?(output_directory)
-        log.error "Specified --output-directory #{output_directory} is not writeable. Cannot continue."
-        exit 1
-      else
-        log.debug "Already existing output directory #{output_directory} seems usable"
-      end
-    else
-      # Creating a new output directory
-      Dir.mkdir(output_directory)
-    end
-
-    return output_directory
-  end
-
-  class WanderResult
-    attr_accessor :connections
+    return all_connections
   end
 end
