@@ -388,5 +388,6 @@ describe 'Bubble' do
     metapath.to_shorthand.should == '1s,{2s,3s|4s,3s},5s'
     metapath.reverse!
     metapath.to_shorthand.should == "5e,{3e,2e|3e,4e},1e"
+    metapath.reference_trail.to_shorthand.should == '5e,3e,2e,1e'
   end
 end

@@ -48,7 +48,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
     log.info "Found #{starting_nodes.length} nodes to attempt assembly from"
 
     seen_nodes = Set.new
-    progress = setup_progressbar
+    progress = setup_progressbar starting_nodes.length
 
     # For each starting node, start the assembly process
     dummy_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
@@ -123,7 +123,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
     end
   end
 
-  def setup_progressbar
+  def setup_progressbar(num_nodes)
     progress = nil
     if @assembly_options[:progressbar_io]
       progress = ProgressBar.create(
@@ -131,7 +131,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
         :format => '%a %bᗧ%i %p%% %E %t',
         :progress_mark  => ' ',
         :remainder_mark => '･',
-        :total => starting_nodes.length,
+        :total => num_nodes,
         :output => @assembly_options[:progressbar_io]
       )
     end

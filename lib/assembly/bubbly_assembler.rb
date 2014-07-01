@@ -357,6 +357,10 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
 
       return trail
     end
+
+    def sequence
+      reference_trail.sequence
+    end
   end
 
 
@@ -554,7 +558,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
 
       node_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
       node_trail.trail = reference_trail.reverse
-      node_trail.reverse! if @is_reverse
+      node_trail = node_trail.reverse if @is_reverse
 
       return node_trail
     end

@@ -11,6 +11,7 @@ class Bio::FinishM::Assembler
       :output_pathspec => false,
       :progressbar => true,
       :min_contig_size => 500,
+      :bubbly => false
     })
 
     optparse_object.separator "\nRequired arguments:\n\n"
@@ -29,6 +30,9 @@ class Bio::FinishM::Assembler
     end
     optparse_object.on("--recoherence-kmer LENGTH", Integer, "When paths diverge, try to rescue by using a bigger kmer of this length [default: none]") do |arg|
       options[:recoherence_kmer] = arg
+    end
+    optparse_object.on("--bubbly", "Assemble with the bubbly method [default: #{options[:bubbly] }]") do
+      options[:bubbly] = true
     end
     optparse_object.on("--output-pathspec", "Give the sequence of nodes used in the path in the output contig file [default: #{options[:output_pathspec] }]") do
       options[:output_pathspec] = true
@@ -86,7 +90,12 @@ class Bio::FinishM::Assembler
     end
 
     # Setup assembler
-    assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new graph
+    assembler = nil
+    if options[:bubbly]
+      assembler = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
+    else
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new graph
+    end
     [
       :recoherence_kmer,
       :min_contig_size,

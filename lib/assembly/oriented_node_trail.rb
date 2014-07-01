@@ -332,7 +332,7 @@ module Bio
 
         def copy
           o = OrientedNodeTrail.new
-          o.trail = Array.new(@trail)
+          o.trail = Array.new(@trail.collect{|onode| onode.copy})
           return o
         end
 
@@ -469,6 +469,10 @@ module Bio
             rev = OrientedNode.new(@node, @first_side)
             rev.reverse!
             return rev
+          end
+
+          def copy
+            OrientedNode.new(@node, @first_side)
           end
         end
 
