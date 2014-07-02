@@ -168,11 +168,11 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
       log.debug "Before pruning back, trail is #{path.to_shorthand}" if log.debug?
       is_tip, whatever = is_short_tip?(path[-1])
       while is_tip
-        if path.trail.length == 1
+        if path.length == 1
           cannot_remove_any_more_nodes = true
           break
         end
-        path.trail.delete_at(path.trail.length-1)
+        path.delete_at(path.trail.length-1)
         log.debug "After pruning back, trail is now #{path.to_shorthand}" if log.debug?
         is_tip, whatever = is_short_tip?(path[-1])
       end

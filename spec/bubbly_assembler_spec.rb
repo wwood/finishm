@@ -217,6 +217,40 @@ describe "BubblyAssembler" do
       GraphTesting.metapath_to_array(metapath2).should == [1,[2,4],3,5,6]
       visited_nodes2.to_a.collect{|s| s[0]}.sort.should == (1..6).to_a + [99]
     end
+
+    it 'should respect the node count limits' do
+      graph, initial_path, terminal = GraphTesting.emit_ss([
+        [1,2],
+        [2,3],
+        [1,4],
+        [4,3], #bubble has 2 nodes
+        [3,5],
+
+        [5,6],
+        [5,7],
+        [6,8],
+        [8,9],
+        [7,8],
+        [7,10],
+        [10,9], #bubble has 5 nodes
+
+        [9,11],
+        [11,12],
+
+        [7,99],
+        ], 1, 6)
+      cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
+      cartographer.assembly_options[:max_tip_length] = 11
+      cartographer.assembly_options[:bubble_node_count_limit] = 99
+      metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+      GraphTesting.metapath_to_array(metapath).should == [1,[2,4],3,5,[[6,8],[7,8],[7,10]],9,11,12]
+      visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1..12).to_a + [99]
+
+      cartographer.assembly_options[:bubble_node_count_limit] = 4
+      metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+      GraphTesting.metapath_to_array(metapath).should == [1,[2,4],3,5]
+      visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1..5).to_a + [99] #debatable whether 99 should be included here, but eh
+    end
   end
 
   describe 'assemble' do
@@ -261,7 +295,75 @@ describe "BubblyAssembler" do
     end
 
     it 'should be able to get out of the middle of a path when it is bubbly' do
-      fail
+      graph = GraphTesting.emit([
+        [1,2],
+        [2,3],
+        [4,1],
+        [4,5],
+        [5,3],
+        [6,4],
+        ])
+      cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph, {
+        :max_tip_length => -1,
+        :min_contig_size => 0,
+        }
+      metapaths = cartographer.assemble
+      GraphTesting.metapaths_to_arrays(metapaths).should == [
+        [6,4,[5,[1,2]],3]
+        ] #This is a known bug. Fixing requires at least medium-size change to the algoruithm.
+    end
+
+    it 'should deal with short tips everywhere' do
+      graph = GraphTesting.emit([
+        [1,2],
+        [2,3],
+        [4,1],
+
+        [11,12],
+        [11,13],
+        [12,4],
+        [13,4],
+
+        [3,21],
+        [3,22],
+        [21,23],
+        [22,23],
+        [23,24],
+
+        [1,101],
+        [2,102],
+        [3,103],
+        [4,104],
+        [11,111],
+        [12,112],
+        [13,113],
+        [21,121],
+        [22,122],
+        [23,123],
+
+        [201,1],
+        [202,2],
+        [203,3],
+        [204,4],
+        [211,11],
+        [212,12],
+        [213,13],
+        [221,21],
+        [222,22],
+        [223,23],
+        ])
+      # make the end nodes longer so can test for tip length
+      graph.nodes[11].ends_of_kmers_of_node = 'T'*30
+      graph.nodes[23].ends_of_kmers_of_node = 'T'*30
+
+      cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph, {
+        :max_tip_length => 15,
+        :min_contig_size => 0,
+        }
+      metapaths = cartographer.assemble
+      GraphTesting.metapaths_to_arrays(metapaths).should == [
+        [211,11,[12,13],4,1,2,3,[21,22],23,123]
+        ] #known bug
     end
 
     it 'should be able to assemble several contigs' do

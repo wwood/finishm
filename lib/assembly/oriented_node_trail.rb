@@ -280,6 +280,10 @@ module Bio
           @trail.pop
         end
 
+        def delete_at(index)
+          @trail.delete_at(index)
+        end
+
         def length
           @trail.length
         end

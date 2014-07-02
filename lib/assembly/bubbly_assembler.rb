@@ -20,6 +20,16 @@ end
 class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
   include Bio::FinishM::Logging
 
+  DEFAULT_LEASH_LENGTH = 500
+  DEFAULT_BUBBLE_NODE_COUNT_LIMIT = 20 #so, so very 'un-educated' guess
+
+  def initialize(graph, assembly_options={})
+    opts = assembly_options
+    opts[:leash_length] = DEFAULT_LEASH_LENGTH
+    opts[:bubble_node_count_limit] = DEFAULT_BUBBLE_NODE_COUNT_LIMIT
+    super graph, opts
+  end
+
   # Starting at a node within a graph, walk through the graph
   # accepting forks, so long as the fork paths converge within some finite
   # length in the graph (the leash length, measured in number of base pairs).
@@ -129,7 +139,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
         log.debug "entering bubble mode" if log.debug?
 
         # next problem = queue.shift. while distance of next problem is not beyond the leash length
-        while true
+        while current_mode == :bubble
           problem = current_bubble.shift
           log.debug "Dequeued #{problem.to_shorthand}" if log.debug?
 
@@ -192,7 +202,15 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
                 new_problem.ubiquitous_oriented_nodes << oneigh.to_settable
 
                 current_bubble.enqueue new_problem
-                log.debug "Enqueued #{new_problem.to_shorthand}" if log.debug?
+                log.debug "Enqueued #{new_problem.to_shorthand}, total nodes now #{current_bubble.num_known_problems}" if log.debug?
+
+                # check to make sure we aren't going overboard in the bubbly-ness
+                if current_bubble.num_known_problems > @assembly_options[:bubble_node_count_limit]
+                  log.debug "Too complex a bubble detected, giving up" if log.debug?
+                  metapath.fate = MetaPath::NODE_COUNT_LIMIT_REACHED
+                  current_mode = :finished
+                  break
+                end
               end
             end
           end
@@ -251,6 +269,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
     DIVERGES_FATE = 'diverges'
     DEAD_END_FATE = 'dead end'
     CIRCUIT_FATE = 'circuit'
+    NODE_COUNT_LIMIT_REACHED = 'too many nodes in bubble'
 
     # How does this metapath end?
     attr_accessor :fate
@@ -316,6 +335,10 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
 
     def [](index)
       @internal_array[index]
+    end
+
+    def delete_at(index)
+      @internal_array.delete_at(index)
     end
 
     # Yield all oriented nodes anywhere in the regular or bubble
@@ -432,6 +455,10 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       end
       return nil if block_given?
       return seen_nodes.values
+    end
+
+    def num_known_problems
+      @known_problems.length
     end
 
     # Iterate over the paths returning each as an OrientedNodeTrail.
