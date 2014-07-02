@@ -20,6 +20,14 @@ end
 class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
   include Bio::FinishM::Logging
 
+  DEFAULT_LEASH_LENGTH = 500
+
+  def initialize(graph, assembly_options={})
+    opts = assembly_options
+    opts[:leash_length] = DEFAULT_LEASH_LENGTH
+    super graph, opts
+  end
+
   # Starting at a node within a graph, walk through the graph
   # accepting forks, so long as the fork paths converge within some finite
   # length in the graph (the leash length, measured in number of base pairs).
@@ -169,7 +177,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
               if is_tip
                 visited_oriented_node_settables << oneigh.to_settable
                 visiteds.each do |v|
-                  visited_oriented_node_settables << v.to_settable
+                  visited_oriented_node_settables << v
                 end
               end
               log.debug "neighbour #{oneigh.to_shorthand} is_tip? #{is_tip}" if log.debug?
@@ -316,6 +324,10 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
 
     def [](index)
       @internal_array[index]
+    end
+
+    def delete_at(index)
+      @internal_array.delete_at(index)
     end
 
     # Yield all oriented nodes anywhere in the regular or bubble
