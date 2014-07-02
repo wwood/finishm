@@ -352,7 +352,7 @@ describe "SingleEndedAssembler" do
     end
 
     it 'should be able to deal with recoherence when getting out of a short tip' do
-      raise
+      fail
     end
   end
 end

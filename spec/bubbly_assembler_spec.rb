@@ -217,6 +217,40 @@ describe "BubblyAssembler" do
       GraphTesting.metapath_to_array(metapath2).should == [1,[2,4],3,5,6]
       visited_nodes2.to_a.collect{|s| s[0]}.sort.should == (1..6).to_a + [99]
     end
+
+    it 'should respect the node count limits' do
+      graph, initial_path, terminal = GraphTesting.emit_ss([
+        [1,2],
+        [2,3],
+        [1,4],
+        [4,3], #bubble has 2 nodes
+        [3,5],
+
+        [5,6],
+        [5,7],
+        [6,8],
+        [8,9],
+        [7,8],
+        [7,10],
+        [10,9], #bubble has 5 nodes
+
+        [9,11],
+        [11,12],
+
+        [7,99],
+        ], 1, 6)
+      cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
+      cartographer.assembly_options[:max_tip_length] = 11
+      cartographer.assembly_options[:bubble_node_count_limit] = 99
+      metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+      GraphTesting.metapath_to_array(metapath).should == [1,[2,4],3,5,[[6,8],[7,8],[7,10]],9,11,12]
+      visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1..12).to_a + [99]
+
+      cartographer.assembly_options[:bubble_node_count_limit] = 4
+      metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+      GraphTesting.metapath_to_array(metapath).should == [1,[2,4],3,5]
+      visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1..5).to_a + [99] #debatable whether 99 should be included here, but eh
+    end
   end
 
   describe 'assemble' do
@@ -311,7 +345,7 @@ describe "BubblyAssembler" do
         [202,2],
         [203,3],
         [204,4],
-        #[211,11],
+        [211,11],
         [212,12],
         [213,13],
         [221,21],
@@ -328,8 +362,8 @@ describe "BubblyAssembler" do
         }
       metapaths = cartographer.assemble
       GraphTesting.metapaths_to_arrays(metapaths).should == [
-        [11,[12,13],4,1,2,3,[21,22],23]
-        ]
+        [211,11,[12,13],4,1,2,3,[21,22],23,123]
+        ] #known bug
     end
 
     it 'should be able to assemble several contigs' do
