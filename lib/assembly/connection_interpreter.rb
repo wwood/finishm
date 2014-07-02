@@ -1,4 +1,4 @@
-require '/home/ben/git/yargraph/lib/yargraph'
+require 'yargraph'
 
 
 class Bio::FinishM::ConnectionInterpreter
