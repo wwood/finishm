@@ -77,7 +77,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
               if is_tip
                 visited_oriented_node_settables << oneigh.to_settable
                 visiteds.each do |v|
-                  visited_oriented_node_settables << v.to_settable
+                  visited_oriented_node_settables << v
                 end
               end
               log.debug "neighbour #{oneigh.to_shorthand} is_tip? #{is_tip}" if log.debug?
@@ -261,7 +261,13 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
     return path
   end
 
-
+  def is_short_tip?(element)
+    if element.kind_of?(Bubble)
+      return false
+    else
+      super
+    end
+  end
 
 
 
