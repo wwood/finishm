@@ -11,7 +11,8 @@ class Bio::FinishM::Assembler
       :output_pathspec => false,
       :progressbar => true,
       :min_contig_size => 500,
-      :bubbly => false
+      :bubbly => false,
+      :leash_length => 500,
     })
 
     optparse_object.separator "\nRequired arguments:\n\n"
@@ -99,7 +100,8 @@ class Bio::FinishM::Assembler
     [
       :recoherence_kmer,
       :min_contig_size,
-      :min_coverage_of_start_nodes
+      :min_coverage_of_start_nodes,
+      :leash_length,
       ].each do |opt|
         assembler.assembly_options[opt] = options[opt]
       end
