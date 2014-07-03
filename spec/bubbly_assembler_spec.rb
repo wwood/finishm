@@ -373,6 +373,11 @@ describe "BubblyAssembler" do
     it 'should be able to use recoherence to get around an inter-genome repeat' do
       fail
     end
+
+    it 'should handle when is_short_tip? is given a bubble' do
+      fail #why does this even happen?
+      # make sure that reverse is also ok with this.
+    end
   end
 end
 

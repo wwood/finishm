@@ -172,7 +172,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
           cannot_remove_any_more_nodes = true
           break
         end
-        path.delete_at(path.trail.length-1)
+        path.delete_at(path.length-1)
         log.debug "After pruning back, trail is now #{path.to_shorthand}" if log.debug?
         is_tip, whatever = is_short_tip?(path[-1])
       end
