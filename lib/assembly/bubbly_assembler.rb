@@ -348,7 +348,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
     end
 
     # Yield all oriented nodes anywhere in the regular or bubble
-    # bits
+    # bits.
     def each_oriented_node
       @internal_array.each do |e|
         if e.kind_of?(Bio::AssemblyGraphAlgorithms::BubblyAssembler::Bubble)
@@ -451,14 +451,33 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
     # yield or failing that return an Array of the list of oriented_nodes found
     # in at least one path in this (presumed converged) bubble
     def oriented_nodes
+      raise unless converged?
       seen_nodes = {}
-      each_path do |path|
-        path.each do |onode|
-          next if seen_nodes.key?(onode.to_settable)
-          yield onode if block_given?
-          seen_nodes[onode.to_settable] = onode
+      stack = DS::Stack.new
+      @known_problems[@converging_oriented_node_settable].each do |initial_solution|
+        stack.push initial_solution.path[-1]
+      end
+
+      while onode = stack.pop
+        setable = onode.to_settable
+        next if seen_nodes.key?(setable)
+
+        if block_given?
+          if @is_reverse
+            yield onode.reverse
+          else
+            yield onode
+          end
+        end
+
+        seen_nodes[setable] = onode
+
+        # queue neighbours
+        @known_problems[setable].each do |dpp|
+          stack.push dpp.path[-2] unless dpp.path.length < 2
         end
       end
+
       return nil if block_given?
       return seen_nodes.values
     end
