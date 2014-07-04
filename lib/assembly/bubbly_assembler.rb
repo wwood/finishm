@@ -233,6 +233,15 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
     return metapath, visited_oriented_node_settables
   end
 
+  def seen_last_in_path?(path, seen_nodes)
+    last = path[-1]
+    if last.kind_of?(Bubble)
+      return remove_seen_nodes_from_end_of_path(path.copy, seen_nodes).length < path.length
+    else
+      return seen_nodes.include?(path[-1].to_settable)
+    end
+  end
+
 
   def remove_seen_nodes_from_end_of_path(path, seen_nodes)
     log.debug "Removing from the end of the path #{path.to_shorthand} any nodes in set of length #{seen_nodes.length}" if log.debug?

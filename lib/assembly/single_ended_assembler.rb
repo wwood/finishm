@@ -72,7 +72,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
       end
       # Have we already seen this path before?
       #TODO: add in recoherence logic here
-      if seen_nodes.include?(reversed_path_forward[-1].to_settable)
+      if seen_last_in_path?(reversed_path_forward, seen_nodes)
         log.debug "Already seen the last node of the reversed path forward: #{reversed_path_forward.trail[-1].to_shorthand}, giving up" if log.debug?
         next
       end
@@ -107,6 +107,10 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
     progress.finish unless progress.nil?
 
     return paths
+  end
+
+  def seen_last_in_path?(path, seen_nodes)
+    seen_nodes.include?(path[-1].to_settable)
   end
 
   def gather_starting_nodes
