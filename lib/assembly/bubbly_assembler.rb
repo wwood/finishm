@@ -113,21 +113,22 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
               # Stop if a circuit is detected
               if visited_oriented_node_settables.include?(oneigh.to_settable)
                 metapath.fate = MetaPath::CIRCUIT_FATE
-                return metapath
+                current_mode = :finished
+                break
+              else
+                new_problem = DynamicProgrammingProblem.new
+                new_problem.distance = 0
+                new_path = Bio::Velvet::Graph::OrientedNodeTrail.new
+                new_path.add_oriented_node oneigh
+                new_problem.path = new_path
+                new_problem.ubiquitous_oriented_nodes = Set.new
+                new_problem.ubiquitous_oriented_nodes << oneigh.to_settable
+
+                log.debug "Adding problem to bubble: #{new_problem}" if log.debug?
+
+                current_bubble.enqueue new_problem
+                current_mode = :bubble
               end
-
-              new_problem = DynamicProgrammingProblem.new
-              new_problem.distance = 0
-              new_path = Bio::Velvet::Graph::OrientedNodeTrail.new
-              new_path.add_oriented_node oneigh
-              new_problem.path = new_path
-              new_problem.ubiquitous_oriented_nodes = Set.new
-              new_problem.ubiquitous_oriented_nodes << oneigh.to_settable
-
-              log.debug "Adding problem to bubble: #{new_problem}" if log.debug?
-
-              current_bubble.enqueue new_problem
-              current_mode = :bubble
             end
             break
           end

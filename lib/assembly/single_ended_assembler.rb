@@ -5,7 +5,7 @@ require 'ruby-progressbar'
 class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
   include Bio::FinishM::Logging
 
-  DEFAULT_MAX_TIP_LENGTH = 100
+  DEFAULT_MAX_TIP_LENGTH = 200
   DEFAULT_MIN_CONTIG_SIZE = 500
 
   attr_accessor :graph
@@ -206,7 +206,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
   end
 
   def remove_seen_nodes_from_end_of_path(path, seen_nodes)
-    log.debug "Removing from the end of the path #{path.to_shorthand} any nodes in #{seen_nodes.to_a.sort}" if log.debug?
+    log.debug "Removing from the end of the path #{path.to_shorthand} any nodes in set of size #{seen_nodes.length}" if log.debug?
     while !path.trail.empty?
       last_node_index = path.length-1
       last_node = path[last_node_index]
