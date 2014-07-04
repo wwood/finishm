@@ -266,7 +266,7 @@ describe "BubblyAssembler" do
       cartographer.assembly_options[:max_tip_length] = -1
       metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
       GraphTesting.metapath_to_array(metapath).should == [1]
-      visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1).to_a
+      visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1]
     end
   end
 

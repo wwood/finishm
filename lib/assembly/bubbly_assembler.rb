@@ -199,17 +199,24 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
                 new_path.add_oriented_node oneigh
                 new_problem.path = new_path
                 new_problem.ubiquitous_oriented_nodes = Set.new problem.ubiquitous_oriented_nodes
-                new_problem.ubiquitous_oriented_nodes << oneigh.to_settable
-
-                current_bubble.enqueue new_problem
-                log.debug "Enqueued #{new_problem.to_shorthand}, total nodes now #{current_bubble.num_known_problems}" if log.debug?
-
-                # check to make sure we aren't going overboard in the bubbly-ness
-                if current_bubble.num_known_problems > @assembly_options[:bubble_node_count_limit]
-                  log.debug "Too complex a bubble detected, giving up" if log.debug?
-                  metapath.fate = MetaPath::NODE_COUNT_LIMIT_REACHED
+                if new_problem.ubiquitous_oriented_nodes.include?(oneigh.to_settable)
+                  log.debug "Found circuit within bubble on #{oneigh}, giving up" if log.debug?
+                  metapath.fate = MetaPath::CIRCUIT_WITHIN_BUBBLE_FATE
                   current_mode = :finished
                   break
+                else
+                  new_problem.ubiquitous_oriented_nodes << oneigh.to_settable
+
+                  current_bubble.enqueue new_problem
+                  log.debug "Enqueued #{new_problem.to_shorthand}, total nodes now #{current_bubble.num_known_problems}" if log.debug?
+
+                  # check to make sure we aren't going overboard in the bubbly-ness
+                  if current_bubble.num_known_problems > @assembly_options[:bubble_node_count_limit]
+                    log.debug "Too complex a bubble detected, giving up" if log.debug?
+                    metapath.fate = MetaPath::NODE_COUNT_LIMIT_REACHED
+                    current_mode = :finished
+                    break
+                  end
                 end
               end
             end
@@ -276,6 +283,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
     DEAD_END_FATE = 'dead end'
     CIRCUIT_FATE = 'circuit'
     NODE_COUNT_LIMIT_REACHED = 'too many nodes in bubble'
+    CIRCUIT_WITHIN_BUBBLE_FATE = 'circuit within bubble'
 
     # How does this metapath end?
     attr_accessor :fate
