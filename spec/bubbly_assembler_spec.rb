@@ -251,6 +251,23 @@ describe "BubblyAssembler" do
       GraphTesting.metapath_to_array(metapath).should == [1,[2,4],3,5]
       visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1..5).to_a + [99] #debatable whether 99 should be included here, but eh
     end
+
+    it 'should handle circuits in bubbles' do
+      graph, initial_path, terminal = GraphTesting.emit_ss([
+        [1,2],
+        [2,4],
+        [1,3],
+        [3,4],
+
+        [2,10],
+        [10,2],
+        ], 1, 4)
+      cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
+      cartographer.assembly_options[:max_tip_length] = -1
+      metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+      GraphTesting.metapath_to_array(metapath).should == [1]
+      visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1).to_a
+    end
   end
 
   describe 'assemble' do
