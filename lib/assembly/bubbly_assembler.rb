@@ -235,7 +235,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
 
 
   def remove_seen_nodes_from_end_of_path(path, seen_nodes)
-    log.debug "Removing from the end of the path #{path.to_shorthand} any nodes in #{seen_nodes.to_a.sort}" if log.debug?
+    log.debug "Removing from the end of the path #{path.to_shorthand} any nodes in set of length #{seen_nodes.length}" if log.debug?
 
     node_seen = lambda do |oriented_node|
       seen_nodes.include?([oriented_node.node_id, Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST]) or
