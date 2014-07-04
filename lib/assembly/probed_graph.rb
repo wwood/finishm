@@ -71,9 +71,9 @@ class Bio::FinishM::ProbedGraph
     to_return.probe_node_directions = []
     to_return.probe_node_reads = []
     probe_indices.each do |i|
-      to_return.probe_nodes.push @probe_nodes[i]
-      to_return.probe_node_directions.push @probe_node_directions[i]
-      to_return.probe_node_reads.push @probe_node_reads[i]
+      to_return.probe_nodes.push @probe_nodes[i-1]
+      to_return.probe_node_directions.push @probe_node_directions[i-1]
+      to_return.probe_node_reads.push @probe_node_reads[i-1]
     end
 
     return to_return

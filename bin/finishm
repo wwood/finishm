@@ -80,6 +80,10 @@ subcommands = {
     operator = Bio::FinishM::Sequence.new
     operator.add_options(opts, options)
   end},
+  'roundup' => lambda {OptionParser.new do |opts|
+    operator = Bio::FinishM::Tweaker.new
+    operator.add_options(opts, options)
+  end},
 }
 
 subcommand = nil

@@ -1,4 +1,4 @@
-class Bio::FinishM::Wanderer
+class Bio::FinishM::Tweaker
   include Bio::FinishM::Logging
 
   DEFAULT_OPTIONS = {
@@ -28,7 +28,7 @@ class Bio::FinishM::Wanderer
     options.merge!(DEFAULT_OPTIONS)
 
     optparse_object.separator "\nRequired arguments:\n\n"
-    optparse_object.on("--contigs FILE", Array, "fasta file of single contig containing Ns that are to be closed [required]") do |arg|
+    optparse_object.on("--genomes FASTA_1[,FASTA_2...]", Array, "fasta files of genomes to be improved [required]") do |arg|
       options[:assembly_files] = arg
     end
     optparse_object.on("--output-directory PATH", "Output results to this directory [required]") do |arg|
@@ -84,11 +84,12 @@ class Bio::FinishM::Wanderer
 
     # Gather the probes from each genome supplied
     genomes = []
-    current_probe_number
+    current_probe_number = 1
+    breaker = Bio::FinishM::ScaffoldBreaker.new
     options[:assembly_files].each do |genome_fasta|
       genome = Genome.new
       genome.filename = genome_fasta
-      genome.scaffolds = Bio::FinishM::ScaffoldBreaker.break_scaffolds(genome_fasta)
+      genome.scaffolds = breaker.break_scaffolds(genome_fasta)
 
       genome.generate_numbered_probes(options[:contig_end_length], current_probe_number)
       current_probe_number += genome.number_of_probes
@@ -99,14 +100,15 @@ class Bio::FinishM::Wanderer
     # Generate one velvet assembly to rule them all (forging the assembly is hard work..)
     probe_sequences = genomes.collect{|genome| genome.numbered_probes}.flatten.collect{|probe| probe.sequence}
     # Generate the graph with the probe sequences in it.
+    read_input = Bio::FinishM::ReadInput.new
     read_input.parse_options options
     master_graph = Bio::FinishM::GraphGenerator.new.generate_graph(probe_sequences, read_input, options)
 
-    gapfill_scaffold = lambda do |scaffold|
+    gapfill_scaffold = lambda do |gapfiller, genome, scaffold_index|
       connections = []
-      probe_pairs = scaffold.gap_probe_pairs
-      probe_pairs.each do |probe1, probe2|
-        connections.push gapfiller.gapfill(master_graph, probe1.number, probe2.number)
+      genome.each_gap_probe_pair(scaffold_index) do |probe1, probe2|
+        log.debug "Gapfilling between probes #{probe1.number} and #{probe2.number}.."
+        connections.push gapfiller.gapfill(master_graph, probe1.index, probe2.index, options)
       end
       connections
     end
@@ -114,25 +116,63 @@ class Bio::FinishM::Wanderer
     # For each genome, wander, gapfill, then output
     wanderer = Bio::FinishM::Wanderer.new
     gapfiller = Bio::FinishM::GapFiller.new
+    printer = Bio::AssemblyGraphAlgorithms::ContigPrinter.new
     genomes.each do |genome|
       # wander using just the probes on the ends of the scaffolds
       connected_scaffolds = wander_a_genome(wanderer, genome, master_graph, options)
 
-      # gapfill between
-      # (1) interpreted_connections
-      # (2) gaps that were present before above wander
-      connections = []
-      connected_scaffolds.each do |cross_scaffold_connection|
-        # Gapfill contigs within the scaffold on the extreme LHS
-        connections.push gapfill_scaffold.call(scaffold)
 
-        scaffold.gaps.each_with_index do |gap, i|
-          # Gapfill across the new gap between scaffolds
-          gapfiller.gapfill(master_graph, scaff)
+      File.open(File.join(output_directory, File.basename(genome.filename)+".scaffolds.fasta"), 'w') do |output_file|
+        # gapfill between
+        # (1) interpreted_connections
+        # (2) gaps that were present before above wander
+        connected_scaffolds.each_with_index do |cross_scaffold_connection, connected_scaffold_index|
+          first_scaffold_index = cross_scaffold_connection.contigs[0].sequence_index
+          first_scaffold = genome.scaffolds[first_scaffold_index]
+          scaffold_sequence = first_scaffold.contigs[0].sequence
 
-          # Gapfill within the scaffold on the RHS of the new gap
-          second_scaffold = scaffold.contigs[i+1]
-          connections.push gapfill_scaffold.call(second_scaffold)
+          # Gapfill contigs within the scaffold on the extreme LHS
+          connections = gapfill_scaffold.call(gapfiller, genome, first_scaffold_index)
+          connections.each_with_index do |aconn, i|
+            scaffold_sequence = printer.one_connection_between_two_contigs(
+              master_graph.graph, scaffold_sequence, aconn, first_scaffold.contigs[i+1].sequence
+              )
+          end
+
+          last_contig_index = nil
+          cross_scaffold_connection.contigs.each_with_index do |contig,i|
+            unless last_contig_index.nil? #skip the first contig - it be done
+              # Gapfill across the new gap between scaffolds
+              aconn = gapfiller.gapfill(master_graph,
+                genome.last_probe(last_contig_index).index,
+                genome.first_probe(contig.sequence_index).index,
+                options
+                )
+              scaffold_sequence = printer.one_connection_between_two_contigs(
+                master_graph.graph,
+                scaffold_sequence,
+                aconn,
+                genome.scaffolds[contig.sequence_index].contigs[0].sequence
+                )
+
+              # Gapfill within the scaffold on the RHS of the new gap
+              second_scaffold_index = cross_scaffold_connection.contigs[i].sequence_index
+              connections = gapfill_scaffold.call(gapfiller, genome, second_scaffold_index)
+              connections.each_with_index do |aconn, i|
+                scaffold_sequence = printer.one_connection_between_two_contigs(
+                  master_graph.graph, scaffold_sequence, aconn, genome.scaffolds[cross_scaffold_connection.contigs[i].sequence_index].contigs[i+1].sequence
+                  )
+              end
+            end
+            last_contig_index = contig.sequence_index
+          end
+
+          #Output the scaffold to the output directory
+          scaffold_names = cross_scaffold_connection.contigs.collect do |contig|
+            genome.scaffolds[contig.sequence_index].name
+          end
+          output_file.puts ">scaffold#{connected_scaffold_index+1} #{scaffold_names.join(':') }"
+          output_file.puts scaffold_sequence
         end
       end
     end
@@ -163,12 +203,12 @@ class Bio::FinishM::Wanderer
   def wander_a_genome(wanderer, genome, master_probed_graph, options)
     # Create new finishm_graph with only probes from the ends of the scaffolds of this genome
     probe_indices = []
-    genome.each_numbered_probe{|probe| probe_indices.push(probe.number)}
-    genome_graph = master_graph.subgraph(probe_indices)
+    genome.each_scaffold_end_numbered_probe{|probe| probe_indices.push(probe.number)}
+    genome_graph = master_probed_graph.subgraph(probe_indices)
 
     num_scaffolds = genome.scaffolds.length
 
-    all_connections = wanderer.probed_graph_to_connections(genome_graph, scaffold_sequences, options)
+    all_connections = wanderer.probed_graph_to_connections(genome_graph, options)
 
     interpreter = Bio::FinishM::ConnectionInterpreter.new(all_connections, (0...num_scaffolds))
     connections = interpreter.doubly_single_contig_connections
@@ -179,6 +219,7 @@ class Bio::FinishM::Wanderer
 
   class Genome
     attr_accessor :scaffolds, :filename, :numbered_probes
+    include Bio::FinishM::Logging
 
     def generate_numbered_probes(overhang, starting_probe_number)
       @numbered_probes = []
@@ -199,14 +240,14 @@ class Bio::FinishM::Wanderer
             probe1.contig = contig
             probe1.number = current_probe_number; current_probe_number += 1
             probe1.side = :start
-            fwd2 = Bio::Sequence::NA.new(sequence[0...options[:contig_end_length]])
+            fwd2 = Bio::Sequence::NA.new(sequence[0..overhang])
             probe1.sequence = fwd2.reverse_complement.to_s
 
             probe2 = NumberedProbe.new
             probe2.contig = contig
             probe2.number = current_probe_number; current_probe_number += 1
             probe2.side = :end
-            probe2.sequence = sequence[(sequence.length-options[:contig_end_length])...sequence.length]
+            probe2.sequence = sequence[(sequence.length-overhang)...sequence.length]
 
             @numbered_probes[scaffold_index] ||= []
             @numbered_probes[scaffold_index][contig_index] = [probe1, probe2]
@@ -229,6 +270,32 @@ class Bio::FinishM::Wanderer
       end
     end
 
+    def each_gap_probe_pair(scaffold_index)
+      last_probe_pair = nil
+      @numbered_probes[scaffold_index].each do |probe_pair|
+        unless last_probe_pair.nil?
+          yield last_probe_pair[1], probe_pair[0]
+        end
+        last_probe_pair = probe_pair
+      end
+    end
+
+    def each_scaffold_end_numbered_probe
+      @numbered_probes.each do |scaffold_indices|
+        # yield the first and last probe
+        yield scaffold_indices[0][0]
+        yield scaffold_indices[-1][1]
+      end
+    end
+
+    def first_probe(scaffold_index)
+      @numbered_probes[scaffold_index][0][0]
+    end
+
+    def last_probe(scaffold_index)
+      @numbered_probes[scaffold_index][-1][1]
+    end
+
     # Return true if probe number given is the probe at the beginning of the scaffold
     # or false if it is at the end. raise if unknown.
     def probe_at_start_of_scaffold?(probe_index)
@@ -245,5 +312,9 @@ class Bio::FinishM::Wanderer
 
   class NumberedProbe
     attr_accessor :number, :contig, :side, :sequence
+
+    def index
+      @number - 1
+    end
   end
 end

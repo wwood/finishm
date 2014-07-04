@@ -153,7 +153,7 @@ class Bio::FinishM::Wanderer
     finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph(probe_sequences, read_input, options)
 
     log.info "Finding possible connections with recoherence kmer of #{options[:recoherence_kmer] }"
-    all_connections = probed_graph_to_connections(finishm_graph, contig_sequences, options)
+    all_connections = probed_graph_to_connections(finishm_graph, options)
     log.debug "Finished actual wandering, found #{all_connections.length} connections" if log.debug?
 
     # Determine scaffolding connections
@@ -222,7 +222,7 @@ class Bio::FinishM::Wanderer
   # instance of Bio::FinishM::ConnectionInterpreter::Scaffold. Required options:
   # * :graph_search_leash_length
   # * :recoherence_kmer
-  def probed_graph_to_connections(finishm_graph, contig_sequences, options)
+  def probed_graph_to_connections(finishm_graph, options)
     # Loop over the ends, trying to make connections from each one
     cartographer = Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer.new
 
