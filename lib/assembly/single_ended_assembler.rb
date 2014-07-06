@@ -85,6 +85,8 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
       remove_seen_nodes_from_end_of_path(path, seen_nodes)
       log.debug "After removing already seen nodes the second time, path was #{path.length} nodes long" if log.debug?
 
+      binding.pry if path.to_shorthand == '{17357e,205084s|17357e,171578s,74459s,138588e,99112s,511908e,493049s},163748s,905s,906s,430126s,169125e,169124e'
+
       # Add the now seen nodes to the list
       just_visited_onodes.each do |onode_settable|
         seen_nodes << onode_settable

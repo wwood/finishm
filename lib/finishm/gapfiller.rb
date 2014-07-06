@@ -93,11 +93,13 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
     log.info "Detected #{gaps.length} gap(s) from #{scaffolds.length} different contig(s). #{num_without_gaps } contig(s) were gap-free."
 
     # Create probe sequences
-    probe_sequences = gaps.collect do |gap|
+    probe_sequences = []
+    gaps.each do |gap|
       sequence = gap.scaffold.sequence
 
       if gap.start < options[:contig_end_length] or gap.stop > sequence.length - options[:contig_end_length]
-        log.warn "Found a gap that was too close to the end of a contig - you might have problems: #{gap.coords}"
+        log.warn "Found a gap that was too close to the end of a contig, skipping it: #{gap.coords}"
+        next
       end
 
       log.debug "Processing gap number #{gap.number}, #{gap.coords}"
@@ -117,10 +119,12 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
         ]
       #TODO: this could probably be handled better.. e.g. if the amount of sequence is too small, just throw it out and make one big gap
       if probes[0].match(/N/i) or probes[1].match(/N/i)
-        log.warn "Noticed gap that was too close together, not sure if things will work out for #{gap.coords}"
+        log.warn "Noticed gap that was too close together, skipping: #{gap.coords}"
+        next
       end
-      probes
-    end.flatten
+      probe_sequences.push probes[0]
+      probe_sequences.push probes[1]
+    end
     log.debug "Generated #{probe_sequences.length} probes e.g. #{probe_sequences[0] }"
 
 

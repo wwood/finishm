@@ -268,6 +268,26 @@ describe "BubblyAssembler" do
       GraphTesting.metapath_to_array(metapath).should == [1]
       visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1]
     end
+
+    it 'should not die on bubbles that have circuits around the converging node' do
+      graph, initial_path, terminal = GraphTesting.emit_ss([
+        [1,20],
+        [20,21],
+        [21,4],
+        [1,5],
+        [5,4],
+        [4,3],
+        [3,5],
+        ], 1, 4)
+      cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
+      cartographer.assembly_options[:max_tip_length] = -1
+      graph.nodes[20].ends_of_kmers_of_node = 'T'*100 #make this long so the circuit is discovered first
+      binding.pry
+      metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+      metapath.reference_trail.to_shorthand.should == '1s'
+      GraphTesting.metapath_to_array(metapath).should == [1]
+      visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1]
+    end
   end
 
   describe 'assemble' do
@@ -381,6 +401,57 @@ describe "BubblyAssembler" do
       GraphTesting.metapaths_to_arrays(metapaths).should == [
         [211,11,[12,13],4,1,2,3,[21,22],23,123]
         ] #known bug
+    end
+
+    it 'should handle reverse circuits in bubbles' do
+      graph, initial_path, terminal = GraphTesting.emit_ss([
+        [1,2],
+        [2,4],
+        [1,3],
+        [3,4],
+
+        [10,1],
+        [11,1],
+        [9,10],
+        [9,11],
+
+        [99,10],
+        [10,99],
+        ], 1, 4)
+      cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
+      cartographer.assembly_options[:max_tip_length] = -1
+      cartographer.assembly_options[:min_contig_size] = -1
+      metapaths = cartographer.assemble
+      GraphTesting.metapaths_to_arrays(metapaths).should == [
+        [1,[2,3],4]
+        ]#incorrect test?
+      visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1]
+    end
+
+
+    it 'should handle reverse circuit bubbles at the end of in bubbles' do
+      graph, initial_path, terminal = GraphTesting.emit_ss([
+        [1,2],
+        [2,4],
+        [1,3],
+        [3,4],
+
+        [10,1],
+        [11,1],
+        [9,10],
+        [9,11],
+
+        [99,10],
+        [10,99],
+        ], 1, 4)
+      cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
+      cartographer.assembly_options[:max_tip_length] = -1
+      cartographer.assembly_options[:min_contig_size] = -1
+      metapaths = cartographer.assemble
+      GraphTesting.metapaths_to_arrays(metapaths).should == [
+        [1,[2,3],4]
+        ]#incorrect test?
+      visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1]
     end
 
     it 'should be able to assemble several contigs' do
