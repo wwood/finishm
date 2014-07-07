@@ -236,7 +236,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
   def seen_last_in_path?(path, seen_nodes)
     last = path[-1]
     if last.kind_of?(Bubble)
-      return remove_seen_nodes_from_end_of_path(path.copy, seen_nodes).length < path.length
+      return remove_seen_nodes_from_end_of_path(path, seen_nodes).length < path.length
     else
       return seen_nodes.include?(path[-1].to_settable)
     end
