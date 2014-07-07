@@ -48,6 +48,8 @@ class Bio::FinishM::GraphGenerator
   # :use_textual_sequence_file: by default, a binary sequence file is used. Set this true to get velvet to generate the Sequences file
   # :remove_unconnected_nodes: delete nodes from the graph that are not connected to the probe nodes
   # :graph_search_leash_length: when :remove_unconnected_nodes'ing, use this leash length
+  # :dont_parse_noded_reads: if true, skip parsing noded reads
+  # :dont_parse_reads: if true, skip parsing reads
   def generate_graph(probe_sequences, read_inputs, options={})
     options[:parse_sequence_file] ||= true
     graph = nil
@@ -114,30 +116,34 @@ class Bio::FinishM::GraphGenerator
     end
 
     # Check that the probe reads given are present in the assembly passed here
-    sequence_store = parse_velvet_binary_reads(velvet_result.result_directory)
-    finishm_graph.velvet_sequences = sequence_store
-    if !check_probe_sequences(probe_sequences, sequence_store)
-      raise "Probe sequences changed since previous velvet assembly!"
+    unless options[:dont_parse_reads]
+      sequence_store = parse_velvet_binary_reads(velvet_result.result_directory)
+      finishm_graph.velvet_sequences = sequence_store
+      if !check_probe_sequences(probe_sequences, sequence_store)
+        raise "Probe sequences changed since previous velvet assembly!"
+      end
     end
 
     log.info "Parsing the graph output from velvet"
-    opts = {}
-    unless options[:parse_all_noded_reads]
-      #Ignore parsing reads that are not probes, as we don't care and this just takes up extra computational resources
-      opts[:dont_parse_noded_reads] = true
-    end
+    opts = {
+      :dont_parse_noded_reads => true #Ignore parsing reads that are not probes, as we don't care and this just takes up extra computational resources
+    }
     bio_velvet_graph = Bio::Velvet::Graph.parse_from_file(
       File.join(velvet_result.result_directory, 'LastGraph'),
       opts
       )
     log.info "Finished parsing graph: found #{bio_velvet_graph.nodes.length} nodes and #{bio_velvet_graph.arcs.length} arcs"
 
-    log.info "Beginning parse of graph using velvet's parsing C code.."
-    read_probing_graph = Bio::Velvet::Underground::Graph.parse_from_file File.join(velvet_result.result_directory, 'LastGraph')
-    log.info "Completed velvet code parsing velvet graph"
+    if options[:dont_parse_noded_reads]
+      graph = bio_velvet_graph
+    else
+      log.info "Beginning parse of graph using velvet's parsing C code.."
+      read_probing_graph = Bio::Velvet::Underground::Graph.parse_from_file File.join(velvet_result.result_directory, 'LastGraph')
+      log.info "Completed velvet code parsing velvet graph"
 
-    # Make the two graphs into a hybrid one
-    graph = Bio::FinishM::HybridGraph.new(bio_velvet_graph, read_probing_graph)
+      # Make the two graphs into a hybrid one
+      graph = Bio::FinishM::HybridGraph.new(bio_velvet_graph, read_probing_graph)
+    end
 
     # Find the anchor nodes again
     anchor_sequence_ids = probe_read_ids.to_a.sort

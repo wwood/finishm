@@ -13,37 +13,6 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
   #
   # Returns a Hash of [node, first_side] => distance
   def min_distances(graph, initial_oriented_node, options={})
-    distances1 = min_distances_one_way(graph, initial_oriented_node, options)
-
-    if options[:ignore_directions]
-      onode2 = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
-      onode2.node = initial_oriented_node.node
-      if initial_oriented_node.first_side == Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
-        onode2.first_side = Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST
-      elsif initial_oriented_node.first_side == Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST
-        onode2.first_side = Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
-      else
-        binding.pry
-        raise "programming error: unexpected oriented node first_side: #{initial_oriented_node}"
-      end
-      distances2 = min_distances_one_way(graph, onode2, options)
-
-      distances2.each do |node_dir, distance|
-        if distances1[node_dir]
-          if distances1[node_dir] > distance
-            distances1[node_dir] = distance
-          end
-        else
-          distances1[node_dir] = distance
-        end
-      end
-    end
-
-    return distances1
-  end
-
-  private
-  def min_distances_one_way(graph, initial_oriented_node, options={})
     pqueue = DS::AnyPriorityQueue.new {|a,b| a < b}
     first = DistancedOrientedNode.new
     first.node = initial_oriented_node.node
@@ -89,6 +58,15 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
             distanced_node.distance = new_distance
             to_return[onode.to_settable] = new_distance
             pqueue.push distanced_node, new_distance
+
+            if options[:ignore_directions]
+              reverse = DistancedOrientedNode.new
+              reverse.node = onode.node
+              reverse.first_side = onode.reverse.first_side
+              reverse.distance = new_distance
+              to_return[onode.to_settable] = new_distance
+              pqueue.push reverse, new_distance
+            end
           end
         end
       end

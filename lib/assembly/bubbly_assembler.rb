@@ -20,13 +20,13 @@ end
 class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
   include Bio::FinishM::Logging
 
-  DEFAULT_LEASH_LENGTH = 500
+  DEFAULT_MAX_BUBBLE_LENGTH = 500
   DEFAULT_BUBBLE_NODE_COUNT_LIMIT = 20 #so, so very 'un-educated' guess
 
   def initialize(graph, assembly_options={})
     opts = assembly_options
-    opts[:leash_length] = DEFAULT_LEASH_LENGTH
-    opts[:bubble_node_count_limit] = DEFAULT_BUBBLE_NODE_COUNT_LIMIT
+    opts[:max_bubble_length] ||= DEFAULT_MAX_BUBBLE_LENGTH
+    opts[:bubble_node_count_limit] ||= DEFAULT_BUBBLE_NODE_COUNT_LIMIT
     super graph, opts
   end
 
@@ -37,7 +37,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
   # Return an Array of Path arrays, a MetaPath, where each path array are the different paths
   # that can be taken at each fork point
   def assemble_from(starting_path, visited_nodes=Set.new)
-    leash_length = @assembly_options[:leash_length]
+    leash_length = @assembly_options[:max_bubble_length]
     current_bubble = nil
 
     metapath = MetaPath.new
@@ -155,7 +155,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
             # The current bubble doesn't converge, don't add it to the metapath
             metapath.fate = MetaPath::DIVERGES_FATE
             current_mode = :finished
-            log.debug "Bubble is past the leash length, giving up" if log.debug?
+            log.debug "Bubble is past the leash length of #{leash_length}, giving up" if log.debug?
             break
           elsif current_bubble.convergent_on?(problem)
             log.debug "Bubble #{current_bubble.to_shorthand} convergent on #{problem.to_shorthand}" if log.debug?

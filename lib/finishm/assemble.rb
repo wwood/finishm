@@ -13,6 +13,7 @@ class Bio::FinishM::Assembler
       :min_contig_size => 500,
       :bubbly => false,
       :leash_length => 500,
+      :max_bubble_length => Bio::AssemblyGraphAlgorithms::BubblyAssembler::DEFAULT_MAX_BUBBLE_LENGTH,
     })
 
     optparse_object.separator "\nRequired arguments:\n\n"
@@ -34,6 +35,9 @@ class Bio::FinishM::Assembler
     end
     optparse_object.on("--bubbly", "Assemble with the bubbly method [default: #{options[:bubbly] }]") do
       options[:bubbly] = true
+    end
+    optparse_object.on("--max-bubble-size NUM", Integer, "Max bubble size available for bubbly method [default: #{options[:max_bubble_length] }]") do |arg|
+      options[:max_bubble_length] = arg
     end
     optparse_object.on("--output-pathspec", "Give the sequence of nodes used in the path in the output contig file [default: #{options[:output_pathspec] }]") do
       options[:output_pathspec] = true
@@ -102,6 +106,7 @@ class Bio::FinishM::Assembler
       :min_contig_size,
       :min_coverage_of_start_nodes,
       :leash_length,
+      :max_bubble_length,
       ].each do |opt|
         assembler.assembly_options[opt] = options[opt]
       end

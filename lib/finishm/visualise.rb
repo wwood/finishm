@@ -126,7 +126,6 @@ class Bio::FinishM::Visualiser
         end
         options[:probe_reads] = options[:interesting_probes]
       end
-      options[:remove_unconnected_nodes] = true
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
 
       # Output probe map if asked
@@ -167,25 +166,35 @@ class Bio::FinishM::Visualiser
       else
         log.info "Targeting #{options[:interesting_nodes].length} node(s) #{options[:interesting_nodes].inspect}"
       end
+      options[:dont_parse_noded_reads] = true
+      options[:dont_parse_reads] = true
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
 
-      log.info "Removing unconnected nodes.."
-      filter = Bio::AssemblyGraphAlgorithms::ConnectivityBasedGraphFilter.new
-      interesting_nodes = []
-      options[:interesting_nodes].collect do |node_id|
-        node  = finishm_graph.graph.nodes[node_id]
-        raise "Unable to locate node #{node_id}" if node.nil?
-        interesting_nodes.push node
+      log.info "Finding nodes within the leash length of #{options[:graph_search_leash_length] }.."
+      dijkstra = Bio::AssemblyGraphAlgorithms::Dijkstra.new
+      nodes_within_leash = Set.new
+      options[:interesting_nodes].each do |node|
+        [
+          Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST,
+          Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST,
+          ].each do |direction|
+            onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(finishm_graph.graph.nodes[node], direction)
+            min_distances = dijkstra.min_distances(finishm_graph.graph, onode, {
+              :leash_length => options[:graph_search_leash_length],
+              :ignore_directions => true,
+              })
+            min_distances.each do |node_direction, distance|
+              nodes_within_leash << finishm_graph.graph.nodes[node_direction[0]]
+            end
+          end
       end
-      filter.remove_unconnected_nodes(
-        finishm_graph.graph,
-        interesting_nodes,
-        :leash_length => options[:graph_search_leash_length]
-        )
+      log.info "Found #{nodes_within_leash.length} nodes within the leash length"
 
       log.info "Converting assembly to a graphviz"
-      gv = viser.graphviz(finishm_graph.graph, {:start_node_ids => options[:interesting_nodes]})
-
+      gv = viser.graphviz(finishm_graph.graph, {
+        :start_node_ids => options[:interesting_nodes],
+        :nodes => nodes_within_leash,
+        })
     else
       # Visualising the entire graph
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)

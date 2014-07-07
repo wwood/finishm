@@ -26,16 +26,21 @@ module Bio
       # :end_node_ids:array of node IDs to mark as a end
       # :coverage_cutoff: ignore nodes with less coverage than this cutoff
       # :digraph: output as a digraph (default true, else output undirected graph)
+      # :nodes: an Enumerable of nodes to be visualised.
       def graphviz(graph, options={})
         opts = {}
         opts[:type] = :digraph unless options[:digraph] == false
         opts[:overlap] = :scale
         graphviz = GraphViz.new(:G, opts)
 
+        nodes_to_explore = options[:nodes]
+        nodes_to_explore ||= graph.nodes
+
         # Add all the nodes
         blacklisted_node_ids = Set.new
         log.debug "Converting nodes to GraphViz format"
-        graph.nodes.each do |node|
+        nodes_to_explore.each do |node|
+          binding.pry if node.nil?
           cov = node.coverage
           if options[:coverage_cutoff] and cov < options[:coverage_cutoff] and !cov.nil?
             blacklisted_node_ids.add node.node_id
@@ -78,8 +83,17 @@ module Bio
         end
 
         # Add all the edges
-        log.debug "Converting edges to GraphViz format"
-        graph.arcs.each do |arc|
+        arcs_of_interest = graph.arcs
+        if options[:nodes]
+          arcs_of_interest = Set.new
+          nodes_to_explore.each do |node|
+            graph.arcs.get_arcs_by_node_id(node.node_id).each do |arc|
+              arcs_of_interest << arc
+            end
+          end
+        end
+        log.info "Converting #{arcs_of_interest.length} arcs to GraphViz format"
+        arcs_of_interest.each do |arc|
           # Add unless the node has been blacklisted
           unless blacklisted_node_ids.include? arc.begin_node_id or
             blacklisted_node_ids.include? arc.end_node_id
