@@ -67,10 +67,6 @@ class Bio::FinishM::ScaffoldBreaker
       end
       return to_return.join
     end
-
-    def probes(overhang_length)
-
-    end
   end
 
   class Gap

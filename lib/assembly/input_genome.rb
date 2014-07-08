@@ -26,8 +26,36 @@ class Bio::FinishM::InputGenome
     starting_probe_number ||= 1
 
     @filename = genome_fasta
-    @scaffolds = Bio::FinishM::ScaffoldBreaker.new.break_scaffolds(genome_fasta)
+    scaffolds = Bio::FinishM::ScaffoldBreaker.new.break_scaffolds(genome_fasta)
+    @scaffolds = remove_overly_short_contigs!(scaffolds, hangover_length)
+
+    # Remove scaffolds that have no good
+    num_too_short_scaffolds = 0
+    @scaffolds.reject! do |scaff|
+      rej = scaff.contigs.empty?
+      num_too_short_scaffolds += 1 if rej
+      rej
+    end
+    if num_too_short_scaffolds > 0
+      log.warn "Removed #{num_too_short_scaffolds} scaffolds entirely as they were too short (or made up of all short contigs)"
+    end
+
     generate_numbered_probes(hangover_length, starting_probe_number)
+  end
+
+  def remove_overly_short_contigs!(scaffolds, hangover_length)
+    num_contigs_removed = 0
+    scaffolds.each do |scaffold|
+      num_original_contigs = scaffold.contigs.length
+      scaffold.contigs.reject! do |contig|
+        contig.length < 2*hangover_length
+      end
+      num_contigs_removed += num_original_contigs - scaffold.contigs.length
+    end
+    if num_contigs_removed > 0
+      log.warn "Removed #{num_contigs_removed} contigs from within scaffolds as they were too short"
+    end
+    return scaffolds
   end
 
   def generate_numbered_probes(overhang, starting_probe_number)
@@ -56,7 +84,7 @@ class Bio::FinishM::InputGenome
           probe2.contig = contig
           probe2.number = current_probe_number; current_probe_number += 1
           probe2.side = :end
-          probe2.sequence = sequence[(sequence.length-overhang)...sequence.length]
+          probe2.sequence = sequence[(sequence.length-overhang)...sequence.length].to_s
 
           @numbered_probes[scaffold_index] ||= []
           @numbered_probes[scaffold_index][contig_index] = [probe1, probe2]
@@ -67,6 +95,9 @@ class Bio::FinishM::InputGenome
       end
     end
     log.debug "Generated #{current_probe_number-starting_probe_number} probes for #{@filename}" if log.debug?
+    if overly_short_sequence_count > 0
+      log.warn "Skipping #{overly_short_sequence_count} overly short contigs" if log.warn?
+    end
   end
 
   def number_of_probes
@@ -82,16 +113,18 @@ class Bio::FinishM::InputGenome
   def each_gap_probe_pair(scaffold_index)
     last_probe_pair = nil
     @numbered_probes[scaffold_index].each do |probe_pair|
-      unless last_probe_pair.nil?
-        yield last_probe_pair[1], probe_pair[0]
+      unless probe_pair.nil?
+        unless last_probe_pair.nil?
+          yield last_probe_pair[1], probe_pair[0]
+        end
+        last_probe_pair = probe_pair
       end
-      last_probe_pair = probe_pair
     end
   end
 
   def each_scaffold_end_numbered_probe
-    @numbered_probes.each do |scaffold_indices|
-      # yield the first and last probe
+    @numbered_probes.each_with_index do |scaffold_indices, i|
+      # yield the first and last probe of this scaffold
       yield scaffold_indices[0][0]
       yield scaffold_indices[-1][1]
     end
@@ -116,6 +149,16 @@ class Bio::FinishM::InputGenome
     else
       raise
     end
+  end
+
+  def probe_sequences
+    seqs = []
+    each_numbered_probe do |probe|
+      unless probe.nil?
+        seqs.push probe.sequence
+      end
+    end
+    return seqs
   end
 end
 

@@ -90,7 +90,7 @@ class Bio::FinishM::Tweaker
       )
 
     # Generate one velvet assembly to rule them all (forging the assembly is hard work..)
-    probe_sequences = genomes.collect{|genome| genome.numbered_probes}.flatten.collect{|probe| probe.sequence}
+    probe_sequences = genomes.collect{|genome| genome.probe_sequences}.flatten
     # Generate the graph with the probe sequences in it.
     read_input = Bio::FinishM::ReadInput.new
     read_input.parse_options options
