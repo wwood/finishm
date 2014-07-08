@@ -91,7 +91,7 @@ class Bio::FinishM::ScaffoldBreaker
   # contig information therein.
   def break_scaffolds(contigs_filename)
     scaffolds = []
-    Bio::FlatFile.foreach(contigs_filename) do |seq|
+    Bio::FlatFile.foreach(Bio::FastaFormat, contigs_filename) do |seq|
       scaffold = Scaffold.new
       scaffold.name = seq.definition
 

@@ -19,9 +19,6 @@ module Bio
         # The identifiers of the probe reads in the velvet assembly graph
         attr_accessor :start_probe_noded_read, :end_probe_noded_read
 
-        # The nodes in the graph that contain the start_probe_read_id and end_probe_read_id
-        attr_accessor :start_probe_node, :end_probe_node
-
         # number of nucleotides between the start of the start probe read and the start of the end of the contig
         attr_accessor :start_probe_contig_offset
 
@@ -78,7 +75,13 @@ module Bio
         log.debug "Working with anchored_connection: #{anchored_connection.inspect}" if log.debug?
 
         # Stage1 - contig1 before the path begins
-        to_return = contig1[0...-(anchored_connection.start_probe_contig_offset)]
+        to_return = nil
+        if anchored_connection.start_probe_contig_offset == 0
+          # 0 is a special case because negative 0 doesn't make sense
+          to_return = contig1
+        else
+          to_return = contig1[0...-(anchored_connection.start_probe_contig_offset)]
+        end
         log.debug "After first chunk of sequence added, sequence is #{to_return.length}bp long" if log.debug?
 
         # Stage2 - path sequence, beginning and ending with
@@ -89,40 +92,45 @@ module Bio
             raise "Found multiple paths - can't (yet?) handle this" unless path.nil?
             path = pat
           end
+          path_sequence = path.sequence
+          log.debug "Path has a sequence length #{path_sequence.length}" if log.debug?
 
           # Find start index
-          begin_node = anchored_connection.start_probe_node
+          begin_onode = path[0]
           begin_noded_read = anchored_connection.start_probe_noded_read
           raise if begin_noded_read.nil?
           if begin_noded_read.start_coord != 0
-            log.error "Unexpectedly the start of the begin probe not did not form part of the path, possibly indicating misassembly and use of untested code: #{begin_noded_read.inspect}"
-            log.error "Anchored connection was: #{anchored_connection.inspect}"
-            raise "some kind of error"
-            #   to_return += contig1[-(anchored_connection.start_probe_contig_offset)...-(anchored_connection.start_probe_contig_offset+1)]
+            raise "Unexpectedly the start of the start probe not did not form part of the path"
           end
-          offset_of_begin_probe_on_path = begin_noded_read.offset_from_start_of_node
+          offset_of_begin_probe_on_path = nil
+          # xor read direction on node, and node direction on path
+          if (begin_noded_read.direction == true) ^ begin_onode.starts_at_start?
+            offset_of_begin_probe_on_path = begin_onode.node.corresponding_contig_length - begin_noded_read.offset_from_start_of_node
+          else
+            offset_of_begin_probe_on_path = begin_noded_read.offset_from_start_of_node
+          end
 
           # Find end index
-          end_node = anchored_connection.end_probe_node
+          end_onode = path[-1]
           end_noded_read = anchored_connection.end_probe_noded_read
           raise if end_noded_read.nil?
           if end_noded_read.start_coord != 0
-            log.error "Unexpectedly the start of the begin probe not did not form part of the path, possibly indicating misassembly and use of untested code: #{end_noded_read.inspect}"
-            log.error "Anchored connection was: #{anchored_connection.inspect}"
-            raise "some kind of error"
+            raise "Unexpectedly the end of the end probe not did not form part of the path"
           end
-          offset_of_end_node_on_path = end_noded_read.offset_from_start_of_node
+          offset_of_end_node_on_path = path[0...-1].reduce(0){|sum, onode| sum += onode.node.length_alone}
+          if (end_noded_read.direction == false) ^ end_onode.starts_at_start?
+            offset_of_end_node_on_path += end_noded_read.offset_from_start_of_node
+          else
+            offset_of_end_node_on_path += end_onode.node.corresponding_contig_length - end_noded_read.offset_from_start_of_node
+          end
 
           log.debug "Found start index #{offset_of_begin_probe_on_path} and end index #{offset_of_end_node_on_path}" if log.debug?
-          path_sequence = path.sequence
-          log.debug "Path has a sequence length #{path_sequence.length}" if log.debug?
-          log.debug "Returned path sequence will be #{path_sequence.length-offset_of_begin_probe_on_path-offset_of_end_node_on_path} long" if log.debug?
-          to_return += path_sequence[offset_of_begin_probe_on_path...-(offset_of_end_node_on_path)]
+          to_return += path_sequence[offset_of_begin_probe_on_path...offset_of_end_node_on_path]
           log.debug "After path chunk of sequence added, sequence is #{to_return.length}bp long" if log.debug?
         end #end stage 2
 
         # Stage 3
-        to_return += contig2[(anchored_connection.end_probe_contig_offset+1)..-1]
+        to_return += contig2[anchored_connection.end_probe_contig_offset..-1]
         log.debug "After last chunk of sequence added, sequence is #{to_return.length}bp long" if log.debug?
 
         return to_return

@@ -75,6 +75,13 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
 
   def run(options, argv)
     # Read in all the contigs sequences and work out where the gaps are
+    genome = Bio::FinishM::InputGenome.new(
+      options[:contigs_file],
+      options[:contig_end_length],
+      options
+      )
+
+
     scaffolds = Bio::FinishM::ScaffoldBreaker.new.break_scaffolds(options[:contigs_file])
     gaps = []
     output_fasta_file = File.open(options[:overall_fasta_file],'w')
@@ -305,8 +312,6 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
     end
 
     acon = Bio::AssemblyGraphAlgorithms::ContigPrinter::AnchoredConnection.new
-    acon.start_probe_node = finishm_graph.probe_nodes[probe_index1]
-    acon.end_probe_node = finishm_graph.probe_nodes[probe_index2]
     acon.start_probe_noded_read = finishm_graph.probe_node_reads[probe_index1]
     acon.end_probe_noded_read = finishm_graph.probe_node_reads[probe_index2]
     acon.start_probe_contig_offset = options[:contig_end_length]

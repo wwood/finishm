@@ -99,10 +99,8 @@ describe "ContigPrinter" do
       graph = Bio::Velvet::Graph.parse_from_file(File.join TEST_DATA_DIR, 'contig_printer','1','seq.fa.velvet','LastGraph')
       graph.nodes.length.should == 13
       acon = Bio::AssemblyGraphAlgorithms::ContigPrinter::AnchoredConnection.new
-      acon.start_probe_read_id = 161 #Found these by using bwa and inspecting the Sequence velvet file
-      acon.end_probe_read_id = 1045
-      acon.start_probe_node = graph.nodes[9]
-      acon.end_probe_node = graph.nodes[4]
+      acon.start_probe_noded_read = graph.nodes[9].short_reads.select{|nr| nr.read_id == 161}[0] #Found these by using bwa and inspecting the Sequence velvet file
+      acon.end_probe_noded_read = graph.nodes[4].short_reads.select{|nr| nr.read_id == 1045}[0]
       acon.start_probe_contig_offset = 0
       acon.end_probe_contig_offset = 0
       acon.paths = [
@@ -121,71 +119,63 @@ describe "ContigPrinter" do
       graph = Bio::Velvet::Graph.parse_from_file(File.join TEST_DATA_DIR, 'contig_printer','1','seq.fa.velvet','LastGraph')
       graph.nodes.length.should == 13
       acon = Bio::AssemblyGraphAlgorithms::ContigPrinter::AnchoredConnection.new
-      acon.start_probe_read_id = 161 #Found these by using bwa and inspecting the Sequence velvet file
-      acon.end_probe_read_id = 1045
-      acon.start_probe_node = graph.nodes[9]
-      acon.end_probe_node = graph.nodes[4]
-      acon.start_probe_contig_offset = 2
-      acon.end_probe_contig_offset = 3
-      acon.paths = [
-        GraphTesting.make_onodes(graph, %w(9s 12s 7e 13s 5e 11e 2s 10s 4e))
-        ]
-      expected = '123'+
-        File.open(File.join TEST_DATA_DIR, 'contig_printer','1','seq2_1to550.fa').readlines[1].strip.gsub(/..$/,'') +
-        '90'
-      observed = Bio::AssemblyGraphAlgorithms::ContigPrinter.new.one_connection_between_two_contigs(
-        graph,'12345',acon,'67890'
-        )
-      observed.should == expected
-    end
-
-    it 'should handle reads not starting at the start of the node' do
-      graph = Bio::Velvet::Graph.parse_from_file(File.join TEST_DATA_DIR, 'contig_printer','1','seq.fa.velvet','LastGraph')
-      graph.nodes.length.should == 13
-      acon = Bio::AssemblyGraphAlgorithms::ContigPrinter::AnchoredConnection.new
-      acon.start_probe_read_id = 709 #355_1
-      acon.end_probe_read_id = 671 #336_1
-      acon.start_probe_node = graph.nodes[9]
-      acon.end_probe_node = graph.nodes[4]
+      acon.start_probe_noded_read = graph.nodes[9].short_reads.select{|nr| nr.read_id == 161}[0] #Found these by using bwa and inspecting the Sequence velvet file
+      acon.end_probe_noded_read = graph.nodes[4].short_reads.select{|nr| nr.read_id == 1045}[0]
       acon.start_probe_contig_offset = 1
-      acon.end_probe_contig_offset = 1
+      acon.end_probe_contig_offset = 2
       acon.paths = [
         GraphTesting.make_onodes(graph, %w(9s 12s 7e 13s 5e 11e 2s 10s 4e))
         ]
       expected = '1234'+
-        File.open(File.join TEST_DATA_DIR, 'contig_printer','1','seq2_1to550.fa').readlines[1].strip.
-          gsub(/.{6}$/,'').
-          gsub(/^.{11}/,'') +
-        '7890'
+        File.open(File.join TEST_DATA_DIR, 'contig_printer','1','seq2_1to550.fa').readlines[1].strip.gsub(/..$/,'') +
+        '890'
       observed = Bio::AssemblyGraphAlgorithms::ContigPrinter.new.one_connection_between_two_contigs(
         graph,'12345',acon,'67890'
         )
       observed.should == expected
     end
 
+    it 'should reverse reads starting from reverse onodes to start the process' do
+      graph = Bio::Velvet::Graph.parse_from_file(File.join TEST_DATA_DIR, 'contig_printer','1','seq.fa.velvet','LastGraph')
+      graph.nodes.length.should == 13
+      acon = Bio::AssemblyGraphAlgorithms::ContigPrinter::AnchoredConnection.new
+      #  #<Bio::Velvet::Graph::NodedRead:0x0000000293fd08 @direction=false, @offset_from_start_of_node=2, @read_id=289, @start_coord=0>,
+      acon.start_probe_noded_read = graph.nodes[7].short_reads.select{|nr| nr.read_id == 289}[0] #Found these by using bwa and inspecting the Sequence velvet file
+      acon.end_probe_noded_read = graph.nodes[4].short_reads.select{|nr| nr.read_id == 1045}[0]
+      acon.start_probe_contig_offset = 0
+      acon.end_probe_contig_offset = 0
+      acon.paths = [
+        GraphTesting.make_onodes(graph, %w(7e 13s 5e 11e 2s 10s 4e))
+        ]
+      expected = '12345'+
+        'TAATACCGTATAATGACTTCGGTCCAAAGATTTATCGCCCAGGGATGAGCCCGCGTAGGATTAGCTTGTTGGTGAGGTAAAGGCTCACCAAGGCGACGATCCTTAGCTGGTCTGAGAGGATGATCAGCCACACTGGGACTGAGACATGGCCCAGACTCCTACGGGAGGCAGCAGTGGGGAATATTGGACAATGGGCGAAAGCCTGATCCAGCAATGCCGCGTGAGTGATGAAGGCCTTAGGGTTGTAAAGCTCTTTTACCCGGGATGATAATGACAGTACCGGGAGAATAAGCCCCGGCTAACTCCGTGCCAGCAGCCGCGGTAATACGGAGGGGGCTAGCGTTGTTCGGAATTACTGGGCGTAAAGCGCACGTAGGCGGCTTTGTAAGTTAGAGGTGAAAGCCCGGGGCTCAACTCCGGAATT' +
+        '67890'
+      observed = Bio::AssemblyGraphAlgorithms::ContigPrinter.new.one_connection_between_two_contigs(
+        graph,'12345',acon,'67890'
+        )
+      observed.should == expected
+    end
 
-
-#     it 'should work when the direction of the start read is rev' do
-#       graph = Bio::Velvet::Graph.parse_from_file(File.join TEST_DATA_DIR, 'contig_printer','1','seq.fa.velvet','LastGraph')
-#       graph.nodes.length.should == 13
-#       acon = Bio::AssemblyGraphAlgorithms::ContigPrinter::AnchoredConnection.new
-#       acon.start_probe_read_id = 60 #30_2 #Found these by using bwa and inspecting the Sequence velvet file
-#       acon.end_probe_read_id = 1045
-#       acon.start_probe_node = graph.nodes[9]
-#       acon.end_probe_node = graph.nodes[4]
-#       acon.start_probe_contig_offset = 0
-#       acon.end_probe_contig_offset = 0
-#       acon.paths = [
-#         GraphTesting.make_onodes(graph, %w(9s 12s 7e 13s 5e 11e 2s 10s 4e))
-#         ]
-#       expected = '12345'+
-#         File.open(File.join TEST_DATA_DIR, 'contig_printer','1','seq2_1to550.fa').readlines[1].strip.gsub(/..$/,'') +
-#         '67890'
-#       observed = Bio::AssemblyGraphAlgorithms::ContigPrinter.new.one_connection_between_two_contigs(
-#         graph,'12345',acon,'67890'
-#         )
-#       observed.should == expected
-
-#     end
+    it 'should reverse reads starting from reverse onodes to start the process' do
+      graph = Bio::Velvet::Graph.parse_from_file(File.join TEST_DATA_DIR, 'contig_printer','1','seq.fa.velvet','LastGraph')
+      graph.nodes.length.should == 13
+      acon = Bio::AssemblyGraphAlgorithms::ContigPrinter::AnchoredConnection.new
+      #  #<Bio::Velvet::Graph::NodedRead:0x0000000293fd08 @direction=false, @offset_from_start_of_node=2, @read_id=289, @start_coord=0>,
+      acon.start_probe_noded_read = graph.nodes[7].short_reads.select{|nr| nr.read_id == 289}[0] #Found these by using bwa and inspecting the Sequence velvet file
+      #  #<Bio::Velvet::Graph::NodedRead:0x00000002763ef8 @direction=false, @offset_from_start_of_node=3, @read_id=800, @start_coord=0>,
+      acon.end_probe_noded_read = graph.nodes[10].short_reads.select{|nr| nr.read_id == 800}[0]
+      acon.start_probe_contig_offset = 0
+      acon.end_probe_contig_offset = 0
+      acon.paths = [
+        GraphTesting.make_onodes(graph, %w(7e 13s 5e 11e 2s 10s))
+        ]
+      expected = '12345'+
+        'TAATACCGTATAATGACTTCGGTCCAAAGATTTATCGCCCAGGGATGAGCCCGCGTAGGATTAGCTTGTTGGTGAGGTAAAGGCTCACCAAGGCGACGATCCTTAGCTGGTCTGAGAGGATGATCAGCCACACTGGGACTGAGACATGGCCCAGACTCCTACGGGAGGCAGCAG' +
+        '67890'
+      observed = Bio::AssemblyGraphAlgorithms::ContigPrinter.new.one_connection_between_two_contigs(
+        graph,'12345',acon,'67890'
+        )
+      observed.should == expected
+    end
   end
 end
