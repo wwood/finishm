@@ -30,11 +30,11 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer
 
       # Go all the way to the leash length,
       # and then search to see if any of the other nodes have been come across
-      log.info "Exploring from probe node \##{probe_node_index+1} (node #{probe_node.node_id}/#{finishm_graph.probe_node_directions[probe_node_index] })"
+      log.debug "Exploring from probe node \##{probe_node_index+1} (node #{probe_node.node_id}/#{finishm_graph.probe_node_directions[probe_node_index] })" if log.debug?
       pqueue = DS::AnyPriorityQueue.new {|a,b| a < b}
       initial = finishm_graph.initial_path_from_probe(probe_node_index)
       if initial.nil?
-        log.warn "Unable to start searching from probe \##{probe_node_index+1}, because it was no found in the graph. Skipping."
+        log.warn "Unable to start searching from probe \##{probe_node_index+1}, because it was not found in the graph. Skipping."
         next
       end
       initial_distanced = DistancedOrientedNodeSet.new
@@ -52,7 +52,10 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer
       # While there are more node sets in the queue
       while distanced_head_nodes = pqueue.dequeue
         log.debug "Dequeued #{distanced_head_nodes}" if log.debug?
-        if log.info? and node_to_head_node_sets.length % 128 == 0 and node_to_head_node_sets.length > last_logged_node_count
+        if log.info? and node_to_head_node_sets.length % 1024 == 0 and node_to_head_node_sets.length > last_logged_node_count
+          if last_logged_node_count == 0
+            log.info "While exploring from probe \##{probe_node_index+1}.."
+          end
           log.info "So far worked with #{node_to_head_node_sets.length} distinct nodes in the assembly graph, at min distance #{distanced_head_nodes.distance}"
           last_logged_node_count = node_to_head_node_sets.length
         end
@@ -101,7 +104,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer
       # Now have a hash of minimum distances. Now need to go through those and determine
       # which other nodes the current probe node is connected to
       finishm_graph.probe_nodes.each_with_index do |node, i|
-        next if i <= probe_node_index # only return the 'upper triangle' of the distance matrices
+        next if i < probe_node_index # only return the 'upper triangle' of the distance matrices
 
         finish = finishing_nodes[i]
         heads = node_to_head_node_sets[finish]
@@ -118,7 +121,10 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer
 
             if probes_on_single_node_ok?(finishm_graph, probe_node_index, i)
               log.debug "Verified that probe indices #{probe_node_index}/#{i} are not failing on a 1 node basis" if log.debug?
+            elsif i == probe_node_index+1
+              log.debug "Single node probes appear to be circular" if log.debug?
             else
+              #TODO: Possibly ok if contigs to be scaffolded are all on the same node. Unlikely in practice due to short tips, but still theoretically possible
               log.debug "Failed to verify that probe indices #{probe_node_index}/#{i} are not failing on a 1 node basis" if log.debug?
               next
             end
@@ -129,7 +135,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer
         next if overall_min_distanced_set.nil? #no connection found - the only connection was a fake one
 
         min_distance = overall_min_distanced_set.distance
-        log.info "Found a connection between probes #{probe_node_index+1} and #{i+1}, distance: #{min_distance}"
+        log.debug "Found a connection between probes #{probe_node_index+1} and #{i+1}, distance: #{min_distance}" if log.debug?
         to_return[[probe_node_index, i]] = min_distance
       end
     end

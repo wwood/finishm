@@ -73,7 +73,7 @@ class Bio::FinishM::Visualiser
     optparse_object.on("--probe-to-node-map FILE", String, "Output a tab separated file containing the read IDs and their respective node IDs [default: no output]") do |arg|
       options[:probe_to_node_map] = arg
     end
-    optparse_object.on("--leash-length NUM", Integer, "Don't explore too far in the graph, only this far and not much more [default: unused unless --probe-ids or --nodes is specified, otherwise #{options[:graph_search_leash_length]}]") do |arg|
+    optparse_object.on("--leash-length NUM", Integer, "Don't explore too far in the graph, only this far and not much more [default: unused unless --probe-ids or --nodes is specified, otherwise #{options[:graph_search_leash_length] }]") do |arg|
       options[:graph_search_leash_length] = arg
     end
 
@@ -155,8 +155,14 @@ class Bio::FinishM::Visualiser
 
       # Create graphviz object
       interesting_node_ids = finishm_graph.probe_nodes.reject{|n| n.nil?}.collect{|node| node.node_id}
+
+      nodes_within_leash = get_nodes_within_leash(finishm_graph, interesting_node_ids, options)
+
       log.info "Converting assembly to a graphviz"
-      gv = viser.graphviz(finishm_graph.graph, {:start_node_ids => interesting_node_ids})
+      gv = viser.graphviz(finishm_graph.graph, {
+        :start_node_ids => interesting_node_ids,
+        :nodes => nodes_within_leash,
+        })
 
 
     elsif options[:interesting_nodes]
@@ -172,23 +178,8 @@ class Bio::FinishM::Visualiser
 
       log.info "Finding nodes within the leash length of #{options[:graph_search_leash_length] }.."
       dijkstra = Bio::AssemblyGraphAlgorithms::Dijkstra.new
-      nodes_within_leash = Set.new
-      options[:interesting_nodes].each do |node|
-        [
-          Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST,
-          Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST,
-          ].each do |direction|
-            onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(finishm_graph.graph.nodes[node], direction)
-            min_distances = dijkstra.min_distances(finishm_graph.graph, onode, {
-              :leash_length => options[:graph_search_leash_length],
-              :ignore_directions => true,
-              })
-            min_distances.each do |node_direction, distance|
-              nodes_within_leash << finishm_graph.graph.nodes[node_direction[0]]
-            end
-          end
-      end
-      log.info "Found #{nodes_within_leash.length} nodes within the leash length"
+
+      nodes_within_leash = get_nodes_within_leash(finishm_graph, options[:interesting_nodes], options)
 
       log.info "Converting assembly to a graphviz"
       gv = viser.graphviz(finishm_graph.graph, {
@@ -204,16 +195,30 @@ class Bio::FinishM::Visualiser
 
     # Convert gv object to something actually pictorial
     if options[:output_graph_png]
-      log.info "Writing PNG #{options[:output_graph_png]}"
+      log.info "Writing PNG #{options[:output_graph_png] }"
       gv.output :png => options[:output_graph_png], :use => :neato
     end
     if options[:output_graph_svg]
-      log.info "Writing SVG #{options[:output_graph_svg]}"
+      log.info "Writing SVG #{options[:output_graph_svg] }"
       gv.output :svg => options[:output_graph_svg], :use => :neato
     end
     if options[:output_graph_dot]
-      log.info "Writing DOT #{options[:output_graph_dot]}"
+      log.info "Writing DOT #{options[:output_graph_dot] }"
       gv.output :dot => options[:output_graph_dot] if options[:output_graph_dot]
     end
+  end
+
+  def get_nodes_within_leash(finishm_graph, node_ids, options={})
+    log.info "Finding nodes within the leash length of #{options[:graph_search_leash_length] }.."
+    dijkstra = Bio::AssemblyGraphAlgorithms::Dijkstra.new
+
+    nodes_within_leash = dijkstra.min_distances_from_many_nodes_in_both_directions(
+      finishm_graph.graph, node_ids.collect{|n| finishm_graph.graph.nodes[n]}, {
+        :ignore_directions => true,
+        :leash_length => options[:graph_search_leash_length],
+        }).keys.collect{|k| finishm_graph.graph.nodes[k[0]]}
+    log.info "Found #{nodes_within_leash.length} nodes within the leash length"
+
+    return nodes_within_leash
   end
 end

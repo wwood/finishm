@@ -40,7 +40,6 @@ module Bio
         blacklisted_node_ids = Set.new
         log.debug "Converting nodes to GraphViz format"
         nodes_to_explore.each do |node|
-          binding.pry if node.nil?
           cov = node.coverage
           if options[:coverage_cutoff] and cov < options[:coverage_cutoff] and !cov.nil?
             blacklisted_node_ids.add node.node_id

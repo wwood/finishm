@@ -76,6 +76,45 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
     return to_return
   end
 
+  # like #min_distances except explores in both directions
+  def min_distances_in_both_directions(graph, node, options={})
+    all_min_distances = {}
+    [
+      Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST,
+      Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST,
+      ].each do |direction|
+        onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(node, direction)
+        min_distances = min_distances(graph, onode, options)
+        min_distances.each do |node_direction, distance|
+          current = all_min_distances[node_direction]
+          unless current and current > distance
+            all_min_distances[node_direction] = distance
+          end
+        end
+      end
+    return all_min_distances
+  end
+
+  def min_distances_from_many_nodes_in_both_directions(graph, nodes, options={})
+    all_min_distances = {}
+    nodes.each do |node|
+    [
+      Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST,
+      Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST,
+      ].each do |direction|
+        onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(node, direction)
+        min_distances = min_distances(graph, onode, options)
+        min_distances.each do |node_direction, distance|
+          current = all_min_distances[node_direction]
+          unless current and current > distance
+            all_min_distances[node_direction] = distance
+          end
+        end
+      end
+    end
+    return all_min_distances
+  end
+
   # An oriented node some distance from the origin of exploration
   class DistancedOrientedNode
     attr_accessor :node, :first_side, :distance

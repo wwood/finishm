@@ -160,6 +160,12 @@ class Bio::FinishM::InputGenome
     end
     return seqs
   end
+
+  # The length of the gap between contig i and contig i+1 from the specified scaffold
+  # (both numbers are 0-based indices)
+  def gap_length(scaffold_index, gap_index)
+    @scaffolds[scaffold_index].gaps[gap_index].length
+  end
 end
 
 class NumberedProbe
