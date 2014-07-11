@@ -1,3 +1,5 @@
+require 'bio'
+
 class Bio::Velvet::Graph::NodedRead
   def adjusted_position(parent_node)
     if @direction == true
@@ -59,18 +61,11 @@ module Bio
         return to_return
       end
 
-      # Given two contigs, return a String representing the new contig. Assumes
-      # that there is only 1 path between the two contigs.
-      #
-      #          ---------->         <--------           start and end probes (ends of probe sequences may not form part of final path). Directions not variable.
-      #  --------------------->NNNN------------------->  original sequence to be gapfilled (contig1, NNNN, contig2). Directions not variable
-      #      -----------                 ------->        path across the gap. Direction not variable
-      #                 \               /
-      #                  --------------
-      #      ---------->|<-----|----->|--------->        nodes that make up the path (directions and boundaries variable)
-      #    stage1|           stage2           |stage3    stages of sequence construction in this method
-      def one_connection_between_two_contigs(graph, contig1, anchored_connection, contig2)
+      # Much like one_connection_between_two_contigs except can handle multiple connections
+      # (but cannot handle 0 connections)
+      def ready_two_contigs_and_connections(graph, contig1, anchored_connection, contig2)
         to_return = ''
+        variants = []
 
         log.debug "Working with anchored_connection: #{anchored_connection.inspect}" if log.debug?
 
@@ -87,13 +82,10 @@ module Bio
         # Stage2 - path sequence, beginning and ending with
         # beginning and ending probes
         begin
-          path = nil
-          anchored_connection.paths.each do |pat|
-            raise "Found multiple paths - can't (yet?) handle this" unless path.nil?
-            path = pat
-          end
+          reference_path_index = predict_reference_path_index(anchored_connection.paths)
+          path = anchored_connection.paths[reference_path_index]
           path_sequence = path.sequence
-          log.debug "Path has a sequence length #{path_sequence.length}" if log.debug?
+          log.debug "Reference path has a sequence length #{path_sequence.length}" if log.debug?
 
           # Find start index
           begin_onode = path[0]
@@ -108,6 +100,17 @@ module Bio
             offset_of_begin_probe_on_path = begin_onode.node.corresponding_contig_length - begin_noded_read.offset_from_start_of_node
           else
             offset_of_begin_probe_on_path = begin_noded_read.offset_from_start_of_node
+          end
+
+          # Work out the variants if there is any
+          variants = paths_to_variants(
+            path,
+            anchored_connection.paths - [path] #Ain't Ruby grand..
+            )
+          # Correct variants' positions to be relative to the full contig,
+          # not just the path sequence
+          variants.each do |variant|
+            variant.position = variant.position - offset_of_begin_probe_on_path + to_return.length
           end
 
           # Find end index
@@ -133,94 +136,229 @@ module Bio
         to_return += contig2[anchored_connection.end_probe_contig_offset..-1]
         log.debug "After last chunk of sequence added, sequence is #{to_return.length}bp long" if log.debug?
 
-        return to_return
+        return to_return, variants
       end
 
-      class Variant
-        attr_accessor :reference_oriented_node_before_variant, :reference_oriented_node_after_variant, :variation_path
+      # Given two contigs, return a String representing the new contig. Assumes
+      # that there is only 1 path between the two contigs.
+      #
+      #          ---------->         <--------           start and end probes (ends of probe sequences may not form part of final path). Directions not variable.
+      #  --------------------->NNNN------------------->  original sequence to be gapfilled (contig1, NNNN, contig2). Directions not variable
+      #      -----------                 ------->        path across the gap. Direction not variable
+      #                 \               /
+      #                  --------------
+      #      ---------->|<-----|----->|--------->        nodes that make up the path (directions and boundaries variable)
+      #    stage1|           stage2           |stage3    stages of sequence construction in this method
+      def one_connection_between_two_contigs(graph, contig1, anchored_connection, contig2)
+        raise "programming error: only one path expected here" if anchored_connection.paths.length > 1
+        return ready_two_contigs_and_connections(graph, contig1, anchored_connection, contig2)[0]
+      end
 
-        def to_settable
-          [@reference_oriented_node_before_variant.to_settable, @reference_oriented_node_after_variant.to_settable, @variation_path.collect{|onode| onode.to_settable}].flatten
+      # Return the index of a reference path picked from the given paths.
+      # Current method is simply highest coverage path
+      def predict_reference_path_index(paths)
+        max_i = 0
+        max_coverage = paths[0].coverage
+        paths[1..-1].each_with_index do |path, i|
+          cov = path.coverage
+          if cov > max_coverage
+            max_i = i
+            max_coverage = cov
+          end
         end
+        return max_i
       end
 
-      class Connection
-        attr_accessor :reference_path, :variants
+      # Return an Array of Variant objects
+      def paths_to_variants(reference_path, non_reference_paths)
+        sequences_to_variants(
+          reference_path.sequence,
+          non_reference_paths.collect{|path| path.sequence}
+          )
       end
 
+      def sequences_to_variants(reference_sequence, alternate_sequences)
+        return [] if alternate_sequences.empty?
 
-      # Given paths between two nodes, return the reference sequence
-      # and variants from that reference sequence. paths is an Enumerable
-      # where each element is an independent path from the start node to the
-      # end node. It is assumed that the start node and the end nodes
-      # are the same for each path.
-      def two_contigs_and_connection_to_printable_connection(paths)
-        # Take the first path as the reference
-        reference_path = paths[0]
-
-        #For the moment assume all variants are independent
-        all_variants = []
-        variant_set = Set.new
-
-        reference_onodes_to_indices = {}
-        reference_path.each_with_index do |onode, i|
-          reference_onodes_to_indices[onode.to_settable] = i
-        end
-
-        # Find variants
-        paths.each_with_index do |path, path_i|
-          next if path_i==0 #first path is the reference
-
-          # Effectively we are trying to solve an alignment problem here, which is hard.
-          # Take the easy route here. This won't well or at all when there is cycles.
-          # Assume each common node between the reference and this path 'match up',
-          # and the variants are just the bits in between
-          current_variant = nil
-          previous_reference_onode_index = -1
-          path.each_with_index do |onode, onode_i|
-            matching_reference_node_index = reference_path[previous_reference_onode_index+1...reference_path.length].find_index(onode)
-            if matching_reference_node_index
-              matching_reference_node_index += previous_reference_onode_index+1
-            end
-
-            log.debug "found matching reference node index #{matching_reference_node_index}" if log.debug?
-            log.debug "previous_reference_onode_index #{previous_reference_onode_index}, current_variant: #{current_variant.inspect}" if log.debug?
-            if matching_reference_node_index.nil?
-              # This node is variant
-              if current_variant.nil?
-                # new fork. Setup the variant
-                current_variant = Variant.new
-                raise "not all paths start at the same node!" if previous_reference_onode_index < 0
-                current_variant.reference_oriented_node_before_variant = reference_path[previous_reference_onode_index]
-                current_variant.variation_path = [onode]
-                log.debug "New variant: #{current_variant.inspect}"
-              else
-                # Building on a current_variant
-                current_variant.variation_path << onode
-              end
-            else
-              # Not in a variation (any more?)
-              if current_variant.nil?
-                # not currently in any variant, and still not.
-              else
-                # ending a variant
-                current_variant.reference_oriented_node_after_variant = onode
-                unless variant_set.include?(current_variant.to_settable)
-                  all_variants.push current_variant
-                  variant_set << current_variant.to_settable
-                end
-                current_variant = nil
-              end
-              previous_reference_onode_index = matching_reference_node_index
-            end
+        # Run multiple sequence alignment of each sequence, with the reference sequence first
+        log.debug "Running MSA with #{1+alternate_sequences.length} sequences.." if log.debug?
+        alignments = clustalo([
+          reference_sequence,
+          alternate_sequences
+          ].flatten)
+        log.debug "Finished running MSA" if log.debug?
+        if log.debug?
+          log.debug "Alignment found was:"
+          alignments.each do |align|
+            log.debug align
           end
         end
 
-        to_return = Connection.new
-        to_return.reference_path = reference_path
-        to_return.variants = all_variants
+        # Collect the variants at each sequence at each column
+        ref_alignment = alignments[0]
+        non_ref_alignments = alignments[1..-1]
+        variants = [] #Array of empty arrays
+        reference_position = 0
+        i = 0
+        ref_alignment.each_char do |ref_base|
+          non_ref_alignments.each_with_index do |alignment, sequence_id|
+            nonref = alignment[i]
+            if nonref != ref_base
+              variant = nil
+              if ref_base == '-'
+                variant = Variant.new reference_position, nonref, Variant::INSERT
+              elsif nonref == '-'
+                variant = Variant.new reference_position, 1, Variant::DELETION
+              else
+                variant = Variant.new reference_position, nonref, Variant::SWAP
+              end
+              variants[sequence_id] ||= []
+              variants[sequence_id].push variant
+            end
+          end
+          reference_position += 1 unless ref_base == '-'
+          i += 1
+        end
+        #        if log.debug?
+        #          log.debug "Before variation, found #{variants.length} variants:"
+        #          variants.each_with_index do |variant_set, alt_i|
+        #            variant_set.each do |variant|
+        #              log.debug "From #{alt_i}: #{variant.to_shorthand}"
+        #            end
+        #          end
+        #        end
 
+        # Condense the single column, single species variants into a condensed set
+        return condense_variants!(variants)
+      end
+
+      def condense_variants!(variant_array_of_arrays)
+        all_variants = {}
+
+        variant_array_of_arrays.each_with_index do |variant_array, i|
+          last_variant = nil
+          current_variants = []
+          variant_array.each do |variant|
+            # Combine last_variant and this one if
+            # their positions are consecutive and their types are the same
+            if !last_variant.nil? and last_variant.type == variant.type
+
+              if variant.type == Variant::INSERT and last_variant.position == variant.position
+                last_variant.sequence += variant.sequence
+
+              elsif variant.type == Variant::DELETION and last_variant.position == variant.position - last_variant.deletion_length
+                last_variant.deletion_length += 1
+
+              elsif variant.type == Variant::SWAP and last_variant.position + last_variant.sequence.length == variant.position
+                last_variant.sequence += variant.sequence
+
+              else
+                # Start a new variant
+                last_variant = variant
+                current_variants.push variant
+              end
+            else
+              last_variant = variant
+              current_variants.push variant
+            end
+          end
+          if log.debug?
+            log.debug "Found #{current_variants.length} variants in sequence #{i}:"
+            current_variants.each do |variant|
+              log.debug variant.to_shorthand
+            end
+          end
+
+          # Multiple paths can have the same variant. Don't duplicate
+          current_variants.each do |variant|
+            key = [
+              variant.position,
+              variant.sequence,
+              variant.deletion_length,
+              variant.type
+              ]
+            all_variants[key] ||= variant
+          end
+        end
+
+        return all_variants.values
+      end
+
+      #       # Given an Enumerable of nucleic acid sequences, align them with MAFFT,
+      #       # and return an Array of the same size as the input
+      #       def mafft(sequences)
+      #         i = 0
+      #         stdin = sequences.collect{|s| i+=1; ">#{i}\n#{s}\n"}.join('')
+      #         stdout = Bio::Commandeer.run "mafft --retree 1 --quiet --nuc /dev/stdin", {:stdin => stdin, :log => log}
+      #         to_return = []
+      #         header = true
+      #         stdout.each_line do |line|
+      #           if !header
+      #             to_return.push line.strip
+      #           end
+      #           header = !header
+      #         end
+      #         return to_return
+      #       end
+
+      def clustalo(sequences)
+        i = 0
+        stdin = sequences.collect{|s| i+=1; ">#{i}\n#{s}\n"}.join('')
+        stdout = Bio::Commandeer.run "clustalo -t DNA -i - --output-order=input-order", {:stdin => stdin, :log => log}
+        to_return = []
+        header = true
+        Bio::FlatFile.foreach(Bio::FastaFormat, StringIO.new(stdout)) do |seq|
+          to_return.push seq.seq.to_s
+        end
         return to_return
+      end
+
+
+
+
+      class Variant
+        #Types:
+        INSERT = :insert
+        DELETION = :deletion
+        SWAP = :swap #n bases swapped for another n bases
+
+        # 0-based position on the contig
+        attr_accessor :position
+
+        # sequence (or nil if variant is a deletion)
+        attr_accessor :sequence
+
+        # length of deletion (or nil if not a deletion)
+        attr_accessor :deletion_length
+
+        # See constants in this class
+        attr_accessor :type
+
+        def initialize(position=nil, sequence_or_deletion_length=nil, type=nil)
+          @position = position
+          @type = type
+          if type == DELETION
+            @deletion_length = sequence_or_deletion_length
+          else
+            @sequence = sequence_or_deletion_length
+          end
+        end
+
+        def to_shorthand
+          if type == DELETION
+            "#{position}D:#{deletion_length}"
+          elsif type == SWAP
+            "#{position}S:#{sequence.upcase}"
+          elsif type == INSERT
+            "#{position}I:#{sequence.upcase}"
+          else
+            raise
+          end
+        end
+      end
+
+      class PrintableConnection
+        attr_accessor :reference_path, :variants
       end
     end
   end
