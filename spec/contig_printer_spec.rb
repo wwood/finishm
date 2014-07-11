@@ -21,9 +21,7 @@ describe "ContigPrinter" do
       printer = Bio::AssemblyGraphAlgorithms::ContigPrinter.new
       variants = printer.paths_to_variants(paths[0], paths[1..-1])
       variants.collect{|v| v.to_shorthand}.should == [
-        #         'D0:10',
-        #         'I26:TTTTTTTTTT',
-        '16S:TTTTTTTTTT'
+        '17S:TTTTTTTTTT'
         ]
     end
   end
@@ -39,8 +37,8 @@ describe "ContigPrinter" do
       printer = Bio::AssemblyGraphAlgorithms::ContigPrinter.new
       printer.sequences_to_variants(seqs[0],seqs[1..-1]).collect{|v| v.to_shorthand
       }.should == [
-                   '6S:CGA',
-                   '13S:GTT'
+                   '7S:CGA',
+                   '14S:GTT'
                   ]
     end
   end
@@ -195,21 +193,21 @@ describe "ContigPrinter" do
       acon = Bio::AssemblyGraphAlgorithms::ContigPrinter::AnchoredConnection.new
       acon.start_probe_noded_read = graph.nodes[9].short_reads.select{|nr| nr.read_id == 161}[0] #Found these by using bwa and inspecting the Sequence velvet file
       acon.end_probe_noded_read = graph.nodes[4].short_reads.select{|nr| nr.read_id == 1045}[0]
-      acon.start_probe_contig_offset = 0
-      acon.end_probe_contig_offset = 0
+      acon.start_probe_contig_offset = 2
+      acon.end_probe_contig_offset = 3
       acon.paths = [
         GraphTesting.make_onodes(graph, %w(9s 12s 7e 13s 5e 11e 2s 10s 4e)),#highest coverage
         GraphTesting.make_onodes(graph, %w(9s 12s 7e 13s 5e 1e 2e 10s 4e)),
         ]
-      expected = '12345'+
+      expected = 'ATG'+
         File.open(File.join TEST_DATA_DIR, 'contig_printer','1','seq2_1to550.fa').readlines[1].strip.gsub(/..$/,'') +
-        '67890'
+        'CA'
       observed_sequence, observed_variants = Bio::AssemblyGraphAlgorithms::ContigPrinter.new.ready_two_contigs_and_connections(
-        graph,'12345',acon,'67890'
+        graph,'ATGCA',acon,'ATGCA'
         )
       observed_sequence.should == expected
       observed_variants.collect{|v|v.to_shorthand}.should == [
-        'something'
+        "210S:TTT", "214S:AC", "217S:TC", "220S:CCAACAAGCTAA", "233S:CCTAC", "239S:CGCTCAGACCA", "251S:C", "253S:A", "256S:GAT", "260S:GTC", "264S:CCTTG", "270S:T", "273S:GC",
         ]
     end
   end

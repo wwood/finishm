@@ -110,7 +110,7 @@ module Bio
           # Correct variants' positions to be relative to the full contig,
           # not just the path sequence
           variants.each do |variant|
-            variant.position = variant.position - offset_of_begin_probe_on_path + to_return.length
+            variant.position = variant.position - offset_of_begin_probe_on_path + to_return.length + 1
           end
 
           # Find end index
@@ -344,13 +344,17 @@ module Bio
           end
         end
 
+        def base_number
+          @position+1
+        end
+
         def to_shorthand
           if type == DELETION
-            "#{position}D:#{deletion_length}"
+            "#{base_number}D:#{deletion_length}"
           elsif type == SWAP
-            "#{position}S:#{sequence.upcase}"
+            "#{base_number}S:#{sequence.upcase}"
           elsif type == INSERT
-            "#{position}I:#{sequence.upcase}"
+            "#{base_number}I:#{sequence.upcase}"
           else
             raise
           end
