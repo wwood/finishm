@@ -125,88 +125,86 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
       end
 
       output_path = File.join(output_directory, File.basename(genome.filename)+".scaffolds.fasta")
+      variants_path = File.join(output_directory, File.basename(genome.filename)+".variants")
       num_gapfills = 0
       num_circular_scaffolds = 0
 
       File.open(output_path, 'w') do |output_file|
-        # gapfill between
-        # (1) interpreted_connections
-        # (2) gaps that were present before above wander
-        connected_scaffolds.each_with_index do |cross_scaffold_connection, connected_scaffold_index|
-          pretend_contig = cross_scaffold_connection.contigs[0]
-          first_scaffold_index = pretend_contig.sequence_index
-          first_scaffold = genome.scaffolds[first_scaffold_index]
-          scaffold_sequence = first_scaffold.contigs[0].sequence
+        File.open(variants_path,'w') do |variants_file|
+          # gapfill between
+          # (1) interpreted_connections
+          # (2) gaps that were present before above wander
+          connected_scaffolds.each_with_index do |cross_scaffold_connection, connected_scaffold_index|
+            scaffold_name = "scaffold#{connected_scaffold_index+1}"
 
-          # Gapfill contigs within the scaffold on the extreme LHS
-          connections = gapfill_scaffold.call(gapfiller, genome, first_scaffold_index)
-          connections.each_with_index do |aconn, i|
-            rhs_sequence = first_scaffold.contigs[i+1].sequence
-            scaffold_sequence, gapfilled = piece_together_gapfill(printer,
-              master_graph, scaffold_sequence, aconn, rhs_sequence, genome.gap_length(first_scaffold_index, i)
-              )
-            num_gapfills += 1 if gapfilled
-          end
-          scaffold_sequence = revcom.call(scaffold_sequence) if pretend_contig.direction == false
+            pretend_contig = cross_scaffold_connection.contigs[0]
+            first_scaffold_index = pretend_contig.sequence_index
+            first_scaffold = genome.scaffolds[first_scaffold_index]
+            scaffold_sequence = first_scaffold.contigs[0].sequence
 
-          last_contig = nil
-          cross_scaffold_connection.contigs.each_with_index do |contig, superscaffold_index|
-            unless last_contig.nil? #skip the first contig - it be done
-              last_name = genome.scaffolds[last_contig.sequence_index].name
-              current_name = genome.scaffolds[contig.sequence_index].name
-              log.debug "Connecting #{last_name} and #{current_name}" if log.debug?
-
-              # Ready the contig on the RHS of this join
-              # Gapfill within the scaffold on the RHS of the new gap
-              rhs_sequence = genome.scaffolds[contig.sequence_index].contigs[0].sequence
-              second_scaffold_index = cross_scaffold_connection.contigs[superscaffold_index].sequence_index
-              connections = gapfill_scaffold.call(gapfiller, genome, second_scaffold_index)
-              connections.each_with_index do |aconn, contig_index|
-                scaffold_within_scaffold_index = cross_scaffold_connection.contigs[superscaffold_index].sequence_index
-                second_sequence = genome.scaffolds[scaffold_within_scaffold_index].contigs[contig_index+1].sequence
-                rhs_sequence, gapfilled = piece_together_gapfill(printer,
-                  master_graph, rhs_sequence, aconn, second_sequence, genome.gap_length(scaffold_within_scaffold_index, contig_index)
-                  )
-                num_gapfills += 1 if gapfilled
-              end
-
-              # Gapfill across the new gap between scaffolds
-              aconn = gapfiller.gapfill(master_graph,
-                last_contig.direction == true ? genome.last_probe(last_contig.sequence_index).index : genome.first_probe(last_contig.sequence_index).index,
-                contig.direction == true ? genome.first_probe(contig.sequence_index).index : genome.last_probe(contig.sequence_index).index,
-                options
-                )
-              second_sequence = genome.scaffolds[contig.sequence_index].contigs[0].sequence
-              rhs_sequence = revcom.call(rhs_sequence) if contig.direction == false
-              #               scaffold_sequence = nil
-              #               gapfilled = -1
-              #               if aconn.paths.length == 0 or aconn.paths.length > 1
-              #                 # No paths found. Just fill with Ns like it was before
-              #                 scaffold_sequence = first_sequence + 'N'*gap_length + second_sequence
-              #                 gapfilled = false
-              #               else
-              #                 scaffold_sequence = printer.one_connection_between_two_contigs(
-              #                   master_graph.graph, first_sequence, aconn, second_sequence
-              #                   )
-              #                 gapfilled = true
-              #               end
-              #               return scaffold_sequence, gapfilled
-              log.debug "Found #{aconn.paths.length} connections"
-              if aconn.paths.length == 0
-                raise
-              elsif aconn.paths.length > 1
-                # Unclear how many Ns to insert here because each path might be different length, just use an arbitrary number
-                scaffold_sequence = scaffold_sequence + 'N' * 25 + rhs_sequence
-              else
-                scaffold_sequence = printer.one_connection_between_two_contigs(
-                  master_graph.graph,
-                  scaffold_sequence,
-                  aconn,
-                  rhs_sequence
-                  )
+            # Gapfill contigs within the scaffold on the extreme LHS
+            connections = gapfill_scaffold.call(gapfiller, genome, first_scaffold_index)
+            connections.each_with_index do |aconn, i|
+              rhs_sequence = first_scaffold.contigs[i+1].sequence
+              scaffold_sequence, variants, gapfilled = piece_together_gapfill(printer,
+                                                                              master_graph, scaffold_sequence, aconn, rhs_sequence, genome.gap_length(first_scaffold_index, i)
+                                                                              )
+              num_gapfills += 1 if gapfilled
+            end
+            if pretend_contig.direction == false
+              scaffold_sequence = revcom.call(scaffold_sequence)
+              variants.each do |variant|
+                variant.position = scaffold_sequence.length - variant.position - 1
               end
             end
-            last_contig = contig
+            variants.each do |variant|
+              variant.reference_name = scaffold_name
+              variants_file.puts variant.vcf
+            end
+
+            last_contig = nil
+            cross_scaffold_connection.contigs.each_with_index do |contig, superscaffold_index|
+              unless last_contig.nil? #skip the first contig - it be done
+                last_name = genome.scaffolds[last_contig.sequence_index].name
+                current_name = genome.scaffolds[contig.sequence_index].name
+                log.debug "Connecting #{last_name} and #{current_name}" if log.debug?
+
+                # Ready the contig on the RHS of this join
+                # Gapfill within the scaffold on the RHS of the new gap
+                rhs_sequence = genome.scaffolds[contig.sequence_index].contigs[0].sequence
+                second_scaffold_index = cross_scaffold_connection.contigs[superscaffold_index].sequence_index
+                connections = gapfill_scaffold.call(gapfiller, genome, second_scaffold_index)
+                connections.each_with_index do |aconn, contig_index|
+                  scaffold_within_scaffold_index = cross_scaffold_connection.contigs[superscaffold_index].sequence_index
+                  second_sequence = genome.scaffolds[scaffold_within_scaffold_index].contigs[contig_index+1].sequence
+                  rhs_sequence, variants, gapfilled = piece_together_gapfill(printer,
+                                                                             master_graph, rhs_sequence, aconn, second_sequence, genome.gap_length(scaffold_within_scaffold_index, contig_index)
+                                                                             )
+                  num_gapfills += 1 if gapfilled
+                end
+
+                # Gapfill across the new gap between scaffolds
+                aconn = gapfiller.gapfill(master_graph,
+                                          last_contig.direction == true ? genome.last_probe(last_contig.sequence_index).index : genome.first_probe(last_contig.sequence_index).index,
+                                          contig.direction == true ? genome.first_probe(contig.sequence_index).index : genome.last_probe(contig.sequence_index).index,
+                                          options
+                                          )
+                second_sequence = genome.scaffolds[contig.sequence_index].contigs[0].sequence
+                rhs_sequence = revcom.call(rhs_sequence) if contig.direction == false
+                log.debug "Found #{aconn.paths.length} connections"
+                if aconn.paths.length == 0
+                  raise
+                else
+                  scaffold_sequence, variants = printer.one_connection_between_two_contigs(
+                                                                                           master_graph.graph,
+                                                                                           scaffold_sequence,
+                                                                                           aconn,
+                                                                                           rhs_sequence
+                                                                                           )
+                end
+              end
+              last_contig = contig
+            end
           end
 
           #Output the scaffold to the output directory
@@ -220,7 +218,7 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
           scaffold_names = cross_scaffold_connection.contigs.collect do |contig|
             genome.scaffolds[contig.sequence_index].name
           end
-          output_file.puts ">scaffold#{connected_scaffold_index+1} #{descriptor} #{scaffold_names.join(':') }"
+          output_file.puts ">#{scaffold_name} #{descriptor} #{scaffold_names.join(':') }"
           output_file.puts scaffold_sequence
         end
 
@@ -272,16 +270,16 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
   def piece_together_gapfill(printer, master_graph, first_sequence, aconn, second_sequence, gap_length)
     scaffold_sequence = nil
     gapfilled = -1
-    if aconn.paths.length == 0 or aconn.paths.length > 1
+    if aconn.paths.length == 0
       # No paths found. Just fill with Ns like it was before
       scaffold_sequence = first_sequence + 'N'*gap_length + second_sequence
       gapfilled = false
     else
-      scaffold_sequence = printer.one_connection_between_two_contigs(
+      scaffold_sequence, variants = printer.ready_two_contigs_and_connections(
         master_graph.graph, first_sequence, aconn, second_sequence
         )
       gapfilled = true
     end
-    return scaffold_sequence, gapfilled
+    return scaffold_sequence, variants, gapfilled
   end
 end
