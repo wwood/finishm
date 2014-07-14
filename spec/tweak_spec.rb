@@ -249,7 +249,6 @@ EOF
 
         command = "#{path_to_script} --quiet --fasta-gz #{TEST_DATA_DIR}/tweak/2_second_genome/reads.fa.gz "+
           "--genomes #{t.path} --output-directory #{tmpdir}"
-        puts command
         Bio::Commandeer.run(command).should == ''
         output_file2 = File.join(tmpdir, File.basename(t.path)+'.scaffolds.fasta')
         File.exist?(output_file2).should == true

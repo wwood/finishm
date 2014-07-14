@@ -302,7 +302,7 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
     unconnected_probes = interpreter.unconnected_probes
     report.puts "Found #{unconnected_probes.length} contig ends that did not connect to any others"
     unconnected_probes.each do |probe|
-      report.puts probe.inspect
+      report.puts "Did not connect to any other probes: #{probe.inspect}"
     end
 
     return interpreter.scaffolds(connections), all_connections
