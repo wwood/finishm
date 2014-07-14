@@ -92,7 +92,9 @@ module Bio
           begin_noded_read = anchored_connection.start_probe_noded_read
           raise if begin_noded_read.nil?
           if begin_noded_read.start_coord != 0
-            raise "Unexpectedly the start of the start probe not did not form part of the path"
+            log.error "Unexpectedly the start of the start probe not did not form part of the path"
+            binding.pry
+            #raise "Unexpectedly the start of the start probe not did not form part of the path"
           end
           offset_of_begin_probe_on_path = nil
           # xor read direction on node, and node direction on path

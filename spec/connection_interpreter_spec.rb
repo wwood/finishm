@@ -227,4 +227,58 @@ describe "ConnectionInterpreter" do
     observed.length.should == 1
     observed[0].sequence(seqs).should == 'TTTTTTTTTTNNNNNNNNNNTTTTTTTTTT'
   end
+
+  it 'should report unconnected probes' do
+    conns, seqs = GraphTesting.create_connections([
+      [1,2],
+      ])
+    interpreter = Bio::FinishM::ConnectionInterpreter.new(
+      conns, [1,2]
+      )
+    interpreter.unconnected_probes.collect{|pro| pro.to_settable}.should == [
+      [1, :start],
+      [2, :end],
+      ]
+    interpreter = Bio::FinishM::ConnectionInterpreter.new(
+      conns, [1,2,3]
+      )
+    interpreter.unconnected_probes.collect{|pro| pro.to_settable}.should == [
+      [1, :start],
+      [2, :end],
+      [3, :start],
+      [3, :end]
+      ]
+    interpreter = Bio::FinishM::ConnectionInterpreter.new(
+      conns, [1,2,4]
+      )
+    interpreter.unconnected_probes.collect{|pro| pro.to_settable}.should == [
+      [1, :start],
+      [2, :end],
+      [4, :start],
+      [4, :end]
+      ]
+  end
+
+  it 'should report unconnected sequences' do
+    conns, seqs = GraphTesting.create_connections([
+      [1,2],
+      ])
+    interpreter = Bio::FinishM::ConnectionInterpreter.new(
+      conns, [1,2]
+      )
+    interpreter.unconnected_sequences.should == [
+      ]
+    interpreter = Bio::FinishM::ConnectionInterpreter.new(
+      conns, [1,2,3]
+      )
+    interpreter.unconnected_sequences.should == [
+      3
+      ]
+    interpreter = Bio::FinishM::ConnectionInterpreter.new(
+      conns, [1,2,4,5,6]
+      )
+    interpreter.unconnected_sequences.should == [
+      4,5,6
+      ]
+  end
 end

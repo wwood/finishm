@@ -201,9 +201,27 @@ describe "SingleCoherentPathsBetweenNodes" do
       [1,2,3,4],
       [1,5,3,4],
     ]
+  end
 
-
-
+  it 'should respect max_explore_nodes' do
+    graph, paths = GraphTesting.emit_otrails([
+      [1,2,3],
+    ])
+    GraphTesting.add_noded_reads(graph,[
+      [1,2,3],
+      ])
+    initial_path = GraphTesting.make_onodes(graph, %w(1s))
+    terminal_oriented_node = GraphTesting.make_onodes(graph, %w(3s)).trail[0]
+    finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new; recoherence_kmer = 15
+    problems = finder.find_all_problems(graph, initial_path, terminal_oriented_node, nil, recoherence_kmer, Bio::Velvet::Sequences.new,
+      :max_explore_nodes => 1
+      )
+    #pp problems
+    paths = finder.find_paths_from_problems(problems, recoherence_kmer)
+    #pp paths
+    paths.circular_paths_detected.should == false
+    GraphTesting.sorted_paths(paths.trails).should == [
+    ]
   end
 
   describe 'validate paths by recoherence' do

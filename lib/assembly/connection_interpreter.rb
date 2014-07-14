@@ -210,6 +210,39 @@ class Bio::FinishM::ConnectionInterpreter
     return scaffolds
   end
 
+  # Assuming the sequence_ids given in the initialize
+  # are the same as the sequence_index
+  def unconnected_probes
+    observed_connections = Set.new
+    connections.each do |conn|
+      observed_connections << conn.probe1.to_settable
+      observed_connections << conn.probe2.to_settable
+    end
+    to_return = []
+    @sequence_ids.each do |index|
+      [:start, :end].each do |side|
+        probe = Probe.new
+        probe.sequence_index = index
+        probe.side = side
+        unless observed_connections.include?(probe.to_settable)
+          to_return.push probe
+        end
+      end
+    end
+    return to_return
+  end
+
+  # Return an Array of sequence indices that did not have any connections
+  # to any others.
+  def unconnected_sequences
+    observed_sequences = Set.new
+    connections.each do |conn|
+      observed_sequences << conn.probe1.sequence_index
+      observed_sequences << conn.probe2.sequence_index
+    end
+    return @sequence_ids.to_a - observed_sequences.to_a
+  end
+
   class Connection
     # Probe objects
     attr_accessor :probe1, :probe2
