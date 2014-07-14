@@ -241,8 +241,8 @@ EOF
   it 'should handle circular contigs that are only 1 scaffold' do
     Dir.mktmpdir do |tmpdir|
       answer2 = Bio::FlatFile.open("#{TEST_DATA_DIR}/tweak/2_second_genome/answer2.fa").entries[0].to_biosequence.to_s
-      #Tempfile.open('testing_scaffolds2') do |t|
-      File.open('/tmp/testing_scaffolds2','w') do |t|
+      Tempfile.open('testing_scaffolds2') do |t|
+      #File.open('/tmp/testing_scaffolds2','w') do |t|
         t.puts '>seq1'
         t.puts answer2[-100..-1]+answer2[0..400]
         t.close
@@ -276,6 +276,53 @@ EOF
     #not the right answer
     end
   end
+
+  it 'should handle a simple variant in the gap' do
+    Dir.mktmpdir do |tmpdir|
+      command = "#{path_to_script} --quiet --fasta-gz #{TEST_DATA_DIR }/tweak/3_variant/reads.fa.gz "+
+        "--genomes #{TEST_DATA_DIR}/tweak/3_variant/with_gaps.fa --output-directory #{tmpdir}"
+      Bio::Commandeer.run(command).should == ''
+      output_file = File.join(tmpdir,'with_gaps.fa.scaffolds.fasta')
+      File.exist?(output_file).should == true
+      File.open(output_file).read.should == <<EOF
+>scaffold1 scaffold random_sequence_length_with_gaps
+AATGCACATCGACTATATTTAGGCGTCAGGCCTCGCGTCTGAGGGGATAGCACCATTATAGATGGAAAGTGACTGCTGATACGGAGTGCTGAGTTGTAGTGCGAGAGGCAGCCAAGTGTCGAGAATGTCGGAACGTTGTGACATAGTCGATGTACGTTCATCGAAGCAAGAGCCTAAAGACCGTCCGCTATGACTATTGGGCGAGGACCGGCCGAATGTTAAACATCCGATACAGCACGTACAAGGTCGCTCACCGAAGGCGCAAGATATTTTCCGCGATTGAAAAGTAACCACTTCCACGCAATTGAGGCGAAACCAACTAGCAGCTGCTCCCACTGTCGTCCATTGCCGTCAGGGGGATAAGCTCCATGCTACGTGGAACTATTGGGACCAGGTCGGTACACTCGTACCATGCATACTGGCGCGGGTGACGTTGGCCCGACGCGGACGACGTTTGTTCAGATACCGTGCAGTTACAATCCCATGTAAGCGATTCCCGGGGTTGAAATGCTTCCCGGCATACTCTGACGAAGATGCTCGAGTTCCAAGGTCAATCCGTAGCATTCGGGGATATGCGTCTGCTTCAGACAGGTCCTCCTCTCATTCACCGCTAGCGGGTCGTAAGGGGGAGTAAAGTTCGTGTCCCCAGGATGGGAGGAGCACACTCATCCCTGAGGGAAGCTAGGCCCAATCTGGACTTCCGAGCATCATACAATTTGAAAGGCCTGCAGGTCCCCAAGTCCGCCTCTGCCTGTGTTATAAAGTGGCCTACTATGCAGGACAGGGTCAAAAGGGCCCAGTCCGGGAACCAGAACCTTGAGGCCCCCGTGGCGTACGCCCCAAGCCCGCCTCCAGGGCGGCGCTGTTTTATTCTGACGGCTTTGATCGGCGAACACTGCCTGGTTAGGCACTGAATATAAAAATTCAGACACTGCCCTCCACTGAGTGACCAATCGAACATTCGTTGAGCATTGGCGCTTGTTTTCCCTTAGATTCTACC
+EOF
+      File.open(File.join(tmpdir,'with_gaps.fa.vcf')).readlines.should == [
+        %w(#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO).join("\t")+"\n",
+        %w(scaffold1	485	.	.	GGGGG	20	PASS	finishm).join("\t")+"\n"
+        ]
+    end
+  end
+
+  it 'should handle variants on the reverse strand' do
+    answer = Bio::FlatFile.open("#{TEST_DATA_DIR}/tweak/3_variant/answer.fa").entries[0].to_biosequence.to_s
+    Dir.mktmpdir do |tmpdir|
+      #Tempfile.open('testing_scaffolds2') do |t|
+        File.open('/tmp/ta2','w') do |t|
+        t.puts '>seq1'
+        t.puts answer[0..200]
+        t.puts '>seq2'
+        t.puts Bio::Sequence::NA.new(answer[250..400]+'N'*50+answer[600..-1]).reverse_complement.to_s.upcase
+        t.close
+
+        command = "#{path_to_script} --quiet --fasta-gz #{TEST_DATA_DIR }/tweak/3_variant/reads.fa.gz "+
+            "--genomes #{t.path} --output-directory #{tmpdir} --overhang 60"
+        Bio::Commandeer.run(command).should == ''
+        output_file2 = File.join(tmpdir, File.basename(t.path)+'.scaffolds.fasta')
+        File.exist?(output_file2).should == true
+        File.open(output_file2).read.should == <<EOF
+>scaffold1 scaffold seq1:seq2
+AATGCACATCGACTATATTTAGGCGTCAGGCCTCGCGTCTGAGGGGATAGCACCATTATAGATGGAAAGTGACTGCTGATACGGAGTGCTGAGTTGTAGTGCGAGAGGCAGCCAAGTGTCGAGAATGTCGGAACGTTGTGACATAGTCGATGTACGTTCATCGAAGCAAGAGCCTAAAGACCGTCCGCTATGACTATTGGGCGAGGACCGGCCGAATGTTAAACATCCGATACAGCACGTACAAGGTCGCTCACCGAAGGCGCAAGATATTTTCCGCGATTGAAAAGTAACCACTTCCACGCAATTGAGGCGAAACCAACTAGCAGCTGCTCCCACTGTCGTCCATTGCCGTCAGGGGGATAAGCTCCATGCTACGTGGAACTATTGGGACCAGGTCGGTACACTCGTACCATGCATACTGGCGCGGGTGACGTTGGCCCGACGCGGACGACGTTTGTTCAGATACCGTGCAGTTACAATCCCATGTAAGCGATTCCCGGGGTTGAAATGCTTCCCGGCATACTCTGACGAAGATGCTCGAGTTCCAAGGTCAATCCGTAGCATTCGGGGATATGCGTCTGCTTCAGACAGGTCCTCCTCTCATTCACCGCTAGCGGGTCGTAAGGGGGAGTAAAGTTCGTGTCCCCAGGATGGGAGGAGCACACTCATCCCTGAGGGAAGCTAGGCCCAATCTGGACTTCCGAGCATCATACAATTTGAAAGGCCTGCAGGTCCCCAAGTCCGCCTCTGCCTGTGTTATAAAGTGGCCTACTATGCAGGACAGGGTCAAAAGGGCCCAGTCCGGGAACCAGAACCTTGAGGCCCCCGTGGCGTACGCCCCAAGCCCGCCTCCAGGGCGGCGCTGTTTTATTCTGACGGCTTTGATCGGCGAACACTGCCTGGTTAGGCACTGAATATAAAAATTCAGACACTGCCCTCCACTGAGTGACCAATCGAACATTCGTTGAGCATTGGCGCTTGTTTTCCCTTAGATTCTACC
+EOF
+        File.open(File.join(tmpdir, File.basename(t.path)+'.vcf')).readlines.should == [
+          %w(#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO).join("\t")+"\n",
+          %w(scaffold1	485	.	.	GGGGG	20	PASS	finishm).join("\t")+"\n"
+          ]# need contig_printer to give an offset that can be added to each variant
+      end
+    end
+  end
+
 
   it 'should handle circular scaffolds made up of multiple input scaffolds and are on different nodes' do
     fail
