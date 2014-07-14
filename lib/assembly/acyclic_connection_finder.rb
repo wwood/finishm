@@ -31,7 +31,7 @@ module Bio
 
         finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
         return finder.find_all_connections_between_two_nodes(
-          graph, initial_path, terminal_oriented_node, leash_length, options[:recoherence_kmer], options[:sequences]
+          graph, initial_path, terminal_oriented_node, leash_length, options[:recoherence_kmer], options[:sequences], options
           )
       end
 

@@ -6,7 +6,10 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer
   # shortest path algorithm, where instead of keeping track of the minimum
   # distance to each node, the algorithm keeps track of the distance to a
   # set of nodes long enough to invoke a recoherence kmer.
-  def wander(finishm_graph, leash_length, recoherence_kmer, sequence_hash)
+  #
+  # Options:
+  # :max_explore_nodes: maximum number of nodes to explore from each node. If max is reached, don't make any connections (default: no maximum)
+  def wander(finishm_graph, leash_length, recoherence_kmer, sequence_hash, options={})
     to_return = {}
 
     # Take the probes and make them all into finishing nodes
@@ -47,11 +50,17 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer
       node_to_head_node_sets = {}
       #for Logging
       last_logged_node_count = 0
+      maxed_out = false
 
       pqueue.enqueue initial_distanced, 0
       # While there are more node sets in the queue
       while distanced_head_nodes = pqueue.dequeue
         log.debug "Dequeued #{distanced_head_nodes}" if log.debug?
+        if options[:max_explore_nodes] and node_to_head_node_sets.length > options[:max_explore_nodes]
+          log.warn "Hit maximum number of nodes (#{options[:max_explore_nodes] }) while exploring from probe \##{probe_node_index+1}"
+          maxed_out = true
+          break
+        end
         if log.info? and node_to_head_node_sets.length % 1024 == 0 and node_to_head_node_sets.length > last_logged_node_count
           if last_logged_node_count == 0
             log.info "While exploring from probe \##{probe_node_index+1}.."
@@ -101,6 +110,11 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer
         end
       end
 
+      if maxed_out
+        log.debug "Maxed out, exiting loop early" if log.debug?
+        break
+      end
+
       # Now have a hash of minimum distances. Now need to go through those and determine
       # which other nodes the current probe node is connected to
       finishm_graph.probe_nodes.each_with_index do |node, i|
@@ -121,8 +135,6 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer
 
             if probes_on_single_node_ok?(finishm_graph, probe_node_index, i)
               log.debug "Verified that probe indices #{probe_node_index}/#{i} are not failing on a 1 node basis" if log.debug?
-            elsif i == probe_node_index+1
-              log.debug "Single node probes appear to be circular" if log.debug?
             else
               #TODO: Possibly ok if contigs to be scaffolded are all on the same node. Unlikely in practice due to short tips, but still theoretically possible
               log.debug "Failed to verify that probe indices #{probe_node_index}/#{i} are not failing on a 1 node basis" if log.debug?

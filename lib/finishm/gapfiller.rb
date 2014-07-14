@@ -298,7 +298,8 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
     trails = cartographer.find_trails_between_nodes(
       finishm_graph.graph, start_onode, end_onode, adjusted_leash_length, {
         :recoherence_kmer => options[:recoherence_kmer],
-        :sequences => finishm_graph.velvet_sequences
+        :sequences => finishm_graph.velvet_sequences,
+        :max_explore_nodes => options[:max_explore_nodes],
         }
       )
     if trails.circular_paths_detected

@@ -15,7 +15,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
   # Don't search in the graph when the distance in base pairs exceeds the leash length.
   # Recohere reads (singled ended only) in an attempt to remove bubbles.
   def find_all_connections_between_two_nodes(graph, initial_path, terminal_oriented_node,
-    leash_length, recoherence_kmer, sequence_hash)
+    leash_length, recoherence_kmer, sequence_hash, options={})
 
     problems = find_all_problems(graph, initial_path, terminal_oriented_node, leash_length, recoherence_kmer, sequence_hash)
 
@@ -23,7 +23,10 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     return paths
   end
 
-  def find_all_problems(graph, initial_path, terminal_node, leash_length, recoherence_kmer, sequence_hash)
+  # Options:
+  #
+  # :max_explore_nodes: only explore this many nodes, not further.
+  def find_all_problems(graph, initial_path, terminal_node, leash_length, recoherence_kmer, sequence_hash, options={})
     # setup dynamic programming cache
     problems = ProblemSet.new
 
@@ -99,6 +102,11 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         num_done = problems.length
         if num_done > 0 and num_done % 512 == 0
           log.info "So far worked with #{num_done} head node sets, up to distance #{path_length}" if log.info?
+        end
+        if options[:max_explore_nodes] and num_done > options[:max_explore_nodes]
+          log.warn "Explored too many nodes (#{num_done}), giving up.."
+          problems = ProblemSet.new
+          break
         end
 
         # explore the forward neighbours
