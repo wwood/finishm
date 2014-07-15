@@ -203,4 +203,19 @@ ACTATGCTGGTATTTCACTTCCAGGTACAGG'.gsub(/\n/,'')
     graph.nodes[2].coverages = [10]
     (path.coverage*100).round.should == (20.0 / 3 / 10 *100).round
   end
+
+  it 'should give the right neighbours when neighbours are the s and e of the same node' do
+    graph, initial_path, terminal  = GraphTesting.emit_ss([
+      [1,2],
+    ],1,1)
+    arc = Bio::Velvet::Graph::Arc.new
+    arc.begin_node_id = 1
+    arc.end_node_id = 2
+    arc.begin_node_direction = true
+    arc.end_node_direction = false
+    graph.arcs.push arc
+    graph.neighbours_of(graph.nodes[1], :start_is_first).collect{|n| n.to_shorthand}.should == [
+      '2s','2e'
+      ]
+  end
 end
