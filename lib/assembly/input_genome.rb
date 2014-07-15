@@ -166,6 +166,11 @@ class Bio::FinishM::InputGenome
   def gap_length(scaffold_index, gap_index)
     @scaffolds[scaffold_index].gaps[gap_index].length
   end
+
+  def human_scaffold_end_name(probe_index)
+    scaffold, contig, side = @probe_number_to_scaffold_and_contig_and_side[probe_index]
+    "scaffold '#{scaffold.name}' contig '#{genome.contig_number(contig) }' #{side.to_s}"
+  end
 end
 
 class NumberedProbe

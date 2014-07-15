@@ -191,7 +191,7 @@ describe "BubblyAssembler" do
         ], 1, 2)
       cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
       cartographer.assembly_options[:max_tip_length] = -1
-      cartographer.assembly_options[:leash_length] = 5
+      cartographer.assembly_options[:max_bubble_length] = 5
       metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
       GraphTesting.metapath_to_array(metapath).should == [1]
       visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1]
@@ -584,5 +584,26 @@ describe 'Bubble' do
     metapath.reverse!
     metapath.to_shorthand.should == "5e,{3e,2e|3e,4e},1e"
     metapath.reference_trail.to_shorthand.should == '5e,3e,2e,1e'
+  end
+
+  it 'should work with circuits found in alpha testing' do
+    graph, initial_path, terminal = GraphTesting.emit_ss([
+      [1,2],
+      [2,3],
+      [3,4],
+      [4,3],
+      [4,5],
+      [2,5],
+      [5,99],
+      [1,6],
+      [6,5]
+      ], 1, 1)
+    cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph, {
+      :max_tip_length => -1,
+      :min_contig_size => 0,
+      }
+    metapath, v = cartographer.assemble_from initial_path, nil
+    metapath.to_shorthand.should == '1s'
+    metapath.fate.should == Bio::AssemblyGraphAlgorithms::BubblyAssembler::CIRCUIT_WITHIN_BUBBLE_FATE
   end
 end

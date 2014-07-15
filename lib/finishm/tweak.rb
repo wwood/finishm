@@ -123,6 +123,7 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
       connected_scaffolds = nil
       all_connections = []
       gaps_filled_in_genome = 0
+      wandered_probe_indices = nil
 
       File.open(File.join(output_directory, File.basename(genome.filename)+".report.txt"),'w') do |report|
         report.puts "#{Time.now} FinishM report for roundup run with: #{options.inspect}"
@@ -132,9 +133,9 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
           connected_scaffolds = Bio::FinishM::ConnectionInterpreter.new([], (0...genome.scaffolds.length)).scaffolds([])
         else
           log.debug "Wandering.."
-          connected_scaffolds, all_connections = wander_a_genome(wanderer, genome, master_graph, options, report)
+          connected_scaffolds, all_connections, wandered_probe_indices = wander_a_genome(wanderer, genome, master_graph, options, report)
         end
-
+        binding.pry
         # Write out all the connections
         File.open(File.join(output_directory, File.basename(genome.filename)+".connections.csv"),'w') do |con_file|
           all_connections.each do |connection|
@@ -143,7 +144,7 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
         end
 
         output_path = File.join(output_directory, File.basename(genome.filename)+".scaffolds.fasta")
-        variants_path = File.join(output_directory, File.basename(genome.filename)+".vcf")
+        variants_path = File.join(output_directory, File.basename(genome.filename)+".at_least_half_completely_wrong.vcf")
         num_circular_scaffolds = 0
 
         File.open(output_path, 'w') do |output_file|
@@ -260,7 +261,7 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
       report.puts "Did not connect to any other probes: #{probe.inspect}"
     end
 
-    return interpreter.scaffolds(connections), all_connections
+    return interpreter.scaffolds(connections), all_connections, probe_indices
   end
 
   def gapfill_a_scaffold(gapfiller, printer, master_graph, genome, scaffold_index, scaffold_direction, superscaffold_name, report, variants_file, options)

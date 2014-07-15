@@ -67,6 +67,14 @@ class Bio::FinishM::ScaffoldBreaker
       end
       return to_return.join
     end
+
+    # Which contig number is this, in the scaffold?
+    def contig_number(contig)
+      @contigs.each_with_index do |current_contig, i|
+        return i if contig==current_contig
+      end
+      raise "Contig not found in scaffold"
+    end
   end
 
   class Gap

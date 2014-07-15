@@ -87,6 +87,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
 
           if legit_neighbours.empty?
             # This is just a straight out dead end, and we can go no further.
+            log.debug "Dead end reached" if log.debug?
             metapath.fate = MetaPath::DEAD_END_FATE
             current_mode = :finished
             break
@@ -96,6 +97,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
 
             # Stop if a circuit is detected
             if visited_oriented_node_settables.include?(neighbour.to_settable)
+              log.debug "Detected regular circuit" if log.debug?
               metapath.fate = MetaPath::CIRCUIT_FATE
               current_mode = :finished
               break
@@ -162,15 +164,23 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
             current_bubble.converge_on problem
             # convergement!
             # Bubble ended in a convergent fashion
-            metapath << current_bubble
-            # Add the nodes in the bubble to the list of visited nodes
-            current_bubble.oriented_nodes do |onode|
-              visited_oriented_node_settables << onode.to_settable
-            end
 
-            current_bubble = nil
-            current_mode = :linear
-            break
+            # detect circuits
+            if current_bubble.circuitous?
+              metapath.fate = MetaPath::CIRCUIT_WITHIN_BUBBLE_FATE
+              current_mode = :finished
+              break
+            else
+              metapath << current_bubble
+              # Add the nodes in the bubble to the list of visited nodes
+              current_bubble.oriented_nodes do |onode|
+                visited_oriented_node_settables << onode.to_settable
+              end
+
+              current_bubble = nil
+              current_mode = :linear
+              break
+            end
           else
             # otherwise we must search on in the bubble
             # get all neighbours that are not short tips
@@ -535,6 +545,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
           new_problems = @known_problems[new_head_onode.to_settable]
           #log.debug "Found new problems: #{new_problems.collect{|prob| prob.to_shorthand}.join(' ') }" if log.debug?
           if new_problems.length > 1
+            raise CircuitousPathDetected if second_half.include?(new_head_onode)
             new_second_half = [new_head_onode]+[direct_node_trail.trail[-1]]+second_half
             new_problems.each do |new_problem|
               # Don't enqueue the path that was just printed
@@ -619,12 +630,15 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       reference_trail = []
 
       while !current_problem.nil?
-        reference_trail.push current_problem.path[-1]
+        onode_to_add = current_problem.path[-1]
+        raise CircuitousPathDetected if reference_trail.include?(onode_to_add)
+        reference_trail.push onode_to_add
 
         if current_problem.path.length == 1
           current_problem = nil
         else
           current_problem = @known_problems[current_problem.path[-2].to_settable].max do |problem1, problem2|
+            binding.pry if problem1.path[-2].nil?
             comparator.call problem1, problem2
           end
         end
@@ -640,6 +654,16 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
     # Length in base pairs of the reference_trail
     def length_in_bp
       reference_trail.length_in_bp
+    end
+
+    # Does this (coverged) bubble contain any circuits?
+    def circuitous?
+      begin
+        reference_trail #TODO: expand this to circuits within bubbles that aren't on the reference trail?
+      rescue CircuitousPathDetected
+        return true
+      end
+      return false
     end
   end
 
@@ -669,4 +693,6 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       "#{@path.to_shorthand}/#{ubiquitous_nodes.join(',') }/#{distance}"
     end
   end
+
+  class CircuitousPathDetected < Exception; end
 end

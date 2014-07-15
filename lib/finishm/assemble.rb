@@ -54,6 +54,9 @@ class Bio::FinishM::Assembler
     optparse_object.on("--min-starting-node-coverage COVERAGE",Float,"Only start exploring from nodes with at least this much coverage [default: start from all nodes]") do |arg|
       options[:min_coverage_of_start_nodes] = arg
     end
+    optparse_object.on("--debug", "Build the graph, then drop to a pry console. [default: #{options[:debug] }]") do
+      options[:debug] = true
+    end
 
     Bio::FinishM::GraphGenerator.new.add_options optparse_object, options
   end
@@ -111,6 +114,8 @@ class Bio::FinishM::Assembler
         assembler.assembly_options[opt] = options[opt]
       end
     assembler.assembly_options[:sequences] = finishm_graph.velvet_sequences
+
+    binding.pry if options[:debug]
 
     if options[:initial_node_shorthand]
       initial_trail = Bio::Velvet::Graph::OrientedNodeTrail.create_from_shorthand(options[:initial_node_shorthand], graph)
