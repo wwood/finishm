@@ -54,7 +54,6 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
     dummy_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
     starting_nodes.each do |start_node|
       log.debug "Trying to assemble from #{start_node.node_id}" if log.debug?
-      progress.increment unless progress.nil?
 
       # If we've already covered this node, don't try it again
       if seen_nodes.include?([start_node.node_id, Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST]) or
@@ -94,6 +93,12 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
 
       # Record which nodes have already been visited, so they aren't visited again
       seen_nodes.merge just_visited_onodes
+      if @assembly_options[:min_coverage_of_start_nodes]
+        # TODO: this could be better by progress += (starting_nodes_just_visited.length)
+        progress.increment
+      else
+        progress.progress += just_visited_onodes.length
+      end
 
       if path.length_in_bp < @assembly_options[:min_contig_size]
         log.debug "Path length (#{path.length_in_bp}) less than min_contig_size (#{@assembly_options[:min_contig_size] }), not recording it" if log.debug?

@@ -39,6 +39,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
   def assemble_from(starting_path, visited_nodes=Set.new)
     leash_length = @assembly_options[:max_bubble_length]
     current_bubble = nil
+    log.info "Assembling from: #{starting_path.to_shorthand}" if log.info?
 
     metapath = MetaPath.new
     starting_path.each do |oriented_node|
