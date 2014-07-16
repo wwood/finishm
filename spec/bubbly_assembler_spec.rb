@@ -282,7 +282,6 @@ describe "BubblyAssembler" do
       cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
       cartographer.assembly_options[:max_tip_length] = -1
       graph.nodes[20].ends_of_kmers_of_node = 'T'*100 #make this long so the circuit is discovered first
-      binding.pry
       metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
       metapath.reference_trail.to_shorthand.should == '1s'
       GraphTesting.metapath_to_array(metapath).should == [1]
@@ -605,5 +604,37 @@ describe 'Bubble' do
     metapath, v = cartographer.assemble_from initial_path, nil
     metapath.to_shorthand.should == '1s'
     metapath.fate.should == Bio::AssemblyGraphAlgorithms::BubblyAssembler::CIRCUIT_WITHIN_BUBBLE_FATE
+  end
+
+  it 'should find reference paths when the bubble is a single node insert' do
+    graph, initial_path, terminal = GraphTesting.emit_ss([
+      [1,2],
+      [2,3],
+      [1,3],
+      [3,4],
+      ], 1, 1)
+    cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph, {
+      :max_tip_length => -1,
+      :min_contig_size => 0,
+      }
+    metapath, v = cartographer.assemble_from initial_path, nil
+    metapath.to_shorthand.should == '1s,{3s|2s,3s},4s'
+    metapath.reference_trail.to_shorthand.should == '1s,2s,3s,4s'
+
+
+    graph, initial_path, terminal = GraphTesting.emit_ss([
+      [1,2],
+      [1,3],
+      [3,2],
+      [2,4],
+      ], 1, 1)
+    cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph, {
+      :max_tip_length => -1,
+      :min_contig_size => 0,
+      }
+    graph.arcs.get_arcs_by_node_id(1,2)
+    metapath, v = cartographer.assemble_from initial_path, nil
+    metapath.to_shorthand.should == '1s,{2s|3s,2s},4s'
+    metapath.reference_trail.to_shorthand.should == '1s,2s,4s'
   end
 end

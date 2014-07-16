@@ -615,8 +615,23 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       trail = []
 
       comparator = lambda do |problem1, problem2|
-        node1 = problem1.path[-2].node
-        node2 = problem2.path[-2].node
+        node1 = nil
+        node2 = nil
+        if problem1.path.length == 1 and problem2.path.length > 1
+          # Here the comparison cannot be made on node coverages
+          # since one of the paths goes straight from the initial to the terminal
+          # nodes. Choose instead based on if the second last node has higher or lower
+          # coverage than the final node
+          node1 = problem1.path[-1].node
+          node2 = problem2.path[-2].node
+        elsif problem2.path.length == 1 and problem1.path.length > 1
+          node1 = problem1.path[-2].node
+          node2 = problem2.path[-1].node
+        else
+          node1 = problem1.path[-2].node
+          node2 = problem2.path[-2].node
+        end
+
         if node1.coverage == node2.coverage
           -(node1.node_id <=> node2.node_id)
         else
@@ -638,7 +653,6 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
           current_problem = nil
         else
           current_problem = @known_problems[current_problem.path[-2].to_settable].max do |problem1, problem2|
-            binding.pry if problem1.path[-2].nil?
             comparator.call problem1, problem2
           end
         end
