@@ -164,7 +164,7 @@ module Bio
         paths[1..-1].each_with_index do |path, i|
           cov = path.coverage
           if cov > max_coverage
-            max_i = i
+            max_i = i+1
             max_coverage = cov
           end
         end
@@ -324,6 +324,8 @@ module Bio
         DELETION = :deletion
         SWAP = :swap #n bases swapped for another n bases
 
+        attr_accessor :reference_name
+
         # 0-based position on the contig
         attr_accessor :position
 
@@ -361,6 +363,45 @@ module Bio
             raise
           end
         end
+
+        # The reference sequence has been reverse complemented. Fix this
+        # variant so it makes sense again (position aside)
+        def reverse!
+          if type == SWAP or type == INSERT
+            @sequence = Bio::Sequence::NA.new(@sequence).reverse_complement.to_s.upcase
+          end
+        end
+
+        #CHROM POS     ID        REF    ALT     QUAL FILTER INFO
+        def vcf_array(reference_sequence)
+          bits = [
+            @reference_name,
+            @position+1,
+            '.',
+            ]
+          case type
+          when SWAP then
+            bits.push reference_sequence[@position...(@position+@sequence.length) ]
+            bits.push @sequence
+          when INSERT then
+            bits.push '.'
+            bits.push @sequence
+          when DELETION then
+            bits.push reference_sequence[@position...(@position+@deletion_length) ]
+            bits.push '.'
+          else
+            raise
+          end
+
+            bits.push '20'
+            bits.push 'PASS'
+            bits.push 'finishm'
+            return bits
+        end
+
+            def vcf(reference_sequence)
+              vcf_array(reference_sequence).join("\t")
+            end
       end
 
       class PrintableConnection

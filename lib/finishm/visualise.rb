@@ -126,6 +126,8 @@ class Bio::FinishM::Visualiser
         end
         options[:probe_reads] = options[:interesting_probes]
       end
+      options[:dont_parse_noded_reads] = true
+      options[:dont_parse_reads] = true
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
 
       # Output probe map if asked

@@ -54,7 +54,6 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
     dummy_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
     starting_nodes.each do |start_node|
       log.debug "Trying to assemble from #{start_node.node_id}" if log.debug?
-      progress.increment unless progress.nil?
 
       # If we've already covered this node, don't try it again
       if seen_nodes.include?([start_node.node_id, Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST]) or
@@ -81,11 +80,11 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
       path, just_visited_onodes = assemble_from(reversed_path_forward)
 
       # Remove nodes that have already been seen to prevent duplication
+      binding.pry if path.to_shorthand == '{17357e,205084s|17357e,171578s,74459s,138588e,99112s,511908e,493049s},163748s,905s,906s,430126s,169125e,169124e'
+
       log.debug "Before removing already seen nodes the second time, path was #{path.length} nodes long" if log.debug?
       remove_seen_nodes_from_end_of_path(path, seen_nodes)
       log.debug "After removing already seen nodes the second time, path was #{path.length} nodes long" if log.debug?
-
-      binding.pry if path.to_shorthand == '{17357e,205084s|17357e,171578s,74459s,138588e,99112s,511908e,493049s},163748s,905s,906s,430126s,169125e,169124e'
 
       # Add the now seen nodes to the list
       just_visited_onodes.each do |onode_settable|
@@ -94,6 +93,12 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
 
       # Record which nodes have already been visited, so they aren't visited again
       seen_nodes.merge just_visited_onodes
+      if @assembly_options[:min_coverage_of_start_nodes]
+        # TODO: this could be better by progress += (starting_nodes_just_visited.length)
+        progress.increment
+      else
+        progress.progress += just_visited_onodes.length
+      end
 
       if path.length_in_bp < @assembly_options[:min_contig_size]
         log.debug "Path length (#{path.length_in_bp}) less than min_contig_size (#{@assembly_options[:min_contig_size] }), not recording it" if log.debug?
