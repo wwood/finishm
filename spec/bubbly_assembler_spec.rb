@@ -498,6 +498,38 @@ describe 'metapath' do
     metapath.reference_trail.to_shorthand.should == '1s,2s,3s,5s'
   end
 
+  it 'should find reference paths when the bubble is a single node insert' do
+    graph, initial_path, terminal = GraphTesting.emit_ss([
+      [1,2],
+      [2,3],
+      [1,3],
+      [3,4],
+      ], 1, 1)
+    cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph, {
+      :max_tip_length => -1,
+      :min_contig_size => 0,
+      }
+    metapath, v = cartographer.assemble_from initial_path, nil
+    metapath.to_shorthand.should == '1s,{3s|2s,3s},4s'
+    metapath.reference_trail.to_shorthand.should == '1s,2s,3s,4s'
+
+
+    graph, initial_path, terminal = GraphTesting.emit_ss([
+      [1,2],
+      [1,3],
+      [3,2],
+      [2,4],
+      ], 1, 1)
+    cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph, {
+      :max_tip_length => -1,
+      :min_contig_size => 0,
+      }
+    graph.arcs.get_arcs_by_node_id(1,2)
+    metapath, v = cartographer.assemble_from initial_path, nil
+    metapath.to_shorthand.should == '1s,{2s|3s,2s},4s'
+    metapath.reference_trail.to_shorthand.should == '1s,2s,4s'
+  end
+
   it 'should be able to iterate over variants from the reference contig' do
     fail
   end
@@ -606,35 +638,18 @@ describe 'Bubble' do
     metapath.fate.should == Bio::AssemblyGraphAlgorithms::BubblyAssembler::CIRCUIT_WITHIN_BUBBLE_FATE
   end
 
-  it 'should find reference paths when the bubble is a single node insert' do
+  it 'should give a correct coverage' do
     graph, initial_path, terminal = GraphTesting.emit_ss([
       [1,2],
       [2,3],
       [1,3],
-      [3,4],
-      ], 1, 1)
+      [4,5],
+      ],1,1)
     cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph, {
       :max_tip_length => -1,
       :min_contig_size => 0,
       }
     metapath, v = cartographer.assemble_from initial_path, nil
-    metapath.to_shorthand.should == '1s,{3s|2s,3s},4s'
-    metapath.reference_trail.to_shorthand.should == '1s,2s,3s,4s'
-
-
-    graph, initial_path, terminal = GraphTesting.emit_ss([
-      [1,2],
-      [1,3],
-      [3,2],
-      [2,4],
-      ], 1, 1)
-    cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph, {
-      :max_tip_length => -1,
-      :min_contig_size => 0,
-      }
-    graph.arcs.get_arcs_by_node_id(1,2)
-    metapath, v = cartographer.assemble_from initial_path, nil
-    metapath.to_shorthand.should == '1s,{2s|3s,2s},4s'
-    metapath.reference_trail.to_shorthand.should == '1s,2s,4s'
+    metapath.coverage.should == 0.5
   end
 end

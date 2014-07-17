@@ -39,7 +39,9 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
   def assemble_from(starting_path, visited_nodes=Set.new)
     leash_length = @assembly_options[:max_bubble_length]
     current_bubble = nil
-    log.info "Assembling from: #{starting_path.to_shorthand}" if log.info?
+    if log.info? and starting_path.kind_of?(Bio::Velvet::Graph::OrientedNodeTrail)
+      log.info "Assembling from: #{starting_path.to_shorthand}"
+    end
 
     metapath = MetaPath.new
     starting_path.each do |oriented_node|
@@ -394,7 +396,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       sum = 0
       each do |e|
         if e.kind_of?(Bio::AssemblyGraphAlgorithms::BubblyAssembler::Bubble)
-          sum += e.length_in_bp
+          sum += e.reference_trail.length_in_bp_within_path
         else
           sum += e.node.length_alone
         end
@@ -421,7 +423,33 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
     end
 
     def coverage
-      reference_trail.coverage
+      coverages = []
+      lengths = []
+      each do |onode_or_bubble|
+        if onode_or_bubble.kind_of?(Bio::AssemblyGraphAlgorithms::BubblyAssembler::Bubble)
+          # Length isn't obvious, but let's go with reference path length just coz that's easy
+          this_length = onode_or_bubble.reference_trail.length_in_bp_within_path
+          lengths.push this_length
+
+          # Coverage of a bubble is the coverage of each node in the bubble
+          # each weighted by their length
+          coverages.push onode_or_bubble.coverage
+        else
+          #regular node. So simple average coverage
+          coverages.push onode_or_bubble.node.coverage
+          lengths.push onode_or_bubble.node.length_alone
+        end
+      end
+
+      # Then a simple weighted average
+      i = -1
+      total_length = lengths.reduce(:+)
+
+      answer =  coverages.reduce(0.0) do |sum, cov|
+        i += 1
+        sum + (cov * lengths[i].to_f / total_length)
+      end
+      answer
     end
   end
 
@@ -666,11 +694,6 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       return node_trail
     end
 
-    # Length in base pairs of the reference_trail
-    def length_in_bp
-      reference_trail.length_in_bp
-    end
-
     # Does this (coverged) bubble contain any circuits?
     def circuitous?
       begin
@@ -679,6 +702,19 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
         return true
       end
       return false
+    end
+
+    # Coverage of a bubble is the coverage of each node in the bubble
+    # each weighted by their length
+    def coverage
+      sum = 0.0
+      length = 0
+      oriented_nodes do |onode|
+        node_length = onode.node.length_alone
+        sum += onode.node.coverage * node_length
+        length += node_length
+      end
+      return sum / length
     end
   end
 

@@ -91,11 +91,13 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
 
       # Record which nodes have already been visited, so they aren't visited again
       seen_nodes.merge just_visited_onodes
-      if @assembly_options[:min_coverage_of_start_nodes]
-        # TODO: this could be better by progress += (starting_nodes_just_visited.length)
-        progress.increment
-      else
-        progress.progress += just_visited_onodes.length
+      unless progress.nil?
+        if @assembly_options[:min_coverage_of_start_nodes]
+          # TODO: this could be better by progress += (starting_nodes_just_visited.length)
+          progress.increment
+        else
+          progress.progress += just_visited_onodes.length
+        end
       end
 
       if path.length_in_bp < @assembly_options[:min_contig_size]

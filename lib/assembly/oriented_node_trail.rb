@@ -354,10 +354,17 @@ module Bio
           to_s
         end
 
+        # Length of a contig made from this path
         def length_in_bp
           return 0 if @trail.empty?
-          reduce(@trail[0].node.parent_graph.hash_length-1) do |total, onode|
-            total+=onode.node.length_alone
+          return length_in_bp_within_path+@trail[0].node.parent_graph.hash_length-1
+        end
+
+        # Length of this trail if it is part of a larger path
+        def length_in_bp_within_path
+          return 0 if @trail.empty?
+          reduce(0) do |total, onode|
+            total + onode.node.length_alone
           end
         end
 
