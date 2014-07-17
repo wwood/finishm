@@ -9,6 +9,7 @@ class Bio::FinishM::Tweaker
     :debug => false,
     :gapfill_only => false,
     :max_explore_nodes => 10000,
+    :max_gapfill_paths => 10,
     }
 
   def add_options(optparse_object, options)
@@ -56,6 +57,9 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
     end
     optparse_object.on("--gapfill-only", "Don't wander, just gapfill [default: #{options[:gapfill_only] }]") do
       options[:gapfill_only] = true
+    end
+    optparse_object.on("--max-gapfill-paths NUM", Integer, "When this number of paths is exceeded, don't gapfill, print as Ns [default: #{options[:max_gapfill_paths] }]") do |arg|
+      options[:max_gapfill_paths] = arg
     end
     optparse_object.on("--max-explore-nodes NUM", Integer, "Only explore this many nodes. If max is reached, do not make connections. [default: #{options[:max_explore_nodes] }]") do |arg|
       options[:max_explore_nodes] = arg
@@ -135,7 +139,6 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
           log.debug "Wandering.."
           connected_scaffolds, all_connections, wandered_probe_indices = wander_a_genome(wanderer, genome, master_graph, options, report)
         end
-        binding.pry
         # Write out all the connections
         File.open(File.join(output_directory, File.basename(genome.filename)+".connections.csv"),'w') do |con_file|
           all_connections.each do |connection|
@@ -282,7 +285,8 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
     connections.each_with_index do |aconn, i|
       rhs_sequence = scaffold.contigs[i+1].sequence
       gapfilled_sequence, variants, gapfilled = piece_together_gapfill(
-        printer, master_graph, gapfilled_sequence, aconn, rhs_sequence, genome.gap_length(scaffold_index, i)
+        printer, master_graph, gapfilled_sequence, aconn, rhs_sequence, genome.gap_length(scaffold_index, i),
+        options[:max_gapfill_paths]
         )
       if gapfilled
         num_gapfills += 1
@@ -303,10 +307,10 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
     return gapfilled_sequence, num_gapfills, all_variants
   end
 
-  def piece_together_gapfill(printer, master_graph, first_sequence, aconn, second_sequence, gap_length)
+  def piece_together_gapfill(printer, master_graph, first_sequence, aconn, second_sequence, gap_length, max_gapfill_paths)
     scaffold_sequence = nil
     gapfilled = -1
-    if aconn.paths.length == 0
+    if aconn.paths.length == 0 or aconn.paths.length > max_gapfill_paths
       # No paths found. Just fill with Ns like it was before
       scaffold_sequence = first_sequence + 'N'*gap_length + second_sequence
       gapfilled = false

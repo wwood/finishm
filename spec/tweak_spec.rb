@@ -298,8 +298,8 @@ EOF
   it 'should handle variants on the reverse strand' do
     answer = Bio::FlatFile.open("#{TEST_DATA_DIR}/tweak/3_variant/answer.fa").entries[0].to_biosequence.to_s
     Dir.mktmpdir do |tmpdir|
-      #Tempfile.open('testing_scaffolds2') do |t|
-        File.open('/tmp/ta2','w') do |t|
+      Tempfile.open('testing_scaffolds2') do |t|
+        #File.open('/tmp/ta2','w') do |t|
         t.puts '>seq1'
         t.puts answer[0..200]
         t.puts '>seq2'
@@ -315,7 +315,7 @@ EOF
 >scaffold1 scaffold seq1:seq2
 AATGCACATCGACTATATTTAGGCGTCAGGCCTCGCGTCTGAGGGGATAGCACCATTATAGATGGAAAGTGACTGCTGATACGGAGTGCTGAGTTGTAGTGCGAGAGGCAGCCAAGTGTCGAGAATGTCGGAACGTTGTGACATAGTCGATGTACGTTCATCGAAGCAAGAGCCTAAAGACCGTCCGCTATGACTATTGGGCGAGGACCGGCCGAATGTTAAACATCCGATACAGCACGTACAAGGTCGCTCACCGAAGGCGCAAGATATTTTCCGCGATTGAAAAGTAACCACTTCCACGCAATTGAGGCGAAACCAACTAGCAGCTGCTCCCACTGTCGTCCATTGCCGTCAGGGGGATAAGCTCCATGCTACGTGGAACTATTGGGACCAGGTCGGTACACTCGTACCATGCATACTGGCGCGGGTGACGTTGGCCCGACGCGGACGACGTTTGTTCAGATACCGTGCAGTTACAATCCCATGTAAGCGATTCCCGGGGTTGAAATGCTTCCCGGCATACTCTGACGAAGATGCTCGAGTTCCAAGGTCAATCCGTAGCATTCGGGGATATGCGTCTGCTTCAGACAGGTCCTCCTCTCATTCACCGCTAGCGGGTCGTAAGGGGGAGTAAAGTTCGTGTCCCCAGGATGGGAGGAGCACACTCATCCCTGAGGGAAGCTAGGCCCAATCTGGACTTCCGAGCATCATACAATTTGAAAGGCCTGCAGGTCCCCAAGTCCGCCTCTGCCTGTGTTATAAAGTGGCCTACTATGCAGGACAGGGTCAAAAGGGCCCAGTCCGGGAACCAGAACCTTGAGGCCCCCGTGGCGTACGCCCCAAGCCCGCCTCCAGGGCGGCGCTGTTTTATTCTGACGGCTTTGATCGGCGAACACTGCCTGGTTAGGCACTGAATATAAAAATTCAGACACTGCCCTCCACTGAGTGACCAATCGAACATTCGTTGAGCATTGGCGCTTGTTTTCCCTTAGATTCTACC
 EOF
-        File.open(File.join(tmpdir, File.basename(t.path)+'.vcf')).readlines.should == [
+        File.open(File.join(tmpdir, File.basename(t.path)+'.at_least_half_completely_wrong.vcf')).readlines.should == [
           %w(#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO).join("\t")+"\n",
           %w(scaffold1	485	.	.	GGGGG	20	PASS	finishm).join("\t")+"\n"
           ]# need contig_printer to give an offset that can be added to each variant
@@ -323,6 +323,34 @@ EOF
     end
   end
 
+  it 'should respect --max-gapfill-paths' do
+    answer = Bio::FlatFile.open("#{TEST_DATA_DIR}/tweak/3_variant/answer.fa").entries[0].to_biosequence.to_s
+    #Dir.mktmpdir do |tmpdir|
+    begin tmpdir = '/tmp/testfi'
+      Tempfile.open('testing_scaffolds2') do |t|
+        #File.open('/tmp/ta2','w') do |t|
+        t.puts '>seq1'
+        t.puts answer[0..200]
+        t.puts '>seq2'
+        t.puts Bio::Sequence::NA.new(answer[250..400]+'N'*50+answer[600..-1]).reverse_complement.to_s.upcase
+        t.close
+
+        command = "#{path_to_script} --quiet --fasta-gz #{TEST_DATA_DIR }/tweak/3_variant/reads.fa.gz "+
+            "--genomes #{t.path} --output-directory #{tmpdir} --overhang 60 --max-gapfill-paths 1"
+        Bio::Commandeer.run(command).should == ''
+        output_file2 = File.join(tmpdir, File.basename(t.path)+'.scaffolds.fasta')
+        File.exist?(output_file2).should == true
+        File.open(output_file2).read.should == <<EOF
+>scaffold1 scaffold seq1:seq2
+AATGCACATCGACTATATTTAGGCGTCAGGCCTCGCGTCTGAGGGGATAGCACCATTATAGATGGAAAGTGACTGCTGATACGGAGTGCTGAGTTGTAGTGCGAGAGGCAGCCAAGTGTCGAGAATGTCGGAACGTTGTGACATAGTCGATGTACGTTCATCGAAGCAAGAGCCTAAAGACCGTCCGCTATGACTATTGGGCGAGGACCGGCCGAATGTTAAACATCCGATACAGCACGTACAAGGTCGCTCACCGAAGGCGCAAGATATTTTCCGCGATTGAAAAGTAACCACTTCCACGCAATTGAGGCGAAACCAACTAGCAGCTGCTCCCACTGTCGTCCATTGCCGTCAGGGGGATAAGCTCCATGCTACGTGGAACTATTGGGACCAGGTCGGTANNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNTCATTCACCGCTAGCGGGTCGTAAGGGGGAGTAAAGTTCGTGTCCCCAGGATGGGAGGAGCACACTCATCCCTGAGGGAAGCTAGGCCCAATCTGGACTTCCGAGCATCATACAATTTGAAAGGCCTGCAGGTCCCCAAGTCCGCCTCTGCCTGTGTTATAAAGTGGCCTACTATGCAGGACAGGGTCAAAAGGGCCCAGTCCGGGAACCAGAACCTTGAGGCCCCCGTGGCGTACGCCCCAAGCCCGCCTCCAGGGCGGCGCTGTTTTATTCTGACGGCTTTGATCGGCGAACACTGCCTGGTTAGGCACTGAATATAAAAATTCAGACACTGCCCTCCACTGAGTGACCAATCGAACATTCGTTGAGCATTGGCGCTTGTTTTCCCTTAGATTCTACC
+EOF
+        File.open(File.join(tmpdir, File.basename(t.path)+'.at_least_half_completely_wrong.vcf')).readlines.should == [
+          %w(#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO).join("\t")+"\n",
+          ]
+      end
+    end
+
+  end
 
   it 'should handle circular scaffolds made up of multiple input scaffolds and are on different nodes' do
     fail
