@@ -43,7 +43,7 @@ describe "ContigPrinter" do
     end
   end
 
-                                                                                                
+
 
 
   #     it 'should work with 3 variants' do
@@ -117,7 +117,7 @@ describe "ContigPrinter" do
         File.open(File.join TEST_DATA_DIR, 'contig_printer','1','seq2_1to550.fa').readlines[1].strip.gsub(/..$/,'') +
         '67890'
       observed = Bio::AssemblyGraphAlgorithms::ContigPrinter.new.one_connection_between_two_contigs(
-        graph,'12345',acon,'67890'
+        graph,'12345',acon,'67890',[]
         )
       observed.should == expected
     end
@@ -137,7 +137,7 @@ describe "ContigPrinter" do
         File.open(File.join TEST_DATA_DIR, 'contig_printer','1','seq2_1to550.fa').readlines[1].strip.gsub(/..$/,'') +
         '890'
       observed = Bio::AssemblyGraphAlgorithms::ContigPrinter.new.one_connection_between_two_contigs(
-        graph,'12345',acon,'67890'
+        graph,'12345',acon,'67890',[]
         )
       observed.should == expected
     end
@@ -158,7 +158,7 @@ describe "ContigPrinter" do
         'TAATACCGTATAATGACTTCGGTCCAAAGATTTATCGCCCAGGGATGAGCCCGCGTAGGATTAGCTTGTTGGTGAGGTAAAGGCTCACCAAGGCGACGATCCTTAGCTGGTCTGAGAGGATGATCAGCCACACTGGGACTGAGACATGGCCCAGACTCCTACGGGAGGCAGCAGTGGGGAATATTGGACAATGGGCGAAAGCCTGATCCAGCAATGCCGCGTGAGTGATGAAGGCCTTAGGGTTGTAAAGCTCTTTTACCCGGGATGATAATGACAGTACCGGGAGAATAAGCCCCGGCTAACTCCGTGCCAGCAGCCGCGGTAATACGGAGGGGGCTAGCGTTGTTCGGAATTACTGGGCGTAAAGCGCACGTAGGCGGCTTTGTAAGTTAGAGGTGAAAGCCCGGGGCTCAACTCCGGAATT' +
         '67890'
       observed = Bio::AssemblyGraphAlgorithms::ContigPrinter.new.one_connection_between_two_contigs(
-        graph,'12345',acon,'67890'
+        graph,'12345',acon,'67890',[]
         )
       observed.should == expected
     end
@@ -180,7 +180,7 @@ describe "ContigPrinter" do
         'TAATACCGTATAATGACTTCGGTCCAAAGATTTATCGCCCAGGGATGAGCCCGCGTAGGATTAGCTTGTTGGTGAGGTAAAGGCTCACCAAGGCGACGATCCTTAGCTGGTCTGAGAGGATGATCAGCCACACTGGGACTGAGACATGGCCCAGACTCCTACGGGAGGCAGCAG' +
         '67890'
       observed = Bio::AssemblyGraphAlgorithms::ContigPrinter.new.one_connection_between_two_contigs(
-        graph,'12345',acon,'67890'
+        graph,'12345',acon,'67890',[]
         )
       observed.should == expected
     end
@@ -203,12 +203,45 @@ describe "ContigPrinter" do
         File.open(File.join TEST_DATA_DIR, 'contig_printer','1','seq2_1to550.fa').readlines[1].strip.gsub(/..$/,'') +
         'CA'
       observed_sequence, observed_variants = Bio::AssemblyGraphAlgorithms::ContigPrinter.new.ready_two_contigs_and_connections(
-        graph,'ATGCA',acon,'ATGCA'
+        graph,'ATGCA',acon,'ATGCA',[]
         )
       observed_sequence.should == expected
       observed_variants.collect{|v|v.to_shorthand}.should == [
         "210S:TTT", "214S:AC", "217S:TC", "220S:CCAACAAGCTAA", "233S:CCTAC", "239S:CGCTCAGACCA", "251S:C", "253S:A", "256S:GAT", "260S:GTC", "264S:CCTTG", "270S:T", "273S:GC",
         ]
+    end
+
+    it 'should handle when start_coord is not == 0 and both reads are inwards facing' do
+      graph = Bio::Velvet::Graph.parse_from_file(File.join TEST_DATA_DIR, 'contig_printer','1','seq.fa.velvet','LastGraph')
+      graph.nodes.length.should == 13
+      acon = Bio::AssemblyGraphAlgorithms::ContigPrinter::AnchoredConnection.new
+      acon.start_probe_noded_read = graph.nodes[9].short_reads.select{|nr| nr.read_id == 161}[0] #Found these by using bwa and inspecting the Sequence velvet file
+      acon.end_probe_noded_read = graph.nodes[4].short_reads.select{|nr| nr.read_id == 1045}[0]
+      acon.start_probe_contig_offset = 0
+      acon.end_probe_contig_offset = 0
+
+      # introduce badness
+      acon.start_probe_noded_read.start_coord = 3
+      acon.end_probe_noded_read.start_coord = 4
+      reads = {
+        161 => 'A'*100,
+        1045 => 'C'*100,
+        }
+
+      acon.paths = [
+        GraphTesting.make_onodes(graph, %w(9s 12s 7e 13s 5e 11e 2s 10s 4e))
+        ]
+      expected = '12345'+'AAA'+
+        File.open(File.join TEST_DATA_DIR, 'contig_printer','1','seq2_1to550.fa').readlines[1].strip.gsub(/..$/,'') +
+        'CCCC'+'67890'
+      observed = Bio::AssemblyGraphAlgorithms::ContigPrinter.new.one_connection_between_two_contigs(
+        graph,'12345',acon,'67890', reads
+        )
+      observed.should == expected
+    end
+
+    it 'should handle when start_coord is not == 0 and both reads are outwards facing' do
+      raise
     end
   end
 end

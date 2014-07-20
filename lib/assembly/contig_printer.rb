@@ -36,34 +36,9 @@ module Bio
         attr_accessor :paths
       end
 
-      # Take an Enumerable contigs_and_connections which contains
-      # either contigs (as correctly oriented Strings) or an connection (an AnchoredConnection).
-      # Cannot handle circular contigs,
-      # and it must be in the order contig,connection,contig and start and end with a contig
-      def contigs_and_connections_to_string(graph, contigs_and_connections)
-        to_return = nil
-        last_connection = nil
-
-        contigs_and_connections.each_with_index do |concon, i|
-          if last_element.nil?
-            raise "Unexpected first element" unless concon.kind_of?(String)
-            to_return = concon
-          elsif i % 2 == 1
-            # Every second element is a connection
-            raise "Unexpectedly didn't find AnchoredConnection" unless concon.kind_of?(AnchoredConnection)
-            last_connection = concon
-          else
-            raise "Unexpectedly didn't find String" unless concon.kind_of?(String)
-            raise if second_last_element.nil? or last_element.nil?
-            to_return = one_connection_between_two_contigs(graph, to_return, last_connection, concon)
-          end
-        end
-        return to_return
-      end
-
       # Much like one_connection_between_two_contigs except can handle multiple connections
       # (but cannot handle 0 connections)
-      def ready_two_contigs_and_connections(graph, contig1, anchored_connection, contig2)
+      def ready_two_contigs_and_connections(graph, contig1, anchored_connection, contig2, sequences)
         to_return = ''
         variants = []
 
@@ -91,15 +66,17 @@ module Bio
           begin_onode = path[0]
           begin_noded_read = anchored_connection.start_probe_noded_read
           raise if begin_noded_read.nil?
+          extra_bit_on_start = ''
           if begin_noded_read.start_coord != 0
-            log.error "Unexpectedly the start of the start probe not did not form part of the path"
-            binding.pry
-            #raise "Unexpectedly the start of the start probe not did not form part of the path"
+            log.warn "Unexpectedly the start of the start probe not did not form part of the path, which is a little suspicious"
+            extra_bit_on_start = sequences[begin_noded_read.read_id][0...begin_noded_read.start_coord]
           end
           offset_of_begin_probe_on_path = nil
           # xor read direction on node, and node direction on path
           if (begin_noded_read.direction == true) ^ begin_onode.starts_at_start?
             offset_of_begin_probe_on_path = begin_onode.node.corresponding_contig_length - begin_noded_read.offset_from_start_of_node
+            # extra bit on read needs to be reverse complemented
+            extra_bit_on_start = Bio::Sequence::NA.new(extra_bit_on_start).reverse_complement.to_s.upcase unless extra_bit_on_start == ''
           else
             offset_of_begin_probe_on_path = begin_noded_read.offset_from_start_of_node
           end
@@ -119,18 +96,23 @@ module Bio
           end_onode = path[-1]
           end_noded_read = anchored_connection.end_probe_noded_read
           raise if end_noded_read.nil?
+          extra_bit_on_end = ''
           if end_noded_read.start_coord != 0
-            raise "Unexpectedly the end of the end probe not did not form part of the path"
+            log.warn "Unexpectedly the end of the end probe not did not form part of the path, which is a little suspicious"
+            extra_bit_on_end = sequences[end_noded_read.read_id][0...end_noded_read.start_coord]
           end
           offset_of_end_node_on_path = path[0...-1].reduce(0){|sum, onode| sum += onode.node.length_alone}
           if (end_noded_read.direction == false) ^ end_onode.starts_at_start?
             offset_of_end_node_on_path += end_noded_read.offset_from_start_of_node
+            extra_bit_on_end = Bio::Sequence::NA.new(extra_bit_on_end).reverse_complement.to_s.upcase unless extra_bit_on_end == ''
           else
             offset_of_end_node_on_path += end_onode.node.corresponding_contig_length - end_noded_read.offset_from_start_of_node
           end
 
           log.debug "Found start index #{offset_of_begin_probe_on_path} and end index #{offset_of_end_node_on_path}" if log.debug?
-          to_return += path_sequence[offset_of_begin_probe_on_path...offset_of_end_node_on_path]
+          to_return += extra_bit_on_start+
+            path_sequence[offset_of_begin_probe_on_path...offset_of_end_node_on_path]+
+            extra_bit_on_end
           log.debug "After path chunk of sequence added, sequence is #{to_return.length}bp long" if log.debug?
         end #end stage 2
 
@@ -151,9 +133,9 @@ module Bio
       #                  --------------
       #      ---------->|<-----|----->|--------->        nodes that make up the path (directions and boundaries variable)
       #    stage1|           stage2           |stage3    stages of sequence construction in this method
-      def one_connection_between_two_contigs(graph, contig1, anchored_connection, contig2)
+      def one_connection_between_two_contigs(graph, contig1, anchored_connection, contig2, sequences)
         raise "programming error: only one path expected here" if anchored_connection.paths.length > 1
-        return ready_two_contigs_and_connections(graph, contig1, anchored_connection, contig2)[0]
+        return ready_two_contigs_and_connections(graph, contig1, anchored_connection, contig2, sequences)[0]
       end
 
       # Return the index of a reference path picked from the given paths.
