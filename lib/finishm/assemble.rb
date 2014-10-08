@@ -155,6 +155,7 @@ class Bio::FinishM::Assembler
           if !stats_output.nil?
             stats_output.puts [
               name,
+              path.length_in_bp,
               path.coverage,
               ].join("\t")
           end
