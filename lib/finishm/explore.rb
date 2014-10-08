@@ -141,6 +141,7 @@ class Bio::FinishM::Explorer
     interesting_probe_ids_to_place = {}
     if options[:interesting_places] == :all
       options[:interesting_places] = []
+      base = 0
       sequence_names.each_with_index do |name, i|
         %w(start end).each do |side|
           place = InterestingPlace.new
@@ -148,10 +149,8 @@ class Bio::FinishM::Explorer
           place.contig_name = name
           options[:interesting_places].push place
 
-          base = i
-          base += 1 if side == 'end'
-
           interesting_probe_ids_to_place[base] = place
+          base += 1
         end
       end
     else
