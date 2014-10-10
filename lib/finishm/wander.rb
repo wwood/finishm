@@ -40,10 +40,10 @@ class Bio::FinishM::Wanderer
     end
 
     optparse_object.separator "\nOutput modes:\n\n"
-    optparse_object.on("--output-scaffolds PATH", "Output scaffolds in FASTA format [required]") do |arg|
+    optparse_object.on("--output-scaffolds FILE", "Output scaffolds in FASTA format [required]") do |arg|
       options[:output_scaffolds_file] = arg
     end
-    optparse_object.on("--output-connections PATH", "Output connections in tab-separated format [required]") do |arg|
+    optparse_object.on("--output-connections FILE", "Output connections in tab-separated format [required]") do |arg|
       options[:output_connection_file] = arg
     end
 
