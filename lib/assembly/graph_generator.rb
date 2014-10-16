@@ -48,13 +48,15 @@ class Bio::FinishM::GraphGenerator
   # :use_textual_sequence_file: by default, a binary sequence file is used. Set this true to get velvet to generate the Sequences file
   # :remove_unconnected_nodes: delete nodes from the graph that are not connected to the probe nodes
   # :graph_search_leash_length: when :remove_unconnected_nodes'ing, use this leash length
-  # :dont_parse_noded_reads: if true, skip parsing noded reads
-  # :dont_parse_reads: if true, skip parsing reads
+  # :dont_parse_noded_reads: if true, skip parsing noded reads (ie the positions of the reads in the graph)
+  # :dont_parse_reads: if true, skip parsing reads (ie the sequences of the reads themselves)
   def generate_graph(probe_sequences, read_inputs, options={})
     options[:parse_sequence_file] ||= true
     graph = nil
     read_probing_graph = nil
     finishm_graph = Bio::FinishM::ProbedGraph.new
+
+    log.debug "Options for generate_graph: #{options}" if log.debug?
 
     velvet_result = nil
 
