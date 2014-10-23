@@ -135,7 +135,7 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
           log.debug "Wandering.."
           connected_scaffolds, all_connections, wandered_probe_indices = wander_a_genome(wanderer, genome, master_graph, options, report)
         end
-        binding.pry
+
         # Write out all the connections
         File.open(File.join(output_directory, File.basename(genome.filename)+".connections.csv"),'w') do |con_file|
           all_connections.each do |connection|
@@ -181,17 +181,27 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
                     contig.direction == true ? genome.first_probe(contig.sequence_index).index : genome.last_probe(contig.sequence_index).index,
                     options
                     )
+                  raise "need to implement & test: take care of reverse direction of contigs" if contig.direction != true
                   second_sequence = genome.scaffolds[contig.sequence_index].contigs[0].sequence
-                  log.debug "Found #{aconn.paths.length} connections"
+                  log.debug "Found #{aconn.paths.length} connections between #{last_name} and #{current_name}" if log.debug?
                   if aconn.paths.length == 0
+                    # when this occurs, it is due to there being a circuit in the path, so no paths are printed.
+                    # (at least for now) TODO: this could be improved.
+                    scaffold
                     raise
                   else
-                    scaffold_sequence, variants = printer.one_connection_between_two_contigs(
+                    scaffold_sequence, variants = printer.ready_two_contigs_and_connections(
                       master_graph.graph,
                       scaffold_sequence,
                       aconn,
                       rhs_sequence
                       )
+                    # Print variants
+                    # TODO: need to change coordinates of variants, particularly when >2 contigs are joined?
+                    variants.each do |variant|
+                      variant.reference_name = superscaffold_name
+                      variants_file.puts variant.vcf(scaffold_sequence)
+                    end
                   end
                 end
                 last_contig = contig

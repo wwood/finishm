@@ -12,7 +12,6 @@ class Bio::FinishM::Assembler
       :progressbar => true,
       :min_contig_size => 500,
       :bubbly => false,
-      :leash_length => 500,
       :max_bubble_length => Bio::AssemblyGraphAlgorithms::BubblyAssembler::DEFAULT_MAX_BUBBLE_LENGTH,
     })
 
@@ -53,6 +52,9 @@ class Bio::FinishM::Assembler
     end
     optparse_object.on("--min-starting-node-coverage COVERAGE",Float,"Only start exploring from nodes with at least this much coverage [default: start from all nodes]") do |arg|
       options[:min_coverage_of_start_nodes] = arg
+    end
+    optparse_object.on("--min-starting-node-length LENGTH",Integer,"Only start exploring from nodes with at least this length [default: start from all nodes]") do |arg|
+      options[:min_length_of_start_nodes] = arg
     end
     optparse_object.on("--debug", "Build the graph, then drop to a pry console. [default: #{options[:debug] }]") do
       options[:debug] = true

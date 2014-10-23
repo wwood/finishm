@@ -306,6 +306,7 @@ module Bio
       def clustalo(sequences)
         i = 0
         stdin = sequences.collect{|s| i+=1; ">#{i}\n#{s}\n"}.join('')
+        log.info "Running clustalo with #{sequences.length} sequences, specifically: #{stdin}" #if log.debug?
         stdout = Bio::Commandeer.run "clustalo -t DNA -i - --output-order=input-order", {:stdin => stdin, :log => log}
         to_return = []
         header = true

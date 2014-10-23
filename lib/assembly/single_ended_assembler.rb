@@ -121,10 +121,14 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
   end
 
   def gather_starting_nodes
-    if @assembly_options[:min_coverage_of_start_nodes]
+    if @assembly_options[:min_coverage_of_start_nodes] or @assembly_options[:min_length_of_start_nodes]
       starting_nodes = []
       graph.nodes.each do |node|
-        unless node.coverage < @assembly_options[:min_coverage_of_start_nodes]
+        if (@assembly_options[:min_coverage_of_start_nodes].nil? or
+          node.coverage >= @assembly_options[:min_coverage_of_start_nodes]) and
+          (@assembly_options[:min_length_of_start_nodes].nil? or
+          node.length_in_bp >= @assembly_options[:min_length_of_start_nodes])
+
           starting_nodes.push node
         end
       end

@@ -94,11 +94,11 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
             break
           elsif legit_neighbours.length == 1
             # Linear thing here, just keep moving forward
-            neighbour = oriented_neighbours[0]
+            neighbour = legit_neighbours[0]
 
             # Stop if a circuit is detected
             if visited_oriented_node_settables.include?(neighbour.to_settable)
-              log.debug "Detected regular circuit" if log.debug?
+              log.debug "Detected regular circuit by running into #{neighbour.to_settable}" if log.debug?
               metapath.fate = MetaPath::CIRCUIT_FATE
               current_mode = :finished
               break

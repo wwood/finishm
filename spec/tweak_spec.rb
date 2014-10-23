@@ -331,4 +331,8 @@ EOF
   it 'should handle circular scaffolds made up of multiple input scaffolds and are on the same velvet node' do
     fail #known bug
   end
+
+  it 'should print variants correctly after two contigs have been joined together' do
+    fail 'unlikely to work'
+  end
 end
