@@ -12,7 +12,9 @@ class Bio::FinishM::Assembler
       :progressbar => true,
       :min_contig_size => 500,
       :bubbly => false,
+      :max_tip_length => Bio::AssemblyGraphAlgorithms::BubblyAssembler::DEFAULT_MAX_TIP_LENGTH,
       :max_bubble_length => Bio::AssemblyGraphAlgorithms::BubblyAssembler::DEFAULT_MAX_BUBBLE_LENGTH,
+      :bubble_node_count_limit => Bio::AssemblyGraphAlgorithms::BubblyAssembler::DEFAULT_BUBBLE_NODE_COUNT_LIMIT,
     })
 
     optparse_object.separator "\nRequired arguments:\n\n"
@@ -32,11 +34,17 @@ class Bio::FinishM::Assembler
     optparse_object.on("--recoherence-kmer LENGTH", Integer, "When paths diverge, try to rescue by using a bigger kmer of this length [default: none]") do |arg|
       options[:recoherence_kmer] = arg
     end
+    optparse_object.on("--max-tip-length LENGTH", Integer, "Maximum length of 'tip' in assembly graph to ignore [default: #{options[:max_tip_length] }]") do |arg|
+      options[:max_tip_length] = arg
+    end
     optparse_object.on("--bubbly", "Assemble with the bubbly method [default: #{options[:bubbly] }]") do
       options[:bubbly] = true
     end
     optparse_object.on("--max-bubble-size NUM", Integer, "Max bubble size available for bubbly method [default: #{options[:max_bubble_length] }]") do |arg|
       options[:max_bubble_length] = arg
+    end
+    optparse_object.on("--max-bubble-complexity NUM", Integer, "Max number of nodes in a bubble to explore before giving up [default: #{options[:bubble_node_count_limit] }]") do |arg|
+      options[:bubble_node_count_limit] = arg
     end
     optparse_object.on("--output-pathspec", "Give the sequence of nodes used in the path in the output contig file [default: #{options[:output_pathspec] }]") do
       options[:output_pathspec] = true
@@ -55,6 +63,9 @@ class Bio::FinishM::Assembler
     end
     optparse_object.on("--min-starting-node-length LENGTH",Integer,"Only start exploring from nodes with at least this length [default: start from all nodes]") do |arg|
       options[:min_length_of_start_nodes] = arg
+    end
+    optparse_object.on("--max-coverage-at-fork COVERAGE",Float,"When reached a fork, don't take paths with more than this much coverage [default: not applied]") do |arg|
+      options[:max_coverage_at_fork] = arg
     end
     optparse_object.on("--debug", "Build the graph, then drop to a pry console. [default: #{options[:debug] }]") do
       options[:debug] = true
@@ -110,8 +121,11 @@ class Bio::FinishM::Assembler
       :recoherence_kmer,
       :min_contig_size,
       :min_coverage_of_start_nodes,
+      :min_length_of_start_nodes,
       :leash_length,
       :max_bubble_length,
+      :bubble_node_count_limit,
+      :max_coverage_at_fork,
       ].each do |opt|
         assembler.assembly_options[opt] = options[opt]
       end

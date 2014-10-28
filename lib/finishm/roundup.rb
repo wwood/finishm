@@ -1,4 +1,4 @@
-class Bio::FinishM::Tweaker
+class Bio::FinishM::RoundUp
   include Bio::FinishM::Logging
 
   DEFAULT_OPTIONS = {
@@ -181,14 +181,13 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
                     contig.direction == true ? genome.first_probe(contig.sequence_index).index : genome.last_probe(contig.sequence_index).index,
                     options
                     )
-                  raise "need to implement & test: take care of reverse direction of contigs" if contig.direction != true
                   second_sequence = genome.scaffolds[contig.sequence_index].contigs[0].sequence
                   log.debug "Found #{aconn.paths.length} connections between #{last_name} and #{current_name}" if log.debug?
                   if aconn.paths.length == 0
                     # when this occurs, it is due to there being a circuit in the path, so no paths are printed.
                     # (at least for now) TODO: this could be improved.
-                    scaffold
-                    raise
+                    # Just arbitrarily put in 100 N characters, to denote a join, but no gapfill
+                    scaffold_sequence = scaffold_sequence+('N'*100)+rhs_sequence
                   else
                     scaffold_sequence, variants = printer.ready_two_contigs_and_connections(
                       master_graph.graph,
