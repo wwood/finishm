@@ -172,7 +172,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     end
 
     # There should be at least 1 read that spans the collected nodes and the last node
-    # The trail validates iff the above statement is true.
+    # The trail validates if the above statement is true.
     #TODO: there's a possible 'bug' here in that there's garauntee that the read is overlays the
     # nodes in a consecutive and gapless manner. But I suspect that is unlikely to be a problem in practice.
     final_node = path.trail[-1].node
@@ -200,7 +200,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
   # sequence_hash: Bio::Velvet::Sequence object with the sequences from the reads in the nodes
   def sub_kmer_sequence_overlap?(nodes, sequence_hash, min_concurring_reads=1)
     raise if nodes.length < 3 #should not get here - this is taken care of above
-    log.debug "validating by sub-kmer sequence overlap: #{nodes}" if log.debug?
+    log.debug "validating by sub-kmer sequence overlap with min #{min_concurring_reads}: #{nodes}" if log.debug?
 
     # Only reads that are in the second last node are possible, by de-bruijn graph definition.
     candidate_noded_reads = nodes[-2].node.short_reads

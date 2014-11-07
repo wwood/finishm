@@ -84,8 +84,6 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
       path, just_visited_onodes = assemble_from(reversed_path_forward)
 
       # Remove nodes that have already been seen to prevent duplication
-      binding.pry if path.to_shorthand == '{17357e,205084s|17357e,171578s,74459s,138588e,99112s,511908e,493049s},163748s,905s,906s,430126s,169125e,169124e'
-
       log.debug "Before removing already seen nodes the second time, path was #{path.length} nodes long" if log.debug?
       remove_seen_nodes_from_end_of_path(path, seen_nodes)
       log.debug "After removing already seen nodes the second time, path was #{path.length} nodes long" if log.debug?
@@ -339,7 +337,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
               log.debug "After removing too much coverage neighbours there's only one way to go, going there"
               path.add_oriented_node oneighbours[0]
             else
-              log.debug "After removing max coverage nodes, #{oneighbours.length} neighbours found, giving up" if log.debug?
+              log.debug "After removing max coverage nodes, #{oneighbours.length} neighbours found (#{oneighbours.collect{|o| o.to_shorthand}.join(",") }), giving up" if log.debug?
               break
             end
 

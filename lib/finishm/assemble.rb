@@ -15,6 +15,7 @@ class Bio::FinishM::Assembler
       :max_tip_length => Bio::AssemblyGraphAlgorithms::BubblyAssembler::DEFAULT_MAX_TIP_LENGTH,
       :max_bubble_length => Bio::AssemblyGraphAlgorithms::BubblyAssembler::DEFAULT_MAX_BUBBLE_LENGTH,
       :bubble_node_count_limit => Bio::AssemblyGraphAlgorithms::BubblyAssembler::DEFAULT_BUBBLE_NODE_COUNT_LIMIT,
+      :min_confirming_recoherence_kmer_reads => Bio::AssemblyGraphAlgorithms::SingleEndedAssembler::DEFAULT_MIN_CONFIRMING_RECOHERENCE_READS,
     })
 
     optparse_object.separator "\nRequired arguments:\n\n"
@@ -33,6 +34,9 @@ class Bio::FinishM::Assembler
     end
     optparse_object.on("--recoherence-kmer LENGTH", Integer, "When paths diverge, try to rescue by using a bigger kmer of this length [default: none]") do |arg|
       options[:recoherence_kmer] = arg
+    end
+    optparse_object.on("--recoherence-min-reads NUM", Integer, "Number of reads required to agree with recoherence [default: #{options[:min_confirming_recoherence_kmer_reads] } (when --recoherence-kmer is specified)]") do |arg|
+      options[:min_confirming_recoherence_kmer_reads] = arg
     end
     optparse_object.on("--max-tip-length LENGTH", Integer, "Maximum length of 'tip' in assembly graph to ignore [default: #{options[:max_tip_length] }]") do |arg|
       options[:max_tip_length] = arg
@@ -119,6 +123,7 @@ class Bio::FinishM::Assembler
     end
     [
       :recoherence_kmer,
+      :min_confirming_recoherence_kmer_reads,
       :min_contig_size,
       :min_coverage_of_start_nodes,
       :min_length_of_start_nodes,
