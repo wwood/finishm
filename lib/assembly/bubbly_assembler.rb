@@ -223,7 +223,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
                   log.debug "Enqueued #{new_problem.to_shorthand}, total nodes now #{current_bubble.num_known_problems}" if log.debug?
 
                   # check to make sure we aren't going overboard in the bubbly-ness
-                  if current_bubble.num_known_problems > @assembly_options[:bubble_node_count_limit]
+                  if !@assembly_options[:bubble_node_count_limit].nil? and current_bubble.num_known_problems > @assembly_options[:bubble_node_count_limit]
                     log.debug "Too complex a bubble detected, giving up" if log.debug?
                     metapath.fate = MetaPath::NODE_COUNT_LIMIT_REACHED
                     current_mode = :finished

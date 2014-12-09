@@ -47,8 +47,12 @@ class Bio::FinishM::Assembler
     optparse_object.on("--max-bubble-size NUM", Integer, "Max bubble size available for bubbly method [default: #{options[:max_bubble_length] }]") do |arg|
       options[:max_bubble_length] = arg
     end
-    optparse_object.on("--max-bubble-complexity NUM", Integer, "Max number of nodes in a bubble to explore before giving up [default: #{options[:bubble_node_count_limit] }]") do |arg|
-      options[:bubble_node_count_limit] = arg
+    optparse_object.on("--max-bubble-complexity NUM", Integer, "Max number of nodes in a bubble to explore before giving up (0 for infinite) [default: #{options[:bubble_node_count_limit] }]") do |arg|
+      if arg == 0
+        options[:bubble_node_count_limit] = nil
+      else
+        options[:bubble_node_count_limit] = arg
+      end
     end
     optparse_object.on("--output-pathspec", "Give the sequence of nodes used in the path in the output contig file [default: #{options[:output_pathspec] }]") do
       options[:output_pathspec] = true
@@ -136,6 +140,7 @@ class Bio::FinishM::Assembler
       :min_contig_size,
       :min_coverage_of_start_nodes,
       :min_length_of_start_nodes,
+      :max_tip_length,
       :leash_length,
       :max_bubble_length,
       :bubble_node_count_limit,

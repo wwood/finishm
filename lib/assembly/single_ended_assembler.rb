@@ -371,8 +371,14 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
 
     cache = {}
 
+    debug_max_dist = 0
+
     while current_max_distanced_onode = stack.pop
       return false, [] if current_max_distanced_onode.distance > max_tip_length
+
+      if log.debug?
+        debug_max_dist = [debug_max_dist, current_max_distanced_onode.distance].max
+      end
 
       current_max_distanced_onode.onode.next_neighbours(@graph).each do |oneigh|
         neighbour_distance = current_max_distanced_onode.distance + oneigh.node.length_alone
@@ -385,6 +391,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
       end
     end
 
+    log.debug "Found insufficient max tip length #{debug_max_dist}" if log.debug?
     return true, cache.collect{|donode| donode[0]}
   end
 
