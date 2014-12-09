@@ -99,6 +99,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
         # TODO: this could be better by progress += (starting_nodes_just_visited.length)
         progress.increment
       else
+        log.info "Incrementing counter by #{just_visited_onodes.length}" if log.info? and !progress.nil?
         progress.progress += just_visited_onodes.length unless progress.nil?
       end
 

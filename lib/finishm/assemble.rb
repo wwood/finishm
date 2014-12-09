@@ -106,7 +106,16 @@ class Bio::FinishM::Assembler
     # Generate the graph
     read_input = Bio::FinishM::ReadInput.new
     read_input.parse_options options
-    finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
+
+    finishm_graph = nil
+    if options[:recoherence_kmer].nil?
+      finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options.merge({
+        :dont_parse_reads => true,
+        :dont_parse_noded_reads => true,
+        }))
+    else
+      finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
+    end
     graph = finishm_graph.graph
 
     if options[:initial_node_shorthand]
