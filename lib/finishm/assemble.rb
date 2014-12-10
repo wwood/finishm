@@ -157,16 +157,25 @@ class Bio::FinishM::Assembler
 
     if options[:initial_node_shorthand]
       initial_trail = Bio::Velvet::Graph::OrientedNodeTrail.create_from_shorthand(options[:initial_node_shorthand], graph)
-      log.info "Starting to assemble from #{initial_trail.to_shorthand}.."
+      log.info "Starting to assemble from specified initial node #{initial_trail.to_shorthand}.."
       path, visited_nodes = assembler.assemble_from(initial_trail)
 
+      name = options[:initial_node_shorthand]
+      name += " #{path.to_shorthand}" if options[:output_pathspec]
+
       File.open(options[:output_trails_file],'w') do |output|
-        output.print ">#{options[:initial_node_shorthand] }"
-        if options[:output_pathspec]
-          output.print " #{path.to_shorthand}"
-        end
-        output.puts
+        output.puts ">#{name}"
         output.puts path.sequence
+      end
+
+      if options[:output_badformat_file]
+        log.info "Writing badformat file to #{options[:output_badformat_file] }" if log.info?
+
+        File.open(options[:output_badformat_file],'w') do |out|
+          badformat = Bio::FinishM::BadFormatWriter.new
+          badformat.add_metapath(name, path)
+          badformat.write out
+        end
       end
     else
 
@@ -202,6 +211,7 @@ class Bio::FinishM::Assembler
         end
       end
       if options[:output_badformat_file]
+        log.info "Writing badformat file to #{options[:output_badformat_file] }" if log.info?
         File.open(options[:output_badformat_file],'w') do |out|
           badformat_writer.write out
         end
