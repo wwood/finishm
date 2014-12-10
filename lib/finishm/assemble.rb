@@ -75,6 +75,9 @@ class Bio::FinishM::Assembler
     optparse_object.on("--max-coverage-at-fork COVERAGE",Float,"When reached a fork, don't take paths with more than this much coverage [default: not applied]") do |arg|
       options[:max_coverage_at_fork] = arg
     end
+    optparse_object.on("--badformat FILE", "Output contigs in badformat file") do |arg|
+      options[:output_badformat_file] = arg
+    end
     optparse_object.on("--debug", "Build the graph, then drop to a pry console. [default: #{options[:debug] }]") do
       options[:debug] = true
     end
@@ -174,6 +177,7 @@ class Bio::FinishM::Assembler
         stats_output = File.open(options[:output_stats],'w')
         stats_output.puts %w(name coverage).join("\t")
       end
+      badformat_writer = Bio::FinishM::BadFormatWriter.new
       File.open(options[:output_trails_file],'w') do |output|
         progress_io = options[:progressbar] ? $stdout : nil
         assembler.assembly_options[:progressbar_io] = progress_io
@@ -193,6 +197,13 @@ class Bio::FinishM::Assembler
               path.coverage,
               ].join("\t")
           end
+
+          badformat_writer.add_metapath(name, path) if options[:output_badformat_file]
+        end
+      end
+      if options[:output_badformat_file]
+        File.open(options[:output_badformat_file],'w') do |out|
+          badformat_writer.write out
         end
       end
       log.info "Assembled #{contig_count} contigs"
