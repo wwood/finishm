@@ -13,6 +13,7 @@ class Bio::FinishM::BadFormatWriter
         next_to_write['type'] = 'regular'
         next_to_write['node'] = onode_or_bubble.to_shorthand
         next_to_write['coverage'] = onode_or_bubble.node.coverage
+        next_to_write['length'] = onode_or_bubble.node.length_alone
         to_write << next_to_write
       else
         # bubble
@@ -21,6 +22,7 @@ class Bio::FinishM::BadFormatWriter
           next_to_write = {}
           next_to_write['nodes'] = path.to_shorthand
           next_to_write['coverage'] = path.coverage
+          next_to_write['length'] = path.length_in_bp
           paths << next_to_write
         end
         to_write << {
