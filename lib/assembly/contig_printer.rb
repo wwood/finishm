@@ -57,13 +57,14 @@ module Bio
         # Stage2 - path sequence, beginning and ending with
         # beginning and ending probes
         begin
-          reference_path_index = predict_reference_path_index(anchored_connection.paths)
-          path = anchored_connection.paths[reference_path_index]
-          path_sequence = path.sequence
+          example_path = anchored_connection.paths[0]
+          path_sequence, variants = sequences_to_variants_conservative(
+            anchored_connection.paths.collect{|path| path.sequence}
+            )
           log.debug "Reference path has a sequence length #{path_sequence.length}" if log.debug?
 
           # Find start index
-          begin_onode = path[0]
+          begin_onode = example_path[0]
           begin_noded_read = anchored_connection.start_probe_noded_read
           raise if begin_noded_read.nil?
           extra_bit_on_start = ''
@@ -81,11 +82,6 @@ module Bio
             offset_of_begin_probe_on_path = begin_noded_read.offset_from_start_of_node
           end
 
-          # Work out the variants if there is any
-          variants = paths_to_variants(
-            path,
-            anchored_connection.paths - [path] #Ain't Ruby grand..
-            )
           # Correct variants' positions to be relative to the full contig,
           # not just the path sequence
           variants.each do |variant|
@@ -93,7 +89,7 @@ module Bio
           end
 
           # Find end index
-          end_onode = path[-1]
+          end_onode = example_path[-1]
           end_noded_read = anchored_connection.end_probe_noded_read
           raise if end_noded_read.nil?
           extra_bit_on_end = ''
@@ -101,13 +97,16 @@ module Bio
             log.warn "Unexpectedly the end of the end probe not did not form part of the path, which is a little suspicious"
             extra_bit_on_end = sequences[end_noded_read.read_id][0...end_noded_read.start_coord]
           end
-          offset_of_end_node_on_path = path[0...-1].reduce(0){|sum, onode| sum += onode.node.length_alone}
+          offset_of_end_node_on_path = example_path[0...-1].reduce(0){|sum, onode| sum += onode.node.length_alone}
           if (end_noded_read.direction == false) ^ end_onode.starts_at_start?
             offset_of_end_node_on_path += end_noded_read.offset_from_start_of_node
             extra_bit_on_end = Bio::Sequence::NA.new(extra_bit_on_end).reverse_complement.to_s.upcase unless extra_bit_on_end == ''
           else
             offset_of_end_node_on_path += end_onode.node.corresponding_contig_length - end_noded_read.offset_from_start_of_node
           end
+          # Potentially the example_path has a different length than the reference sequence in bp.
+          # Correct this
+          raise
 
           log.debug "Found start index #{offset_of_begin_probe_on_path} and end index #{offset_of_end_node_on_path}" if log.debug?
           to_return += extra_bit_on_start+
@@ -138,54 +137,70 @@ module Bio
         return ready_two_contigs_and_connections(graph, contig1, anchored_connection, contig2, sequences)[0]
       end
 
-      # Return the index of a reference path picked from the given paths.
-      # Current method is simply highest coverage path
-      def predict_reference_path_index(paths)
-        max_i = 0
-        max_coverage = paths[0].coverage
-        paths[1..-1].each_with_index do |path, i|
-          cov = path.coverage
-          if cov > max_coverage
-            max_i = i+1
-            max_coverage = cov
-          end
+      private
+      # Given an anchored_connection, return the sequence that is to the left of all the paths
+      def start_sequence(anchored_connection, sequences)
+
+      end
+
+      # Given an Array of paths, do a MSA and return as a list of
+      # variants from a sequence that is defintely true. A little hard to define.
+      def sequences_to_variants_conservative(sequences)
+        if sequences.length == 1
+          # No variants here
+          return sequences, []
         end
-        return max_i
-      end
 
-      # Return an Array of Variant objects
-      def paths_to_variants(reference_path, non_reference_paths)
-        sequences_to_variants(
-          reference_path.sequence,
-          non_reference_paths.collect{|path| path.sequence}
-          )
-      end
-
-      def sequences_to_variants(reference_sequence, alternate_sequences)
-        return [] if alternate_sequences.empty?
-
+        # Do alignment
         # Run multiple sequence alignment of each sequence, with the reference sequence first
-        log.debug "Running MSA with #{1+alternate_sequences.length} sequences.." if log.debug?
-        alignments = clustalo([
-          reference_sequence,
-          alternate_sequences
-          ].flatten)
+        log.debug "Running MSA with #{sequences.length} sequences.." if log.debug?
+        original_alignments = clustalo(sequences)
         log.debug "Finished running MSA" if log.debug?
         if log.debug?
           log.debug "Alignment found was:"
-          alignments.each do |align|
+          original_alignments.each do |align|
             log.debug align
           end
         end
 
+        # Work out reference path
+        ref = []
+        original_alignments[0].each_index do |i|
+          base_counts = {}
+          original_alignments.each do |aln|
+            base = aln[i]
+            base_counts[base] ||= 0
+            base_counts[base] += 1
+          end
+
+          if base_counts.length == 1
+            # where all paths agree, use that base
+            ref.push base_counts.keys[0]
+          else
+            # otherwise use - or N, depending on how many things have a base at each position.
+            num_gaps = base_counts['-']
+            if num_gaps.nil? or num_gaps < base_counts.values.reduce(:+).to_f / 2
+              ref.push 'N'
+            else
+              ref.push '-'
+            end
+          end
+        end
+
+        # return reference path, and variants
+        reference_sequence = ref.join('')
+        return reference_sequence, alignment_to_variants(reference_sequence, original_alignments)
+      end
+
+      def alignment_to_variants(reference_alignment, alternate_sequences_alignment)
+        return [] if alternate_sequences_alignment.empty?
+
         # Collect the variants at each sequence at each column
-        ref_alignment = alignments[0]
-        non_ref_alignments = alignments[1..-1]
         variants = [] #Array of empty arrays
         reference_position = 0
         i = 0
-        ref_alignment.each_char do |ref_base|
-          non_ref_alignments.each_with_index do |alignment, sequence_id|
+        reference_alignment.each_char do |ref_base|
+          alternate_sequences_alignment.each_with_index do |alignment, sequence_id|
             nonref = alignment[i]
             if nonref != ref_base
               variant = nil
@@ -203,14 +218,6 @@ module Bio
           reference_position += 1 unless ref_base == '-'
           i += 1
         end
-        #        if log.debug?
-        #          log.debug "Before variation, found #{variants.length} variants:"
-        #          variants.each_with_index do |variant_set, alt_i|
-        #            variant_set.each do |variant|
-        #              log.debug "From #{alt_i}: #{variant.to_shorthand}"
-        #            end
-        #          end
-        #        end
 
         # Condense the single column, single species variants into a condensed set
         return condense_variants!(variants)
