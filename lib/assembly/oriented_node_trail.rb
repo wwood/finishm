@@ -233,7 +233,7 @@ module Bio
               end
 
             else #can't regex the text as shorthand stone or super-shorthand stone
-              raise "Unable to parse stepping stone along the path: `#{arg}'. Entire path was `#{arg}'."
+              raise "Unable to parse stepping stone along the path: `#{str}'. Entire path was `#{path_string}'."
             end
           end
 

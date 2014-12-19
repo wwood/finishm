@@ -126,8 +126,8 @@ class Bio::FinishM::Visualiser
         end
         options[:probe_reads] = options[:interesting_probes]
       end
-      options[:dont_parse_noded_reads] = true
-      options[:dont_parse_reads] = true
+
+      options[:dont_parse_reads] = true #the sequences of the reads themselves are not of use
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
 
       # Output probe map if asked
@@ -158,12 +158,14 @@ class Bio::FinishM::Visualiser
       # Create graphviz object
       interesting_node_ids = finishm_graph.probe_nodes.reject{|n| n.nil?}.collect{|node| node.node_id}
 
-      nodes_within_leash = get_nodes_within_leash(finishm_graph, interesting_node_ids, options)
+      nodes_within_leash, node_ids_at_leash = get_nodes_within_leash(finishm_graph, interesting_node_ids, options)
+      log.info "Found #{node_ids_at_leash.length} nodes at the end of the #{options[:leash_length] }bp leash" if options[:leash_length]
 
       log.info "Converting assembly to a graphviz"
       gv = viser.graphviz(finishm_graph.graph, {
         :start_node_ids => interesting_node_ids,
         :nodes => nodes_within_leash,
+        :end_node_ids => node_ids_at_leash,
         })
 
 
@@ -181,12 +183,14 @@ class Bio::FinishM::Visualiser
       log.info "Finding nodes within the leash length of #{options[:graph_search_leash_length] }.."
       dijkstra = Bio::AssemblyGraphAlgorithms::Dijkstra.new
 
-      nodes_within_leash = get_nodes_within_leash(finishm_graph, options[:interesting_nodes], options)
+      nodes_within_leash, node_ids_at_leash = get_nodes_within_leash(finishm_graph, options[:interesting_nodes], options)
+      log.info "Found #{node_ids_at_leash.length} nodes at the end of the #{options[:leash_length] }bp leash" if options[:leash_length]
 
       log.info "Converting assembly to a graphviz"
       gv = viser.graphviz(finishm_graph.graph, {
         :start_node_ids => options[:interesting_nodes],
         :nodes => nodes_within_leash,
+        :end_node_ids => node_ids_at_leash,
         })
     else
       # Visualising the entire graph
@@ -214,13 +218,29 @@ class Bio::FinishM::Visualiser
     log.info "Finding nodes within the leash length of #{options[:graph_search_leash_length] }.."
     dijkstra = Bio::AssemblyGraphAlgorithms::Dijkstra.new
 
-    nodes_within_leash = dijkstra.min_distances_from_many_nodes_in_both_directions(
+    nodes_within_leash_hash = dijkstra.min_distances_from_many_nodes_in_both_directions(
       finishm_graph.graph, node_ids.collect{|n| finishm_graph.graph.nodes[n]}, {
         :ignore_directions => true,
         :leash_length => options[:graph_search_leash_length],
-        }).keys.collect{|k| finishm_graph.graph.nodes[k[0]]}
+        })
+    nodes_within_leash = nodes_within_leash_hash.keys.collect{|k| finishm_graph.graph.nodes[k[0]]}
     log.info "Found #{nodes_within_leash.length} nodes within the leash length"
 
-    return nodes_within_leash
+    # These nodes are at the end of the leash - a node is in here iff
+    # it has a neighbour that is not in the nodes_within_leash
+    node_ids_at_leash = Set.new
+    nodes_within_leash_hash.keys.each do |node_and_direction|
+      # Add it to the set if 1 or more nieghbours are not in the original set
+      node = finishm_graph.graph.nodes[node_and_direction[0]]
+      onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new node, node_and_direction[1]
+      onode.next_neighbours(finishm_graph.graph).each do |oneigh|
+        if !nodes_within_leash_hash.key?(oneigh.to_settable)
+          node_ids_at_leash << node_and_direction[0]
+          break #it only takes one to be listed
+        end
+      end
+    end
+
+    return nodes_within_leash, node_ids_at_leash
   end
 end

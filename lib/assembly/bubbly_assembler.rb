@@ -96,11 +96,11 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
             break
           elsif legit_neighbours.length == 1
             # Linear thing here, just keep moving forward
-            neighbour = oriented_neighbours[0]
+            neighbour = legit_neighbours[0]
 
             # Stop if a circuit is detected
             if visited_oriented_node_settables.include?(neighbour.to_settable)
-              log.debug "Detected regular circuit" if log.debug?
+              log.debug "Detected regular circuit by running into #{neighbour.to_settable}" if log.debug?
               metapath.fate = MetaPath::CIRCUIT_FATE
               current_mode = :finished
               break
@@ -188,48 +188,85 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
             # otherwise we must search on in the bubble
             # get all neighbours that are not short tips
             log.debug "Bubble not convergent on #{problem.to_shorthand}" if log.debug?
-            legit_neighbours = problem.path.neighbours_of_last_node(@graph).reject do |oneigh|
-              is_tip, visiteds = is_short_tip?(oneigh)
-              if is_tip
-                visited_oriented_node_settables << oneigh.to_settable
-                visiteds.each do |v|
-                  visited_oriented_node_settables << v
-                end
+
+            neighbours = problem.path.neighbours_of_last_node(@graph)
+
+            # If there is only 1 way to go, go there
+            if neighbours.length == 1
+              log.debug "Only one way to go from this node, going there" if log.debug?
+
+              oneigh = neighbours[0]
+              # TODO: This code is repeated a bit below, probably should DRY it up a bit
+              new_problem = DynamicProgrammingProblem.new
+              new_problem.distance = problem.distance + problem.path[-1].node.length_alone
+              new_path = problem.path.copy
+              new_path.add_oriented_node oneigh
+              new_problem.path = new_path
+              new_problem.ubiquitous_oriented_nodes = Set.new problem.ubiquitous_oriented_nodes
+              if new_problem.ubiquitous_oriented_nodes.include?(oneigh.to_settable)
+                log.debug "Found circuit within bubble on #{oneigh}, giving up" if log.debug?
+                metapath.fate = MetaPath::CIRCUIT_WITHIN_BUBBLE_FATE
+                current_mode = :finished
+                break
+              else
+                new_problem.ubiquitous_oriented_nodes << oneigh.to_settable
+
+                current_bubble.enqueue new_problem
+                log.debug "Enqueued #{new_problem.to_shorthand}, total nodes now #{current_bubble.num_known_problems} and num forks #{current_bubble.num_legit_forks}" if log.debug?
               end
-              log.debug "neighbour #{oneigh.to_shorthand} is_tip? #{is_tip}" if log.debug?
-              is_tip
-            end
-
-            if legit_neighbours.length == 0
-              # this is a kind of 'long' tip, possibly unlikely to happen much.
-              # Forget about it and progress to the next problem having effectively
-              # removed it from the bubble
-              log.debug "Found no neighbours to re-enqueue" if log.debug?
             else
-              legit_neighbours.each do |oneigh|
-                new_problem = DynamicProgrammingProblem.new
-                new_problem.distance = problem.distance + problem.path[-1].node.length_alone
-                new_path = problem.path.copy
-                new_path.add_oriented_node oneigh
-                new_problem.path = new_path
-                new_problem.ubiquitous_oriented_nodes = Set.new problem.ubiquitous_oriented_nodes
-                if new_problem.ubiquitous_oriented_nodes.include?(oneigh.to_settable)
-                  log.debug "Found circuit within bubble on #{oneigh}, giving up" if log.debug?
-                  metapath.fate = MetaPath::CIRCUIT_WITHIN_BUBBLE_FATE
-                  current_mode = :finished
-                  break
-                else
-                  new_problem.ubiquitous_oriented_nodes << oneigh.to_settable
 
-                  current_bubble.enqueue new_problem
-                  log.debug "Enqueued #{new_problem.to_shorthand}, total nodes now #{current_bubble.num_known_problems}" if log.debug?
+              legit_neighbours = neighbours.reject do |oneigh|
+                is_tip, visiteds = is_short_tip?(oneigh)
+                if is_tip
+                  visited_oriented_node_settables << oneigh.to_settable
+                  visiteds.each do |v|
+                    visited_oriented_node_settables << v
+                  end
+                end
+                log.debug "neighbour #{oneigh.to_shorthand} is_tip? #{is_tip}" if log.debug?
+                is_tip
+              end
 
-                  # check to make sure we aren't going overboard in the bubbly-ness
-                  if current_bubble.num_known_problems > @assembly_options[:bubble_node_count_limit]
-                    log.debug "Too complex a bubble detected, giving up" if log.debug?
-                    metapath.fate = MetaPath::NODE_COUNT_LIMIT_REACHED
+              if legit_neighbours.length == 0
+                # this is a kind of 'long' tip, possibly unlikely to happen much.
+                # Forget about it and progress to the next problem having effectively
+                # removed it from the bubble
+                log.debug "Found no neighbours to re-enqueue" if log.debug?
+              else
+                # Increment complexity counter if this is a real fork
+                if legit_neighbours.length > 1
+                  current_bubble.num_legit_forks += 1
+                end
+
+                legit_neighbours.each do |oneigh|
+                  # TODO: This code is repeated a bit above, probably should DRY it up a bit
+                  new_problem = DynamicProgrammingProblem.new
+                  new_problem.distance = problem.distance + problem.path[-1].node.length_alone
+                  new_path = problem.path.copy
+                  new_path.add_oriented_node oneigh
+                  new_problem.path = new_path
+                  new_problem.ubiquitous_oriented_nodes = Set.new problem.ubiquitous_oriented_nodes
+                  if new_problem.ubiquitous_oriented_nodes.include?(oneigh.to_settable)
+                    log.debug "Found circuit within bubble on #{oneigh}, giving up" if log.debug?
+                    metapath.fate = MetaPath::CIRCUIT_WITHIN_BUBBLE_FATE
                     current_mode = :finished
                     break
+                  else
+                    new_problem.ubiquitous_oriented_nodes << oneigh.to_settable
+
+                    current_bubble.enqueue new_problem
+                    log.debug "Enqueued #{new_problem.to_shorthand}, total nodes now #{current_bubble.num_known_problems} and num forks #{current_bubble.num_legit_forks}" if log.debug?
+
+
+
+                    # check to make sure we aren't going overboard in the bubbly-ness
+                    if !@assembly_options[:bubble_node_count_limit].nil? and current_bubble.num_legit_forks > @assembly_options[:bubble_node_count_limit]
+                      log.debug "Too complex a bubble detected, giving up" if log.debug?
+                      metapath.fate = MetaPath::NODE_COUNT_LIMIT_REACHED
+                      current_mode = :finished
+                      break
+                    end
                   end
                 end
               end
@@ -461,10 +498,14 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
     # The DynamicProgrammingProblem this bubble converges on
     attr_reader :converging_oriented_node_settable, :is_reverse
 
+    # how many legit forks have been explored
+    attr_accessor :num_legit_forks
+
     def initialize
       @queue = DS::AnyPriorityQueue.new {|a,b| a<=b}
       @known_problems = {}
       @current_problems = Set.new
+      @num_legit_forks = 0
     end
 
     # Return the next closest dynamic programming problem,

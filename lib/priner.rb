@@ -44,6 +44,7 @@ require 'assembly/input_genome'
 
 require 'assembly/single_ended_assembler'
 require 'assembly/bubbly_assembler'
+require 'assembly/bad_format_writer'
 
 require 'finishm/primers'
 require 'finishm/primers_check'
@@ -55,4 +56,4 @@ require 'finishm/explore'
 require 'finishm/assemble'
 require 'finishm/visualise'
 require 'finishm/sequence'
-require 'finishm/tweak'
+require 'finishm/roundup'

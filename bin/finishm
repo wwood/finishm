@@ -81,7 +81,7 @@ subcommands = {
     operator.add_options(opts, options)
   end},
   'roundup' => lambda {OptionParser.new do |opts|
-    operator = Bio::FinishM::Tweaker.new
+    operator = Bio::FinishM::RoundUp.new
     operator.add_options(opts, options)
   end},
 }

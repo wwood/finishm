@@ -1,4 +1,4 @@
-class Bio::FinishM::Tweaker
+class Bio::FinishM::RoundUp
   include Bio::FinishM::Logging
 
   DEFAULT_OPTIONS = {
@@ -139,6 +139,7 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
           log.debug "Wandering.."
           connected_scaffolds, all_connections, wandered_probe_indices = wander_a_genome(wanderer, genome, master_graph, options, report)
         end
+
         # Write out all the connections
         File.open(File.join(output_directory, File.basename(genome.filename)+".connections.csv"),'w') do |con_file|
           all_connections.each do |connection|
@@ -185,16 +186,25 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
                     options
                     )
                   second_sequence = genome.scaffolds[contig.sequence_index].contigs[0].sequence
-                  log.debug "Found #{aconn.paths.length} connections"
+                  log.debug "Found #{aconn.paths.length} connections between #{last_name} and #{current_name}" if log.debug?
                   if aconn.paths.length == 0
-                    raise
+                    # when this occurs, it is due to there being a circuit in the path, so no paths are printed.
+                    # (at least for now) TODO: this could be improved.
+                    # Just arbitrarily put in 100 N characters, to denote a join, but no gapfill
+                    scaffold_sequence = scaffold_sequence+('N'*100)+rhs_sequence
                   else
-                    scaffold_sequence, variants = printer.one_connection_between_two_contigs(
+                    scaffold_sequence, variants = printer.ready_two_contigs_and_connections(
                       master_graph.graph,
                       scaffold_sequence,
                       aconn,
                       rhs_sequence
                       )
+                    # Print variants
+                    # TODO: need to change coordinates of variants, particularly when >2 contigs are joined?
+                    variants.each do |variant|
+                      variant.reference_name = superscaffold_name
+                      variants_file.puts variant.vcf(scaffold_sequence)
+                    end
                   end
                 end
                 last_contig = contig

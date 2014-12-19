@@ -11,7 +11,7 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
   # i.e. if 1s->3s and 2s->3s, then include 2s in the returned set of min_distances
   # and continue exploring from 2s.
   #
-  # Returns a Hash of [node, first_side] => distance
+  # Returns a Hash of [node_id, first_side] => distance
   def min_distances(graph, initial_oriented_node, options={})
     pqueue = DS::AnyPriorityQueue.new {|a,b| a < b}
     first = DistancedOrientedNode.new
@@ -140,7 +140,7 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
     end
 
     def inspect
-      "DistancedOrientedNode #{object_id}: node=#{@node.node_id} first=#{@first_side} ditance=#{@distance}"
+      "DistancedOrientedNode #{object_id}: node=#{@node.node_id} first=#{@first_side} distance=#{@distance}"
     end
   end
 end
