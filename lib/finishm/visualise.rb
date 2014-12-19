@@ -9,7 +9,8 @@ class Bio::FinishM::Visualiser
 
     options.merge!({
       :graph_search_leash_length => 20000,
-      :interesting_probes => nil
+      :interesting_probes => nil,
+      :contig_end_length => 200,
     })
     optparse_object.separator "Output visualisation formats (one or more of these must be used)"
     optparse_object.on("--assembly-svg PATH", "Output assembly as a SVG file [default: off]") do |arg|
@@ -21,11 +22,26 @@ class Bio::FinishM::Visualiser
     optparse_object.on("--assembly-dot PATH", "Output assembly as a DOT file [default: off]") do |arg|
       options[:output_graph_dot] = arg
     end
+    optparse_object.on("--genomes FASTA_1[,FASTA_2...]", Array, "Fasta files of genomes used in the assembly. Required if --scaffolds is given [default: unused]") do |arg|
+      options[:assembly_files] = arg
+    end
+    optparse_object.on("--overhang NUM", Integer, "Start visualising this far from the ends of the contigs [default: #{options[:contig_end_length] }]") do |arg|
+      options[:contig_end_length] = arg.to_i
+    end
 
     optparse_object.separator "\nIf an assembly is to be done, there must be some definition of reads:\n\n" #TODO improve this help
     Bio::FinishM::ReadInput.new.add_options(optparse_object, options)
 
     optparse_object.separator "\nOptional arguments:\n\n"
+    optparse_object.on("--scaffolds SIDE_1[,SIDE_2...]", Array, "visualise from these scaffold ends e.g 'contig1s' for the start of contig1, 'contig1e' for the end of contig1, and 'contig1,contig3e' for both sides of contig1 and the end of contig3 [default: unused]") do |arg|
+      options[:scaffold_sides] = arg.collect do |side|
+        if side.match(/[se]$/)
+          side
+        else
+          ["#{side}s","#{side}e"]
+        end
+      end.flatten
+    end
     optparse_object.on("--probe-ids PROBE_IDS", Array, "explore from these probe IDs in the graph (comma separated). probe ID is the ID in the velvet Sequence file. See also --leash-length [default: don't start from a node, explore the entire graph]") do |arg|
       options[:interesting_probes] = arg.collect do |read|
         read_id = read.to_i
@@ -90,6 +106,12 @@ class Bio::FinishM::Visualiser
       if options[:output_graph_png].nil? and options[:output_graph_svg].nil? and options[:output_graph_dot].nil?
         return "No visualisation output format/file given, don't know how to visualise"
       end
+
+      # If scaffolds are defined, then probe genomes must also be defined
+      if options[:scaffolds] and !options[:genome_files]
+        return "If --scaffolds is defined, so then must --genomes"
+      end
+
       #TODO: this needs to be improved.
       if options[:interesting_probes] and options[:interesting_nodes]
         return "Can only be interested in probes or nodes, not both, at least currently"
@@ -101,6 +123,7 @@ class Bio::FinishM::Visualiser
       else
         return nil
       end
+
     end
   end
 
@@ -181,14 +204,70 @@ class Bio::FinishM::Visualiser
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
 
       log.info "Finding nodes within the leash length of #{options[:graph_search_leash_length] }.."
-      dijkstra = Bio::AssemblyGraphAlgorithms::Dijkstra.new
-
       nodes_within_leash, node_ids_at_leash = get_nodes_within_leash(finishm_graph, options[:interesting_nodes], options)
       log.info "Found #{node_ids_at_leash.length} nodes at the end of the #{options[:leash_length] }bp leash" if options[:leash_length]
 
       log.info "Converting assembly to a graphviz"
       gv = viser.graphviz(finishm_graph.graph, {
         :start_node_ids => options[:interesting_nodes],
+        :nodes => nodes_within_leash,
+        :end_node_ids => node_ids_at_leash,
+        })
+
+    elsif options[:scaffold_sides]
+      # Parse the genome fasta file in
+      genomes = Bio::FinishM::InputGenome.parse_genome_fasta_files(
+        options[:assembly_files],
+        options[:contig_end_length],
+        options
+        )
+
+      # Work out which sides are being asked for
+      contig_name_to_probe = {}
+      genomes.each do |genome|
+        genome.numbered_probes.each do |scaffold_array_of_probes|
+          scaffold_array_of_probes.each do |contig_probe|
+            contig_probe.each do |probe|
+              if probe.side == :start
+                contig_name_to_probe["#{probe.contig.scaffold.name}s"] = probe.number
+              elsif probe.side == :end
+                contig_name_to_probe["#{probe.contig.scaffold.name}e"] = probe.number
+              else
+                raise "Programming error"
+              end
+            end
+          end
+        end
+      end
+      interesting_probe_ids = []
+      nodes_to_start_from = options[:scaffold_sides].collect do |side|
+        if probe = contig_name_to_probe[side]
+          interesting_probe_ids << probe
+        else
+          binding.pry
+          raise "Unable to find scaffold side in given genome: #{side}"
+        end
+      end
+      log.info "Found #{interesting_probe_ids.length} scaffold sides in the assembly"
+
+      # Generate the graph
+      probe_sequences = genomes.collect{|genome| genome.probe_sequences}.flatten
+      options[:dont_parse_reads] = true #the sequences of the reads themselves are not of use
+      finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph(probe_sequences, read_input, options)
+
+      # Convert probe IDs into node IDs
+      interesting_node_ids = interesting_probe_ids.collect do |pid|
+        finishm_graph.probe_nodes[pid].node_id
+      end.uniq
+
+      # get a list of the nodes to be visualised given the leash length
+      nodes_within_leash, node_ids_at_leash = get_nodes_within_leash(finishm_graph, interesting_node_ids, options)
+      log.info "Found #{node_ids_at_leash.length} nodes at the end of the #{options[:leash_length] }bp leash" if options[:leash_length]
+
+      # create gv object
+      log.info "Converting assembly to a graphviz"
+      gv = viser.graphviz(finishm_graph.graph, {
+        :start_node_ids => interesting_node_ids,
         :nodes => nodes_within_leash,
         :end_node_ids => node_ids_at_leash,
         })
@@ -224,7 +303,7 @@ class Bio::FinishM::Visualiser
         :leash_length => options[:graph_search_leash_length],
         })
     nodes_within_leash = nodes_within_leash_hash.keys.collect{|k| finishm_graph.graph.nodes[k[0]]}
-    log.info "Found #{nodes_within_leash.length} nodes within the leash length"
+    log.info "Found #{nodes_within_leash.collect{|o| o.node_id}.uniq.length} node(s) within the leash length"
 
     # These nodes are at the end of the leash - a node is in here iff
     # it has a neighbour that is not in the nodes_within_leash
@@ -241,6 +320,6 @@ class Bio::FinishM::Visualiser
       end
     end
 
-    return nodes_within_leash, node_ids_at_leash
+    return nodes_within_leash.uniq, node_ids_at_leash.to_a.uniq
   end
 end
