@@ -7,15 +7,18 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
 
   DEFAULT_MAX_TIP_LENGTH = 200
   DEFAULT_MIN_CONTIG_SIZE = 500
+  DEFAULT_MIN_CONFIRMING_RECOHERENCE_READS = 2
 
   attr_accessor :graph
 
   ASSEMBLY_OPTIONS = [
     :max_tip_length,
     :recoherence_kmer,
+    :min_confirming_recoherence_kmer_reads,
     :sequences,
     :leash_length,
     :min_contig_size,
+    :max_coverage_at_fork,
     ]
   attr_accessor :assembly_options
 
@@ -34,6 +37,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
     @assembly_options = assembly_options
     @assembly_options[:max_tip_length] ||= DEFAULT_MAX_TIP_LENGTH
     @assembly_options[:min_contig_size] ||= DEFAULT_MIN_CONTIG_SIZE
+    @assembly_options[:min_confirming_recoherence_kmer_reads] ||= DEFAULT_MIN_CONFIRMING_RECOHERENCE_READS
   end
 
   # Assemble everything in the graph into OrientedNodeTrail objects.
@@ -95,7 +99,8 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
         # TODO: this could be better by progress += (starting_nodes_just_visited.length)
         progress.increment
       else
-        progress.progress += just_visited_onodes.length
+        log.info "Incrementing counter by #{just_visited_onodes.length}" if log.info? and !progress.nil?
+        progress.progress += just_visited_onodes.length unless progress.nil?
       end
 
       if path.length_in_bp < @assembly_options[:min_contig_size]
@@ -119,10 +124,14 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
   end
 
   def gather_starting_nodes
-    if @assembly_options[:min_coverage_of_start_nodes]
+    if @assembly_options[:min_coverage_of_start_nodes] or @assembly_options[:min_length_of_start_nodes]
       starting_nodes = []
       graph.nodes.each do |node|
-        unless node.coverage < @assembly_options[:min_coverage_of_start_nodes]
+        if (@assembly_options[:min_coverage_of_start_nodes].nil? or
+          node.coverage >= @assembly_options[:min_coverage_of_start_nodes]) and
+          (@assembly_options[:min_length_of_start_nodes].nil? or
+          node.length_alone >= @assembly_options[:min_length_of_start_nodes])
+
           starting_nodes.push node
         end
       end
@@ -308,7 +317,8 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
               recoherencer.validate_last_node_of_path_by_recoherence(
                 dummy_trail,
                 options[:recoherence_kmer],
-                options[:sequences]
+                options[:sequences],
+                options[:min_confirming_recoherence_kmer_reads],
                 )
             end
           end
@@ -318,8 +328,23 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
           elsif oneighbours.length == 1
             log.debug "After recoherence there's only one way to go, going there"
             path.add_oriented_node oneighbours[0]
+          elsif options[:max_coverage_at_fork]
+            oneighbours.select! do |oneigh|
+              oneigh.node.coverage <= options[:max_coverage_at_fork]
+            end
+            log.debug "Found #{oneighbours.length} neighbours after removing nodes over max coverage" if log.debug?
+
+            if oneighbours.length == 1
+              log.debug "After removing too much coverage neighbours there's only one way to go, going there"
+              path.add_oriented_node oneighbours[0]
+            else
+              log.debug "After removing max coverage nodes, #{oneighbours.length} neighbours found (#{oneighbours.collect{|o| o.to_shorthand}.join(",") }), giving up" if log.debug?
+              break
+            end
+
+
           else
-            log.debug "Still forked after recoherence, so seems to be a legitimate fork, giving up" if log.debug?
+            log.debug "Still forked after recoherence (to #{oneighbours.collect{|on| on.to_shorthand}.join(' & ') }), so seems to be a legitimate fork, giving up" if log.debug?
             break
           end
         end
@@ -346,8 +371,14 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
 
     cache = {}
 
+    debug_max_dist = 0
+
     while current_max_distanced_onode = stack.pop
       return false, [] if current_max_distanced_onode.distance > max_tip_length
+
+      if log.debug?
+        debug_max_dist = [debug_max_dist, current_max_distanced_onode.distance].max
+      end
 
       current_max_distanced_onode.onode.next_neighbours(@graph).each do |oneigh|
         neighbour_distance = current_max_distanced_onode.distance + oneigh.node.length_alone
@@ -360,6 +391,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
       end
     end
 
+    log.debug "Found insufficient max tip length #{debug_max_dist}" if log.debug?
     return true, cache.collect{|donode| donode[0]}
   end
 

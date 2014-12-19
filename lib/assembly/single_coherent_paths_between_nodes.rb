@@ -140,8 +140,9 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
   end
 
   # Given an OrientedNodeTrail, and an expected number of
-  def validate_last_node_of_path_by_recoherence(path, recoherence_kmer, sequence_hash)
+  def validate_last_node_of_path_by_recoherence(path, recoherence_kmer, sequence_hash, min_concurring_reads=1)
     #not possible to fail on a 1 or 2 node path, by debruijn graph definition.
+    #TODO: that ain't true! If one of the two nodes is sufficiently long, reads may not agree.
     return true if path.length < 3
 
     # Walk backwards along the path from the 2nd last node,
@@ -171,7 +172,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     end
 
     # There should be at least 1 read that spans the collected nodes and the last node
-    # The trail validates iff the above statement is true.
+    # The trail validates if the above statement is true.
     #TODO: there's a possible 'bug' here in that there's garauntee that the read is overlays the
     # nodes in a consecutive and gapless manner. But I suspect that is unlikely to be a problem in practice.
     final_node = path.trail[-1].node
@@ -183,12 +184,13 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       possible_reads.select! do |r|
         current_set.include? r
       end
-      if possible_reads.empty?
+      if possible_reads.length < min_concurring_reads
         log.debug "First line validation failed, now detecting sub-kmer sequence overlap" if log.debug?
         trail_to_validate = path.trail[i+1..-1]
-        return sub_kmer_sequence_overlap?(trail_to_validate, sequence_hash)
+        return sub_kmer_sequence_overlap?(trail_to_validate, sequence_hash, min_concurring_reads)
       end
     end
+    log.debug "Found #{possible_reads.length} reads that concurred with validation e.g. #{possible_reads[0]}" if log.debug?
     return true
   end
 
@@ -196,15 +198,17 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
   # does not include an entire kmer?
   # nodes: an OrientedNodeTrail. To validate, there must be at least 1 read that spans all of these nodes
   # sequence_hash: Bio::Velvet::Sequence object with the sequences from the reads in the nodes
-  def sub_kmer_sequence_overlap?(nodes, sequence_hash)
+  def sub_kmer_sequence_overlap?(nodes, sequence_hash, min_concurring_reads=1)
     raise if nodes.length < 3 #should not get here - this is taken care of above
-    log.debug "validating by sub-kmer sequence overlap: #{nodes}" if log.debug?
+    log.debug "validating by sub-kmer sequence overlap with min #{min_concurring_reads}: #{nodes}" if log.debug?
 
     # Only reads that are in the second last node are possible, by de-bruijn graph definition.
     candidate_noded_reads = nodes[-2].node.short_reads
     middle_nodes_length = nodes[1..-2].reduce(0){|sum, n| sum += n.node.length}+
       +nodes[0].node.parent_graph.hash_length-1
     log.debug "Found middle nodes length #{middle_nodes_length}" if log.debug?
+
+    num_confirming_reads = 0
 
     candidate_noded_reads.each do |read|
       # Ignore reads that don't come in at the start of the node
@@ -252,7 +256,10 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         end
 
         log.debug "Read validates path"
-        return true #gauntlet passed, this is a confirmatory read, and so the path is validated.
+        num_confirming_reads += 1
+        if num_confirming_reads >= min_concurring_reads
+          return true #gauntlet passed, this is enough confirmatory reads, and so the path is validated.
+        end
       end
     end
     return false #no candidate reads pass
