@@ -660,9 +660,9 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
         node1 = nil
         node2 = nil
         if problem1.path.length == 1 and problem2.path.length > 1
-          # Here the comparison cannot be made on node coverages
+          # Here the comparison cannot be made on 2nd last node coverages
           # since one of the paths goes straight from the initial to the terminal
-          # nodes. Choose instead based on if the second last node has higher or lower
+          # node. Choose instead based on if the second last node has higher or lower
           # coverage than the final node
           node1 = problem1.path[-1].node
           node2 = problem2.path[-2].node
