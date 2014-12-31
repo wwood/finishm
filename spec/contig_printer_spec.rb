@@ -1,32 +1,7 @@
 require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
 
 describe "ContigPrinter" do
-  describe "paths_to_variants" do
-
-    it 'should work with just a straight ref path' do
-      graph, paths = GraphTesting.emit_otrails([
-        [1,2,3],
-        ])
-      printer = Bio::AssemblyGraphAlgorithms::ContigPrinter.new
-      conn = printer.paths_to_variants(paths[0], [])
-      conn.should == []
-    end
-
-    it 'should work with just 1 variant' do
-      graph, paths = GraphTesting.emit_otrails([
-        [1,2,3],
-        [1,4,3],
-        ])
-      graph.nodes[4].ends_of_kmers_of_node = 'T'*10
-      printer = Bio::AssemblyGraphAlgorithms::ContigPrinter.new
-      variants = printer.paths_to_variants(paths[0], paths[1..-1])
-      variants.collect{|v| v.to_shorthand}.should == [
-        '17S:TTTTTTTTTT'
-        ]
-    end
-  end
-
-  describe 'sequences_to_variants' do
+  describe 'sequences_to_variants_conservative' do
     it 'should handle a multi-variant' do
       seqs = [
               'ATGAATATGTGCATAGGATT',
@@ -35,14 +10,75 @@ describe "ContigPrinter" do
               #01234567890123456789
              ]
       printer = Bio::AssemblyGraphAlgorithms::ContigPrinter.new
-      printer.sequences_to_variants(seqs[0],seqs[1..-1]).collect{|v| v.to_shorthand
-      }.should == [
+      ref, variants = printer.send(:sequences_to_variants_conservative, seqs)
+
+      ref.should == 'ATGAATNNNTGCANNNGATT'
+      variants.collect{|v| v.to_shorthand
+      }.sort.should == [
+                   '7S:ATG',
                    '7S:CGA',
-                   '14S:GTT'
-                  ]
+                   '14S:TAG',
+                   '14S:GTT',
+                  ].sort
+    end
+
+    it 'should handle a semi-redundant multi-variant' do
+      seqs = [
+              'ATGAATATGTGCATAGGATT',
+              'ATGAATCGATGCAGTTGATT',
+              'ATGAATCGATGCATAGGATT',
+              #      ###    ###
+              #01234567890123456789
+             ]
+      printer = Bio::AssemblyGraphAlgorithms::ContigPrinter.new
+      ref, variants = printer.send(:sequences_to_variants_conservative, seqs)
+
+      ref.should == 'ATGAATNNNTGCANNNGATT'
+      variants.collect{|v| v.to_shorthand
+      }.sort.should == [
+                   '7S:ATG',
+                   '7S:CGA',
+                   '14S:TAG',
+                   '14S:GTT',
+                  ].sort
+    end
+    
+    it 'should handle not variants' do
+      seqs = [
+              'ATGAATATGTGCATAGGATT',
+             ]
+      printer = Bio::AssemblyGraphAlgorithms::ContigPrinter.new
+      ref, variants = printer.send(:sequences_to_variants_conservative, seqs)
+
+      ref.should == 'ATGAATATGTGCATAGGATT'
+      variants.collect{|v| v.to_shorthand
+      }.sort.should == [].sort
+    end
+
+    it 'should handle gaps' do
+      seqs = [
+              'ATTCTGAACGTAAGCATTATATGAATATGTGCATAGGATTTATTGGATCAGTGGCACGTA',
+              'ATTCTGAACGTAAGCATTATATGAATATGTGCAGTTGATTTATTGGATCAGTGGCACGTA',
+              'ATTCTGAACGTAAGCATTATATGAATCGATGAGTT GATTTATTGGATCAGTGGCACGTA',
+              #                          ###  - !!!
+              #1234567890123456789012345678901234567890123456..........
+              #         1         2         3         4
+             ]
+      printer = Bio::AssemblyGraphAlgorithms::ContigPrinter.new
+      ref, variants = printer.send(:sequences_to_variants_conservative, seqs)
+
+      ref.should == 'ATTCTGAACGTAAGCATTATATGAATNNNTGNNNNNGATTTATTGGATCAGTGGCACGTA'
+      variants.collect{|v| v.to_shorthand
+      }.sort.should == [
+        '27S:ATG',
+        '27S:CGA',
+        '32S:CATAG',
+        '32S:CAGTT',
+        '32S:AGTT',
+        '36D:1',
+        ].sort
     end
   end
-
 
 
 
@@ -199,16 +235,20 @@ describe "ContigPrinter" do
         GraphTesting.make_onodes(graph, %w(9s 12s 7e 13s 5e 11e 2s 10s 4e)),#highest coverage
         GraphTesting.make_onodes(graph, %w(9s 12s 7e 13s 5e 1e 2e 10s 4e)),
         ]
-      expected = 'ATG'+
-        File.open(File.join TEST_DATA_DIR, 'contig_printer','1','seq2_1to550.fa').readlines[1].strip.gsub(/..$/,'') +
-        'CA'
+      expected = 
+        'ATGAACGAACGCTGGCGGCATGCCTAACACATGCAAGTCGAACGAGACCTTCGGGTCTAGTGGCGCACGGGTGCGTAACGCGTGGGAATCTGCCCTTGGGTACGG'+
+        'AATAACAGTTAGAAATGACTGCTAATACCGTATAATGACTTCGGTCCAAAGATTTATCGCCCAGGGATGAGCCCGCGTAGGATTAGCTTGTTGGTGAGGTAAANN'+
+        'NTNNCNNANNNNNNNNNNNNTNNNNNGNNNNNNNNNNNGNTNAGNNNCNNNGNNNNNGNGANNTGGCCCAGACTCCTACGGGAGGCAGCAGTGGGGAATATTGGACAATGGGC'+
+        'GAAAGCCTGATCCAGCAATGCCGCGTGAGTGATGAAGGCCTTAGGGTTGTAAAGCTCTTTTACCCGGGATGATAATGACAGTACCGGGAGAATAAGCCCCGGCTAACTCCGTG'+
+        'CCAGCAGCCGCGGTAATACGGAGGGGGCTAGCGTTGTTCGGAATTACTGGGCGTAAAGCGCACGTAGGCGGCTTTGTAAGTTAGAGGTGAAAGCCCGGGGCTCAACTCCGGAATTCA'
       observed_sequence, observed_variants = Bio::AssemblyGraphAlgorithms::ContigPrinter.new.ready_two_contigs_and_connections(
         graph,'ATGCA',acon,'ATGCA',[]
         )
       observed_sequence.should == expected
-      observed_variants.collect{|v|v.to_shorthand}.should == [
+      observed_variants.collect{|v|v.to_shorthand}.sort.should == [
+        "210S:GGC", "214S:CA", "217S:CA", "220S:GGCGACGATCCT", "233S:AGCTG", "239S:TCTGAGAGGAT", "251S:A", "253S:C", "256S:CCA", "260S:ACT", "264S:GGACT", "270S:A", "273S:CA",
         "210S:TTT", "214S:AC", "217S:TC", "220S:CCAACAAGCTAA", "233S:CCTAC", "239S:CGCTCAGACCA", "251S:C", "253S:A", "256S:GAT", "260S:GTC", "264S:CCTTG", "270S:T", "273S:GC",
-        ]
+        ].sort
     end
 
     it 'should handle when start_coord is not == 0 and both reads are inwards facing' do
@@ -242,6 +282,10 @@ describe "ContigPrinter" do
 
     it 'should handle when start_coord is not == 0 and both reads are outwards facing' do
       raise
+    end
+    
+    it 'should handle when the example path is not the same length as the reference path' do
+      fail
     end
   end
 end

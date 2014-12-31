@@ -244,7 +244,6 @@ class Bio::FinishM::Visualiser
         if probe = contig_name_to_probe[side]
           interesting_probe_ids << probe
         else
-          binding.pry
           raise "Unable to find scaffold side in given genome: #{side}"
         end
       end

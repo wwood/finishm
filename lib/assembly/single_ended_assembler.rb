@@ -319,7 +319,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
                 dummy_trail,
                 options[:recoherence_kmer],
                 options[:sequences],
-                options[:min_confirming_recoherence_kmer_reads],
+                options[:min_confirming_recoherence_kmer_reads]
                 )
             end
           end
