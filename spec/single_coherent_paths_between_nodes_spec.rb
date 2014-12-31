@@ -248,7 +248,7 @@ describe "SingleCoherentPathsBetweenNodes" do
           finder.validate_last_node_of_path_by_recoherence(
             otrail,
             recoherence_kmer,
-            sequences,
+            sequences
             ).should == true
         end
       end
@@ -281,7 +281,7 @@ describe "SingleCoherentPathsBetweenNodes" do
     it 'should not validate a bad first node' do
       finder.sub_kmer_sequence_overlap?(
         GraphTesting.make_onodes(graph, '42s,51s,68e'),
-        sequences,
+        sequences
         ).should == false
     end
 

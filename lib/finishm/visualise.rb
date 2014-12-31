@@ -231,7 +231,6 @@ class Bio::FinishM::Visualiser
       end
 
       interesting_probe_ids = []
-
       if options[:scaffold_sides]
         # If looking at specified ends
         nodes_to_start_from = options[:scaffold_sides].collect do |side|

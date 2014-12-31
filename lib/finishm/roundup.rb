@@ -197,7 +197,8 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
                       master_graph.graph,
                       scaffold_sequence,
                       aconn,
-                      rhs_sequence
+                      rhs_sequence,
+                      master_graph.velvet_sequences
                       )
                     # Print variants
                     # TODO: need to change coordinates of variants, particularly when >2 contigs are joined?
@@ -326,7 +327,7 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
       gapfilled = false
     else
       scaffold_sequence, variants = printer.ready_two_contigs_and_connections(
-        master_graph.graph, first_sequence, aconn, second_sequence
+        master_graph.graph, first_sequence, aconn, second_sequence, master_graph.velvet_sequences
         )
       gapfilled = true
     end

@@ -527,7 +527,7 @@ describe "AcyclicConnectionFinder" do
       'ACTGGAGTCGGCGCGATCGCGGCGGTTAGTAGGCTCTTGAGTACCCATGCTTCCTCAGCTCTATGATGAACCCAGTGCCTGGGCGCCCATT',
       ]
     reads = Bio::FinishM::ReadInput.new
-    reads.parse_options ({
+    reads.parse_options({
       :fasta_gz_singles => [
         File.join(TEST_DATA_DIR,'acyclic_connection_finder','1','random1.sammy.fa.gz'),
         File.join(TEST_DATA_DIR,'acyclic_connection_finder','1','random2.sammy.fa.gz'),

@@ -36,6 +36,15 @@ module Bio
         attr_accessor :paths
       end
 
+      # Given two contigs, return a consensus path and variants of the path.
+      #
+      #          ---------->         <--------           start and end probes (ends of probe sequences may not form part of final path). Directions not variable.
+      #  --------------------->NNNN------------------->  original sequence to be gapfilled (contig1, NNNN, contig2). Directions not variable
+      #      -----------                 ------->        path across the gap. Direction not variable
+      #                 \               /
+      #                  --------------
+      #      ---------->|<-----|----->|--------->        nodes that make up the path (directions and boundaries variable)
+      #    stage1|           stage2           |stage3    stages of sequence construction in this method
       # Much like one_connection_between_two_contigs except can handle multiple connections
       # (but cannot handle 0 connections)
       def ready_two_contigs_and_connections(graph, contig1, anchored_connection, contig2, sequences)
@@ -97,6 +106,8 @@ module Bio
             log.warn "Unexpectedly the end of the end probe not did not form part of the path, which is a little suspicious"
             extra_bit_on_end = sequences[end_noded_read.read_id][0...end_noded_read.start_coord]
           end
+          # Potentially the example_path has a different length than the reference sequence in bp.
+          # Correct this ? Or not a bug? confused. I hate this method. TODO. There is a test for this which is unwritten but it fails
           offset_of_end_node_on_path = example_path[0...-1].reduce(0){|sum, onode| sum += onode.node.length_alone}
           if (end_noded_read.direction == false) ^ end_onode.starts_at_start?
             offset_of_end_node_on_path += end_noded_read.offset_from_start_of_node
@@ -104,9 +115,6 @@ module Bio
           else
             offset_of_end_node_on_path += end_onode.node.corresponding_contig_length - end_noded_read.offset_from_start_of_node
           end
-          # Potentially the example_path has a different length than the reference sequence in bp.
-          # Correct this
-          raise
 
           log.debug "Found start index #{offset_of_begin_probe_on_path} and end index #{offset_of_end_node_on_path}" if log.debug?
           to_return += extra_bit_on_start+
@@ -122,33 +130,20 @@ module Bio
         return to_return, variants
       end
 
-      # Given two contigs, return a String representing the new contig. Assumes
-      # that there is only 1 path between the two contigs.
-      #
-      #          ---------->         <--------           start and end probes (ends of probe sequences may not form part of final path). Directions not variable.
-      #  --------------------->NNNN------------------->  original sequence to be gapfilled (contig1, NNNN, contig2). Directions not variable
-      #      -----------                 ------->        path across the gap. Direction not variable
-      #                 \               /
-      #                  --------------
-      #      ---------->|<-----|----->|--------->        nodes that make up the path (directions and boundaries variable)
-      #    stage1|           stage2           |stage3    stages of sequence construction in this method
+      # Like ready_two_contigs_and_connections except assumes that there is only a single
+      # connection between the two sides
       def one_connection_between_two_contigs(graph, contig1, anchored_connection, contig2, sequences)
         raise "programming error: only one path expected here" if anchored_connection.paths.length > 1
         return ready_two_contigs_and_connections(graph, contig1, anchored_connection, contig2, sequences)[0]
       end
 
       private
-      # Given an anchored_connection, return the sequence that is to the left of all the paths
-      def start_sequence(anchored_connection, sequences)
-
-      end
-
-      # Given an Array of paths, do a MSA and return as a list of
+      # Given an Array of sequences (each representing a path), do a MSA and return as a list of
       # variants from a sequence that is defintely true. A little hard to define.
       def sequences_to_variants_conservative(sequences)
         if sequences.length == 1
           # No variants here
-          return sequences, []
+          return sequences[0], []
         end
 
         # Do alignment
@@ -165,7 +160,7 @@ module Bio
 
         # Work out reference path
         ref = []
-        original_alignments[0].each_index do |i|
+        original_alignments[0].split('').each_index do |i|
           base_counts = {}
           original_alignments.each do |aln|
             base = aln[i]
@@ -192,6 +187,8 @@ module Bio
         return reference_sequence, alignment_to_variants(reference_sequence, original_alignments)
       end
 
+      # Given a MSA (as a single reference and an array of alternates),
+      # return a condensed set of variants
       def alignment_to_variants(reference_alignment, alternate_sequences_alignment)
         return [] if alternate_sequences_alignment.empty?
 
@@ -223,6 +220,7 @@ module Bio
         return condense_variants!(variants)
       end
 
+      # Sometimes several paths will contain the same variant. Remove these duplications.
       def condense_variants!(variant_array_of_arrays)
         all_variants = {}
 
