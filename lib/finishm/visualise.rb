@@ -214,7 +214,7 @@ class Bio::FinishM::Visualiser
         :end_node_ids => node_ids_at_leash,
         })
 
-    elsif options[:scaffold_sides]
+    elsif options[:assembly_files]
       # Parse the genome fasta file in
       genomes = Bio::FinishM::InputGenome.parse_genome_fasta_files(
         options[:assembly_files],
@@ -225,30 +225,48 @@ class Bio::FinishM::Visualiser
       # Work out which sides are being asked for
       contig_name_to_probe = {}
       genomes.each do |genome|
-        genome.numbered_probes.each do |scaffold_array_of_probes|
-          scaffold_array_of_probes.each do |contig_probe|
-            contig_probe.each do |probe|
-              if probe.side == :start
-                contig_name_to_probe["#{probe.contig.scaffold.name}s"] = probe.number
-              elsif probe.side == :end
-                contig_name_to_probe["#{probe.contig.scaffold.name}e"] = probe.number
-              else
-                raise "Programming error"
-              end
+        genome.scaffolds.each_with_index do |swaff, scaffold_index|
+          probes = [
+            genome.first_probe(scaffold_index),
+            genome.last_probe(scaffold_index)
+            ]
+          probes.each do |probe|
+            key = nil
+            if probe.side == :start
+              key = "#{probe.contig.scaffold.name}s"
+            elsif probe.side == :end
+              key = "#{probe.contig.scaffold.name}e"
+            else
+              raise "Programming error"
             end
+
+            if contig_name_to_probe.key?(key)
+              log.error "Encountered multiple contigs with the same name, this might cause problems, so quitting #{key}"
+              #binding.pry
+              #exit(1)
+            end
+            contig_name_to_probe[key] = probe.number - 1 #convert to 0-based indices
           end
         end
       end
+
       interesting_probe_ids = []
-      nodes_to_start_from = options[:scaffold_sides].collect do |side|
-        if probe = contig_name_to_probe[side]
-          interesting_probe_ids << probe
-        else
-          binding.pry
-          raise "Unable to find scaffold side in given genome: #{side}"
+
+      if options[:scaffold_sides]
+        # If looking at specified ends
+        nodes_to_start_from = options[:scaffold_sides].collect do |side|
+          if probe = contig_name_to_probe[side]
+            interesting_probe_ids << probe
+          else
+            raise "Unable to find scaffold side in given genome: #{side}"
+          end
         end
+        log.info "Found #{interesting_probe_ids.length} scaffold sides in the assembly"
+      else
+        # else looking at all the contig ends in all the genomes
+        interesting_probe_ids =  contig_name_to_probe.values
+        log.info "Visualising all #{interesting_probe_ids.length} contig ends in all genomes"
       end
-      log.info "Found #{interesting_probe_ids.length} scaffold sides in the assembly"
 
       # Generate the graph
       probe_sequences = genomes.collect{|genome| genome.probe_sequences}.flatten
