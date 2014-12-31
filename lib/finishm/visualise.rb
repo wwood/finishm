@@ -155,27 +155,7 @@ class Bio::FinishM::Visualiser
 
       # Output probe map if asked
       if options[:probe_to_node_map]
-        log.info "Writing probe-to-node map to #{options[:probe_to_node_map] }.."
-        File.open(options[:probe_to_node_map],'w') do |f|
-          f.puts %w(probe_number probe node direction).join("\t")
-          finishm_graph.probe_nodes.each_with_index do |node, i|
-            if node.nil?
-              f.puts [
-                i+1,
-                options[:interesting_probes][i],
-                '-',
-                '-',
-                ].join("\t")
-            else
-              f.puts [
-                i+1,
-                options[:interesting_probes][i],
-                node.node_id,
-                finishm_graph.probe_node_directions[i] == true ? 'forward' : 'reverse',
-                ].join("\t")
-            end
-          end
-        end
+        write_probe_to_node_map(options[:probe_to_node_map], finishm_graph, options[:interesting_probes])
       end
 
       # Create graphviz object
@@ -339,5 +319,31 @@ class Bio::FinishM::Visualiser
     end
 
     return nodes_within_leash.uniq, node_ids_at_leash.to_a.uniq
+  end
+
+  # Write to a file probe_to_node_map_file a map that shows the
+  # probe ID, which node that probe is on, and the name of the probe
+  def write_probe_to_node_map(probe_to_node_map_file, finishm_graph, names)
+    log.info "Writing probe-to-node map to #{x}.."
+    File.open(probe_to_node_map_file,'w') do |f|
+      f.puts %w(probe_number probe node direction).join("\t")
+      finishm_graph.probe_nodes.each_with_index do |node, i|
+        if node.nil?
+          f.puts [
+            i+1,
+            names[i],
+            '-',
+            '-',
+            ].join("\t")
+        else
+          f.puts [
+            i+1,
+            names[i],
+            node.node_id,
+            finishm_graph.probe_node_directions[i] == true ? 'forward' : 'reverse',
+            ].join("\t")
+        end
+      end
+    end
   end
 end
