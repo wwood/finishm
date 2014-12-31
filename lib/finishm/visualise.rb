@@ -261,12 +261,24 @@ class Bio::FinishM::Visualiser
       nodes_within_leash, node_ids_at_leash = get_nodes_within_leash(finishm_graph, interesting_node_ids, options)
       log.info "Found #{node_ids_at_leash.length} nodes at the end of the #{options[:leash_length] }bp leash" if options[:leash_length]
 
+      # create a nickname hash, id of node to name. Include all nodes even if they weren't specified directly (they only get visualised if they are within leash length of another)
+      node_id_to_nickname = {}
+      contig_name_to_probe.each do |name, probe|
+        key = finishm_graph.probe_nodes[probe].node_id
+        if node_id_to_nickname.key?(key)
+          node_id_to_nickname[key] += " "+name
+        else
+          node_id_to_nickname[key] = name
+        end
+      end
+
       # create gv object
       log.info "Converting assembly to a graphviz"
       gv = viser.graphviz(finishm_graph.graph, {
         :start_node_ids => interesting_node_ids,
         :nodes => nodes_within_leash,
         :end_node_ids => node_ids_at_leash,
+        :node_id_to_nickname => node_id_to_nickname,
         })
     else
       # Visualising the entire graph

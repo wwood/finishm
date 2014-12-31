@@ -27,6 +27,7 @@ module Bio
       # :coverage_cutoff: ignore nodes with less coverage than this cutoff
       # :digraph: output as a digraph (default true, else output undirected graph)
       # :nodes: an Enumerable of nodes to be visualised.
+      # :node_id_to_nickname: add these names to the node descriptions. Hash of integer node id to String.
       def graphviz(graph, options={})
         opts = {}
         opts[:type] = :digraph unless options[:digraph] == false
@@ -45,8 +46,12 @@ module Bio
             blacklisted_node_ids.add node.node_id
           else
             cov_string = cov.nil? ? '' : cov.round
+            label = "n#{node.node_id}_length#{node.ends_of_kmers_of_node.length}_coverage#{cov_string}"
+            if options[:node_id_to_nickname].key?(node.node_id)
+              label += ' ' + options[:node_id_to_nickname][node.node_id]
+            end
             mods = {
-              :label => "n#{node.node_id}_length#{node.ends_of_kmers_of_node.length}_coverage#{cov_string}",
+              :label => label,
             }
             includes_start = false
             includes_end = false
