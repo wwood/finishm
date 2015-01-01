@@ -202,7 +202,7 @@ class Bio::FinishM::Visualiser
         options
         )
 
-      # Work out which sides are being asked for
+      # Create hash of contig end name to probe index
       contig_name_to_probe = {}
       genomes.each do |genome|
         genome.scaffolds.each_with_index do |swaff, scaffold_index|
@@ -225,11 +225,12 @@ class Bio::FinishM::Visualiser
               #binding.pry
               #exit(1)
             end
-            contig_name_to_probe[key] = probe.number - 1 #convert to 0-based indices
+            contig_name_to_probe[key] = probe.index
           end
         end
       end
 
+      # Gather a list of probe indexes that are of interest to the user
       interesting_probe_ids = []
       if options[:scaffold_sides]
         # If looking at specified ends
@@ -240,16 +241,15 @@ class Bio::FinishM::Visualiser
             raise "Unable to find scaffold side in given genome: #{side}"
           end
         end
-        log.info "Found #{interesting_probe_ids.length} scaffold sides in the assembly"
+        log.info "Found #{interesting_probe_ids.length} scaffold sides in the assembly of interest"
       else
         # else looking at all the contig ends in all the genomes
-        interesting_probe_ids =  contig_name_to_probe.values
+        interesting_probe_ids = contig_name_to_probe.values
         log.info "Visualising all #{interesting_probe_ids.length} contig ends in all genomes"
       end
 
       # Generate the graph
       probe_sequences = genomes.collect{|genome| genome.probe_sequences}.flatten
-      options[:dont_parse_reads] = true #the sequences of the reads themselves are not of use
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph(probe_sequences, read_input, options)
 
       # Convert probe IDs into node IDs
@@ -272,6 +272,10 @@ class Bio::FinishM::Visualiser
         end
       end
 
+      # Determine paired-end connections
+      log.info "Determining paired-end node connections.."
+      paired_end_links = find_paired_end_linkages(finishm_graph, nodes_within_leash)
+
       # create gv object
       log.info "Converting assembly to a graphviz"
       gv = viser.graphviz(finishm_graph.graph, {
@@ -279,12 +283,18 @@ class Bio::FinishM::Visualiser
         :nodes => nodes_within_leash,
         :end_node_ids => node_ids_at_leash,
         :node_id_to_nickname => node_id_to_nickname,
+        :paired_nodes_hash => paired_end_links,
         })
     else
       # Visualising the entire graph
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
-      log.info "Converting assembly to a graphviz"
-      gv = viser.graphviz(finishm_graph.graph)
+
+      # Determine paired-end connections
+      log.info "Determining paired-end node connections.."
+      paired_end_links = find_paired_end_linkages(finishm_graph, finishm_graph.graph.nodes)
+
+      log.info "Converting assembly to a graphviz.."
+      gv = viser.graphviz(finishm_graph.graph, :paired_nodes_hash => paired_end_links)
     end
 
     # Convert gv object to something actually pictorial
@@ -298,7 +308,7 @@ class Bio::FinishM::Visualiser
     end
     if options[:output_graph_dot]
       log.info "Writing DOT #{options[:output_graph_dot] }"
-      gv.output :dot => options[:output_graph_dot] if options[:output_graph_dot]
+      gv.output :dot => options[:output_graph_dot], :use => :neato
     end
   end
 
@@ -356,5 +366,14 @@ class Bio::FinishM::Visualiser
         end
       end
     end
+  end
+
+  def find_paired_end_linkages(finishm_graph, node_array)
+    seq_id_to_node_id_hash = finishm_graph.sequence_id_to_node_ids_hash(node_array)
+    paired_end_links = {}
+    node_array.each do |node|
+      paired_end_links[node.node_id] = finishm_graph.paired_nodes(node, seq_id_to_node_id_hash)
+    end
+    return paired_end_links
   end
 end

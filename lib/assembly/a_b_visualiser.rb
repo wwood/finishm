@@ -28,14 +28,15 @@ module Bio
       # :digraph: output as a digraph (default true, else output undirected graph)
       # :nodes: an Enumerable of nodes to be visualised.
       # :node_id_to_nickname: add these names to the node descriptions. Hash of integer node id to String.
+      # :paired_nodes_hash: a hash of node_id to Enumerable of node_ids where there is paired-end connections
       def graphviz(graph, options={})
         opts = {}
         opts[:type] = :digraph unless options[:digraph] == false
         opts[:overlap] = :scale
         graphviz = GraphViz.new(:G, opts)
 
-        nodes_to_explore = options[:nodes]
-        nodes_to_explore ||= graph.nodes
+        nodes_to_explore = Set.new(options[:nodes].to_a)
+        nodes_to_explore ||= Set.new(graph.nodes)
 
         # Add all the nodes
         blacklisted_node_ids = Set.new
@@ -47,7 +48,7 @@ module Bio
           else
             cov_string = cov.nil? ? '' : cov.round
             label = "n#{node.node_id}_length#{node.ends_of_kmers_of_node.length}_coverage#{cov_string}"
-            if options[:node_id_to_nickname].key?(node.node_id)
+            if options[:node_id_to_nickname] and options[:node_id_to_nickname].key?(node.node_id)
               label += ' ' + options[:node_id_to_nickname][node.node_id]
             end
             mods = {
@@ -96,21 +97,51 @@ module Bio
             end
           end
         end
+
         log.info "Converting #{arcs_of_interest.length} arcs to GraphViz format"
         arcs_of_interest.each do |arc|
           # Add unless the node has been blacklisted
           unless blacklisted_node_ids.include? arc.begin_node_id or
-            blacklisted_node_ids.include? arc.end_node_id
+            blacklisted_node_ids.include? arc.end_node_id or
+            !nodes_to_explore.include?(graph.nodes[arc.begin_node_id]) or
+            !nodes_to_explore.include?(graph.nodes[arc.end_node_id])
 
             # Direction of the arrows, to denote connection to beginning of node (connects to start = in-arrow-head to node on output graph)
             if arc.connects_end_to_beginning?(arc.begin_node_id, arc.end_node_id)
               graphviz.add_edges arc.begin_node_id.to_s, arc.end_node_id.to_s
             elsif  arc.connects_end_to_end?(arc.begin_node_id, arc.end_node_id)
-              graphviz.add_edges arc.begin_node_id.to_s, arc.end_node_id.to_s, {:arrowhead => "none"}
+              graphviz.add_edges arc.begin_node_id.to_s, arc.end_node_id.to_s, {:dir => "none"}
             elsif  arc.connects_beginning_to_beginning?(arc.begin_node_id, arc.end_node_id)
-              graphviz.add_edges arc.begin_node_id.to_s, arc.end_node_id.to_s, {:color => "blue"}
+              graphviz.add_edges arc.begin_node_id.to_s, arc.end_node_id.to_s, {:dir => "both"}
             elsif  arc.connects_beginning_to_end?(arc.begin_node_id, arc.end_node_id)
               graphviz.add_edges arc.end_node_id.to_s, arc.begin_node_id.to_s
+            end
+          end
+        end
+
+        # Add paired_nodes_hash pairs
+        unless options[:paired_nodes_hash].nil?
+          # Create a list of arc node pairs for len calculation
+          arc_pairs = arcs_of_interest.collect do |arc|
+            [arc.begin_node_id, arc.end_node_id].sort
+          end
+          directly_connected_node_pairs = Set.new(arc_pairs)
+
+          # Keep track of pairs so multiple arcs are not drawn e.g. node1 => node2 and node2=>node1
+          pairs_added = Set.new
+          log.info "Adding paired-end linkages to GraphViz format.."
+          options[:paired_nodes_hash].each do |node1_id, connected_node_ids|
+            connected_node_ids.each do |node2_id|
+              next if node1_id == node2_id #skip within-node connections
+              sorted = [node1_id, node2_id].sort #sort so only a single connection is shown
+              unless pairs_added.include?(sorted) or
+                !nodes_to_explore.include?(graph.nodes[node1_id]) or
+                !nodes_to_explore.include?(graph.nodes[node2_id]) or
+                directly_connected_node_pairs.include?([node1_id, node2_id].sort)
+
+                graphviz.add_edges sorted[0].to_s, sorted[1].to_s, {:color => "grey", :dir => "none", :style => 'dashed'}
+                pairs_added << sorted
+              end
             end
           end
         end

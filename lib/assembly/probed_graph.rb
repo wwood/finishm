@@ -78,4 +78,34 @@ class Bio::FinishM::ProbedGraph
 
     return to_return
   end
+
+  # Return a Hash of sequence (short read) ID to the node IDs that contain that read,
+  # only looking at the nodes_of_interest (each a Node object) that are given
+  def sequence_id_to_node_ids_hash(nodes_of_interest)
+    sequence_id_to_node_ids_hash = {}
+    nodes_of_interest.each do |node|
+      node.short_reads.each do |read|
+        read_id = read.read_id
+        sequence_id_to_node_ids_hash[read_id] ||= []
+        sequence_id_to_node_ids_hash[read_id] << node.node_id
+      end
+    end
+    return sequence_id_to_node_ids_hash
+  end
+
+  # Return a list of node IDs that are connected through paired-end linkages.
+  # This method probably belongs in the Node class except that that is
+  # in bio-velvet and yet requires sequence_id_to_node_ids_hash. If all reads are
+  # single ended then this method always returns []
+  def paired_nodes(node, sequence_id_to_node_ids_hash)
+    to_return_node_ids = Set.new
+    node.short_reads.each do |read|
+      pair_read_id = @velvet_sequences.pair_id(read.read_id)
+      sequence_id_to_node_ids_hash[pair_read_id].each do |node_id|
+        to_return_node_ids << node_id
+      end
+    end
+    # Convert node IDs to node objects and return
+    return to_return_node_ids.to_a
+  end
 end

@@ -2,7 +2,7 @@
 class Bio::FinishM::ReadInput
   READ_INPUT_SYMBOLS = [
     :fasta_singles, :fastq_singles, :fasta_singles_gz, :fastq_singles_gz,
-    #:interleaved_fasta, :interleaved_fastq, :interleaved_fasta_gz, :interleaved_fastq_gz,
+    :interleaved_fasta, :interleaved_fastq, :interleaved_fasta_gz, :interleaved_fastq_gz,
     ]
   READ_INPUT_SYMBOLS.each do |sym|
     attr_accessor sym
@@ -15,10 +15,10 @@ class Bio::FinishM::ReadInput
       '--fastq' => :fastq_singles,
       '--fasta-gz' => :fasta_singles_gz,
       '--fastq-gz' => :fastq_singles_gz,
-#       '--interleaved-fasta' => :interleaved_fasta,
-#       '--interleaved-fastq' => :interleaved_fastq,
-#       '--interleaved-fasta-gz' => :interleaved_fasta_gz,
-#       '--interleaved-fastq-gz' => :interleaved_fastq_gz,
+      '--interleaved-fasta' => :interleaved_fasta,
+      '--interleaved-fastq' => :interleaved_fastq,
+      '--interleaved-fasta-gz' => :interleaved_fasta_gz,
+      '--interleaved-fastq-gz' => :interleaved_fastq_gz,
       }.each do |flag, sym|
         option_parser.on("#{flag} PATH", Array, "One or more paths to reads, comma separated") do |arg|
           options[sym] = arg
@@ -46,17 +46,16 @@ class Bio::FinishM::ReadInput
   def velvet_read_arguments
     readset_index = 1
     args = ''
-    #Put paired sequences first in the hash (in Ruby, hashes are ordered) so that if they are paired, then odd numbered sequences
-    # are read1 and even numbered sequences are read2
+    # Have to put probe sequences (which are single-ended) first in this (ordered) hash
     {
-#       :interleaved_fasta => '-fasta -shortPaired',
-#       :interleaved_fastq => '-fastq -shortPaired',
-#       :interleaved_fasta_gz => '-fasta.gz -shortPaired',
-#       :interleaved_fastq_gz => '-fastq.gz -shortPaired',
       :fasta_singles => '-fasta -short',
       :fastq_singles => '-fastq -short',
       :fasta_singles_gz => '-fasta.gz -short',
       :fastq_singles_gz => '-fastq.gz -short',
+      :interleaved_fasta => '-fasta -shortPaired',
+      :interleaved_fastq => '-fastq -shortPaired',
+      :interleaved_fasta_gz => '-fasta.gz -shortPaired',
+      :interleaved_fastq_gz => '-fastq.gz -shortPaired',
       }.each do |sym, velvet_flag|
         paths = send(sym)
         unless paths.nil? or paths.empty?
