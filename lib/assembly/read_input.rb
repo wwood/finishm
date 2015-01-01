@@ -3,6 +3,7 @@ class Bio::FinishM::ReadInput
   READ_INPUT_SYMBOLS = [
     :fasta_singles, :fastq_singles, :fasta_singles_gz, :fastq_singles_gz,
     :interleaved_fasta, :interleaved_fastq, :interleaved_fasta_gz, :interleaved_fastq_gz,
+    :separate_fasta, :separate_fastq, :separate_fasta_gz, :separate_fastq_gz,
     ]
   READ_INPUT_SYMBOLS.each do |sym|
     attr_accessor sym
@@ -19,6 +20,10 @@ class Bio::FinishM::ReadInput
       '--interleaved-fastq' => :interleaved_fastq,
       '--interleaved-fasta-gz' => :interleaved_fasta_gz,
       '--interleaved-fastq-gz' => :interleaved_fastq_gz,
+      '--separate-fasta' => :separate_fasta,
+      '--separate-fastq' => :separate_fastq,
+      '--separate-fasta-gz' => :separate_fasta_gz,
+      '--separate-fastq-gz' => :separate_fastq_gz,
       }.each do |flag, sym|
         option_parser.on("#{flag} PATH", Array, "One or more paths to reads, comma separated") do |arg|
           options[sym] = arg
@@ -56,6 +61,10 @@ class Bio::FinishM::ReadInput
       :interleaved_fastq => '-fastq -shortPaired',
       :interleaved_fasta_gz => '-fasta.gz -shortPaired',
       :interleaved_fastq_gz => '-fastq.gz -shortPaired',
+      :separate_fasta => '-fasta -shortPaired -separate',
+      :separate_fastq => '-fastq -shortPaired -separate',
+      :separate_fasta_gz => '-fasta.gz -shortPaired -separate',
+      :separate_fastq_gz => '-fastq.gz -shortPaired -separate',
       }.each do |sym, velvet_flag|
         paths = send(sym)
         unless paths.nil? or paths.empty?
