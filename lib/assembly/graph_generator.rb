@@ -58,6 +58,9 @@ class Bio::FinishM::GraphGenerator
 
     log.debug "Options for generate_graph: #{options}" if log.debug?
 
+    velvet_binary_folder = File.join(File.dirname(__FILE__),'..','..','ext','src')
+    log.debug "Using velvet binary folder #{velvet_binary_folder}" if log.debug?
+
     velvet_result = nil
 
     probe_read_ids = nil
@@ -84,8 +87,8 @@ class Bio::FinishM::GraphGenerator
         log.debug "Inputting probes into the assembly:\n#{File.open(tempfile.path).read}" if log.debug?
 
         runner = Bio::Velvet::Runner.new
-        required_version = '1.2.10-wwood_less_clipping'
-        found_version = runner.binary_version
+        required_version = '1.2.10-wwood_finishm'
+        found_version = runner.binary_version(File.join(velvet_binary_folder, 'velveth'))
         if found_version != required_version
           raise "Detected velvet version incompatible with FinishM: #{found_version}, expected #{required_version} which is available from https://github.com/wwood/velvet (on branch less_clipping)"
         end
@@ -98,8 +101,10 @@ class Bio::FinishM::GraphGenerator
         velvet_result = runner.velvet(
           options[:velvet_kmer_size],
           "#{read_inputs.velvet_read_arguments} #{use_binary}",
-          "-read_trkg yes -cov_cutoff #{options[:assembly_coverage_cutoff] } -tour_bus no",
-          :output_assembly_path => options[:output_assembly_path]
+          "-read_trkg yes -cov_cutoff #{options[:assembly_coverage_cutoff] } -tour_bus no -read_to_node_binary yes",
+          :output_assembly_path => options[:output_assembly_path],
+          :velveth_path => File.join(velvet_binary_folder, 'velveth'),
+          :velvetg_path => File.join(velvet_binary_folder, 'velvetg'),
           )
         if log.debug?
           log.debug "velveth stdout: #{velvet_result.velveth_stdout}"

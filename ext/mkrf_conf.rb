@@ -30,7 +30,7 @@ task :compile do
 
         # Create library with default install params
         $stdout.puts "Making velvet shared library with default parameters"
-        sh "make MAXKMERLENGTH=255 finishm"
+        sh "make MAXKMERLENGTH=255 finishm velveth velvetg"
         $stdout.puts "Finished make finishm"
         shared_location = 'obj/shared'
         cp(File.join(shared_location,"libfinishm.so.1.0"), path_external)
