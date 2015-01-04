@@ -21,13 +21,26 @@ gem install finishm
 ```
 
 FinishM also has some external dependencies:
-* Velvet (must be cloned from github.com/wwood/velvet on the less_clipping branch)
 * GraphViz (for the `visualise` mode)
+* clustalo (for `gapfilling`/`roundup`)
 
 ## Usage
 After installation, a listing of the modes and their usage:
 ```sh
 finishm
+```
+
+## Developing
+To hack on finishm:
+```
+git clone https://github.com/wwood/finishm.git
+cd finishm
+git submodule update --init
+cd ext/src
+make MAXKMERLENGTH=255 finishm velveth velvetg
+cp obj/shared/libfinishm.so.1.0 ../../lib/external/
+cd ../..
+./bin/finishm -h
 ```
 
 ## Citation
