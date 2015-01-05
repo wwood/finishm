@@ -1,12 +1,5 @@
-require 'ffi'
-
 class Bio::FinishM::CProbeNodeFinder
-  extend FFI::Library
   include Bio::FinishM::Logging
-
-  ffi_lib File.join(File.dirname(__FILE__),'..','external','libfinishm.so.1.0')
-  # IDnum* extract_best_probe_reads(Graph* graph, IDnum* probeReadIDs, IDnum numProbeReads);
-  attach_function :extract_best_probe_reads, [:pointer, :pointer, :int32], :pointer
 
   # Return an array of [best_node, best_noded_read] that represent the probes in the graph
   def find_probes(velvet_underground_graph, probe_read_ids)
@@ -24,10 +17,12 @@ class Bio::FinishM::CProbeNodeFinder
 
   # Return a minimal Array of node IDs that contain all probe read IDs
   def find_probe_nodes(velvet_underground_graph, probe_read_ids)
+    @bindings ||= Bio::FinishM::VelvetCBinding.new
+
     c_probe_read_ids = FFI::MemoryPointer.new(:int32, probe_read_ids.length)
     c_probe_read_ids.write_array_of_int32(probe_read_ids)
 
-    probe_nodes = extract_best_probe_reads(
+    probe_nodes = @bindings.extract_best_probe_reads(
       velvet_underground_graph.internal_graph_struct,
       c_probe_read_ids,
       probe_read_ids.length)

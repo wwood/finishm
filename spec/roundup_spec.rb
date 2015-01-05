@@ -327,8 +327,8 @@ EOF
     answer = Bio::FlatFile.open("#{TEST_DATA_DIR}/tweak/3_variant/answer.fa").entries[0].to_biosequence.to_s
     #Dir.mktmpdir do |tmpdir|
     begin tmpdir = '/tmp/testfi'
-      Tempfile.open('testing_scaffolds2') do |t|
-        #File.open('/tmp/ta2','w') do |t|
+      #Tempfile.open('testing_scaffolds2') do |t|
+        File.open('/tmp/ta2','w') do |t|
         t.puts '>seq1'
         t.puts answer[0..200]
         t.puts '>seq2'

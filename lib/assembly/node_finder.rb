@@ -49,17 +49,35 @@ module Bio
 
         # Pick the best node from each of the candidate nodes for each sequence_id
         return endings.collect do |sequence_id, nodes|
-          best_node = nodes.min do |n1, n2|
-            r1 = n1.short_reads.find{|r| r.read_id == sequence_id}
-            r2 = n2.short_reads.find{|r| r.read_id == sequence_id}
-            r1.start_coord <=> r2.start_coord
-          end
-          if best_node
-            best_noded_read = best_node.short_reads.find{|r| r.read_id == sequence_id}
-            [best_node, best_noded_read.direction, best_noded_read]
-          else
-            []
-          end
+          pick_best_node_for_read_id(sequence_id, nodes)
+        end
+      end
+
+      # Pick the best node from each of the candidate nodes a sequence_id, and
+      # return an array [best_node, best_noded_read.direction, best_noded_read] or
+      # [] if no probe could be found
+      def pick_best_node_for_read_id(sequence_id, nodes)
+        best_node = nodes.min do |n1, n2|
+          r1 = n1.short_reads.find{|r| r.read_id == sequence_id}
+          r2 = n2.short_reads.find{|r| r.read_id == sequence_id}
+          r1.start_coord <=> r2.start_coord
+        end
+        if best_node
+          best_noded_read = best_node.short_reads.find{|r| r.read_id == sequence_id}
+          [best_node, best_noded_read.direction, best_noded_read]
+        else
+          []
+        end
+      end
+
+      # Pick the best nodes from each of the probe sequences, and
+      # return an array for each probe sequence:
+      # ( [best_node, best_noded_read.direction, best_noded_read] or
+      # [] if no probe could be found )
+      def find_probes_from_read_to_node(graph, read_to_node, probe_sequence_ids)
+        return probe_sequence_ids.collect do |sequence_id|
+          nodes = read_to_node[sequence_id].collect{|node_id| graph.nodes[node_id]}
+          pick_best_node_for_read_id(sequence_id, nodes)
         end
       end
 

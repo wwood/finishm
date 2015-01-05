@@ -18,6 +18,8 @@ require 'kmer_abundance_pattern'
 require 'bio-velvet'
 require 'bio-velvet_underground'
 
+require 'assembly/velvet_c_binding'
+
 require 'assembly/acyclic_connection_finder'
 require 'assembly/single_coherent_paths_between_nodes'
 require 'assembly/node_finder'
@@ -41,6 +43,7 @@ require 'assembly/dijkstra'
 require 'assembly/single_coherent_wanderer'
 require 'assembly/connection_interpreter'
 require 'assembly/input_genome'
+require 'assembly/read_to_node'
 
 require 'assembly/single_ended_assembler'
 require 'assembly/bubbly_assembler'

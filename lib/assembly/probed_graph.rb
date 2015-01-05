@@ -6,6 +6,9 @@ class Bio::FinishM::ProbedGraph
   # Most likely a BinarySequenceStore
   attr_accessor :velvet_sequences
 
+  # Most likely a ReadToNode object
+  attr_accessor :read_to_nodes
+
   # Were all the probe recovered through the process?
   def completely_probed?
     !(@probe_nodes.find{|node| node.nil?})

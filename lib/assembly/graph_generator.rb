@@ -151,6 +151,7 @@ class Bio::FinishM::GraphGenerator
       # Make the two graphs into a hybrid one
       graph = Bio::FinishM::HybridGraph.new(bio_velvet_graph, read_probing_graph)
     end
+    finishm_graph.graph = graph
 
     # Find the anchor nodes again
     anchor_sequence_ids = probe_read_ids.to_a.sort
@@ -185,9 +186,13 @@ class Bio::FinishM::GraphGenerator
         log.info "Correctly recovered all #{anchor_sequence_ids.length} sequences using their names"
       end
 
-      finder = Bio::FinishM::CProbeNodeFinder.new
+
+      # Parse the read to node structure
+      finishm_graph.read_to_nodes = Bio::FinishM::ReadToNode.new(File.join(velvet_result.result_directory, 'ReadToNode.bin'))
+
+      finder = Bio::AssemblyGraphAlgorithms::NodeFinder.new
       log.info "Finding probe nodes in the assembly"
-      c_graph_endings = finder.find_probes(read_probing_graph, anchor_sequence_ids)
+      c_graph_endings = finder.find_probes_from_read_to_node(finishm_graph.graph, finishm_graph.read_to_nodes, anchor_sequence_ids)
       log.debug "Converting probe nodes found in C graph to Ruby analogues and adding to Ruby-parsed graph"
       endings = c_graph_endings.collect do |node_direction_read|
         if node_direction_read.empty?
@@ -214,7 +219,6 @@ class Bio::FinishM::GraphGenerator
         end
       end
     end
-    finishm_graph.graph = graph
     finishm_graph.probe_nodes = endings.collect{|array| array[0]}
     finishm_graph.probe_node_directions = endings.collect{|array| array[1]}
     finishm_graph.probe_node_reads = endings.collect{|array| array[2]}
