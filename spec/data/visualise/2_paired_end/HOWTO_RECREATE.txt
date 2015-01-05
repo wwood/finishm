@@ -1,0 +1,10 @@
+
+ben@u:~/git/finishm/spec/data/visualise/2_paired_end$ randomFasta.pl 300 >rand1.fa
+ben@u:~/git/finishm/spec/data/visualise/2_paired_end$ randomFasta.pl 300 >rand2.fa
+ben@u:~/git/finishm/spec/data/visualise/2_paired_end$ cat rand1.fa rand2.fa >with_gaps.fa
+
+# Then modify with_gaps so that it is a concatenation of rand1 and rand2, with A in the middle, 
+# then copy the whole thing and replace the A with a G
+
+ben@u:~/git/finishm/spec/data/visualise/2_paired_end$ ~/git/sammy/sammy.pl -r with_gaps.fa -n 100 -i 300 -d 1 -c 0 |pigz >with_gaps.read_pairs.fa.gz
+
