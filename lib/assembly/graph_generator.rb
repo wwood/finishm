@@ -188,6 +188,7 @@ class Bio::FinishM::GraphGenerator
 
 
       # Parse the read to node structure
+      log.info "Reading ReadToNode.bin file.." if log.info?
       finishm_graph.read_to_nodes = Bio::FinishM::ReadToNode.new(File.join(velvet_result.result_directory, 'ReadToNode.bin'))
 
       finder = Bio::AssemblyGraphAlgorithms::NodeFinder.new

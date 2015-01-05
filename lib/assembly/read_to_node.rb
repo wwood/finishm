@@ -4,6 +4,7 @@ class Bio::FinishM::ReadToNode
   def initialize(filename)
     @bindings = Bio::FinishM::VelvetCBinding.new
     log.debug "Reading ReadToNode file #{filename}.."
+    raise "Unable to find readToNode binary file" unless File.exist?(filename)
     @read_to_node = @bindings.read_read_id_to_node_id_lookup_table(filename)
     log.debug "Finished reading ReadToNode file"
   end
@@ -24,6 +25,7 @@ class Bio::FinishM::ReadToNode
     #   end
     to_return = []
     structs = FFI::Pointer.new(Bio::FinishM::VelvetCBinding::ReadIdNodeIdStruct, res[:read_ids_node_ids].pointer)
+    log.info "Found #{res[:num_nodes] } nodes associated with read #{read_id}" #if log.debug?
     0.upto(res[:num_nodes]-1) do |i|
       to_return << Bio::FinishM::VelvetCBinding::ReadIdNodeIdStruct.new(structs[i])[:node_id].abs
     end

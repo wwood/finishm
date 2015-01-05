@@ -93,7 +93,6 @@ module Bio
           velvet_graph.nodes.each do |node|
             if log.debug?
               str = "Searching for #{fwd} and #{rev} in node #{node.node_id}"
-              #str += node.sequence
             end
             if node.sequence? and (node.sequence.include?(fwd) or node.sequence.include?(rev))
               current_haul.push node

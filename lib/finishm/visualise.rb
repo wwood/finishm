@@ -222,8 +222,6 @@ class Bio::FinishM::Visualiser
 
             if contig_name_to_probe.key?(key)
               log.error "Encountered multiple contigs with the same name, this might cause problems, so quitting #{key}"
-              #binding.pry
-              #exit(1)
             end
             contig_name_to_probe[key] = probe.index
           end
@@ -274,6 +272,7 @@ class Bio::FinishM::Visualiser
 
       # Determine paired-end connections
       log.info "Determining paired-end node connections.."
+      binding.pry
       paired_end_links = find_paired_end_linkages(finishm_graph, nodes_within_leash)
 
       # create gv object

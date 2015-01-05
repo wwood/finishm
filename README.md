@@ -21,8 +21,8 @@ gem install finishm
 ```
 
 FinishM also has some external dependencies:
-* GraphViz (for the `visualise` mode)
 * clustalo (for `gapfilling`/`roundup`)
+* GraphViz (for the `visualise` mode)
 
 ## Usage
 After installation, a listing of the modes and their usage:

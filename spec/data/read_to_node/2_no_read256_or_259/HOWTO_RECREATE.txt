@@ -1,0 +1,3 @@
+ben@ben:~/git/finishm/spec/data/read_to_node/1_a_graph$ grep -v '^256	' LastGraph |grep -v '^259	' >../2_no_read256_or_259/LastGraph
+ben@ben:~/git/finishm/spec/data/read_to_node/1_a_graph$ cd ../2_no_read256_or_259/
+ben@ben:~/git/finishm/spec/data/read_to_node/2_no_read256_or_259$ ~/git/finishm/ext/src/readToNode LastGraph

@@ -1,0 +1,2 @@
+uqbwoodc@gillard:20150105:~/git/priner/spec/data/read_to_node/1_a_graph$ cp ../../visualise/1/LastGraph .
+uqbwoodc@gillard:20150105:~/git/priner/spec/data/read_to_node/1_a_graph$ ~/git/priner/ext/src/readToNode LastGraph 
