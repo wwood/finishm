@@ -90,8 +90,10 @@ class Bio::FinishM::ProbedGraph
     to_return_node_ids = Set.new
     node.short_reads.each do |read|
       pair_read_id = @velvet_sequences.pair_id(read.read_id)
-      @read_to_nodes[pair_read_id].each do |node_id|
-        to_return_node_ids << node_id
+      unless pair_read_id.nil? #i.e. if read is paired
+        @read_to_nodes[pair_read_id].each do |node_id|
+          to_return_node_ids << node_id
+        end
       end
     end
     # Convert node IDs to node objects and return

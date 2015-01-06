@@ -44,6 +44,7 @@ require 'assembly/single_coherent_wanderer'
 require 'assembly/connection_interpreter'
 require 'assembly/input_genome'
 require 'assembly/read_to_node'
+require 'assembly/paired_end_neighbour_finder'
 
 require 'assembly/single_ended_assembler'
 require 'assembly/bubbly_assembler'

@@ -73,7 +73,7 @@ class GraphTesting
     return graph, initial_path, terminal
   end
 
-  def self.finishm_graph(arc_pairs, probes)
+  def self.finishm_graph(arc_pairs, probes=[])
     graph = emit(arc_pairs)
     finishm_graph = Bio::FinishM::ProbedGraph.new
     finishm_graph.graph = graph
@@ -232,6 +232,63 @@ class GraphTesting
       end
     end
   end
+
+  def self.add_reads_to_nodes(finishm_graph, arrays)
+    node = nil
+    read_id_to_node_id = DummyReadToNode.new
+    arrays.each_with_index do |node_and_reads|
+      node_and_reads.each_with_index do |node_or_read, i|
+        if i==0
+          node = finishm_graph.graph.nodes[node_or_read]
+        else
+          noded_read = Bio::Velvet::Graph::NodedRead.new
+          noded_read.read_id = node_or_read
+          noded_read.direction = true
+          noded_read.start_coord = 0
+          noded_read.offset_from_start_of_node = 0
+          node.short_reads ||= []
+          node.short_reads.push noded_read
+
+          read_id_to_node_id[node_or_read] ||= []
+          read_id_to_node_id[node_or_read].push node.node_id
+        end
+      end
+    end
+
+    finishm_graph.read_to_nodes = read_id_to_node_id
+
+    # Make all reads single by default
+    finishm_graph.velvet_sequences = DummySequenceStore.new
+  end
+
+  def self.make_reads_paired(finishm_graph)
+    range = (finishm_graph.read_to_nodes.keys.min..finishm_graph.read_to_nodes.keys.max)
+    finishm_graph.velvet_sequences = DummySequenceStore.new(range)
+  end
+end
+
+class DummySequenceStore
+  def initialize(pair_range=nil)
+    @hash = {}
+
+    # make pairs if desired
+    unless pair_range.nil?
+      a = pair_range.to_a
+      raise "need even number of reads in pair_range" unless a.length % 2 == 0
+      a.each_with_index do |e, i|
+        next if i % 2 == 0 #ignore even-numbered entries
+        @hash[i] = i+1
+        @hash[i+1] = i
+      end
+    end
+  end
+
+  def pair_id(read_id)
+    @hash[read_id]
+  end
+end
+
+class DummyReadToNode < Hash
 end
 
 

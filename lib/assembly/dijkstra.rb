@@ -5,11 +5,15 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
   include Bio::FinishM::Logging
 
   # Return an array of DistancedOrientedNode objects, those reachable from
-  # the initial_oriented_node. options[:leash_length] => max distance explored,
-  # can be set to nil to search indefinitely. options[:ignore_directions] =>
-  # true or false (default). If true, explore direction-independently.
-  # i.e. if 1s->3s and 2s->3s, then include 2s in the returned set of min_distances
-  # and continue exploring from 2s.
+  # the initial_oriented_node. options:
+  # :leash_length => max distance explored,
+  #    can be set to nil to search indefinitely
+  # :ignore_directions: => true or false (default). If true, explore direction-independently.
+  #   i.e. if 1s->3s and 2s->3s, then include 2s in the returned set of min_distances
+  #   and continue exploring from 2s.
+  # :neighbour_finder => an object that responds to #neighbours(oriented_node) and
+  #   returns an array of Bio::FinishM::PairedEndNeighbourFinder::Neighbour objects
+  #   default: just search using OrientedNode#next_neighbours
   #
   # Returns a Hash of [node_id, first_side] => distance
   def min_distances(graph, initial_oriented_node, options={})
@@ -38,35 +42,45 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
 
       # Queue nodes after this one
       current_distance = min_distanced_node.distance
-      min_distanced_node.next_neighbours(graph).each do |neigh|
-        onodes = [neigh]
-        onodes.each do |onode|
-          new_distance = current_distance
-          unless first_node
-            new_distance += min_distanced_node.node.length_alone
-          end
 
-          if to_return[onode.to_settable] and to_return[onode.to_settable] <= new_distance
-            # We already know a shorter path to this neighbour, so ignore it
-            log.debug "Already seen this node at the same or shorter distance, going no further" if log.debug?
-          else
-            log.debug "Queuing new distance for neighbour: #{onode}: #{new_distance}" if log.debug?
-            # new shortest distance found. queue it up
-            distanced_node = DistancedOrientedNode.new
-            distanced_node.node = onode.node
-            distanced_node.first_side = onode.first_side
-            distanced_node.distance = new_distance
+      # Find neighbouring nodes
+      neighbours = nil
+      if options[:neighbour_finder]
+        log.debug "Finding neighbours of #{min_distanced_node} with inner class #{min_distanced_node.node.class}" if log.debug?
+        neighbours = options[:neighbour_finder].neighbours(min_distanced_node)
+      else
+        neighbours = min_distanced_node.next_neighbours(graph)
+      end
+
+      # explore each neighbour node
+      neighbours.each do |onode|
+        new_distance = current_distance
+        new_distance += onode.distance if options[:neighbour_finder]
+        unless first_node
+          new_distance += min_distanced_node.node.length_alone
+        end
+
+        if to_return[onode.to_settable] and to_return[onode.to_settable] <= new_distance
+          # We already know a shorter path to this neighbour, so ignore it
+          log.debug "Already seen this node at the same or shorter distance, going no further" if log.debug?
+        else
+          log.debug "Queuing new distance for neighbour: #{onode}: #{new_distance}" if log.debug?
+          # new shortest distance found. queue it up
+          distanced_node = DistancedOrientedNode.new
+          p onode.node
+          distanced_node.node = onode.node
+          distanced_node.first_side = onode.first_side
+          distanced_node.distance = new_distance
+          to_return[onode.to_settable] = new_distance
+          pqueue.push distanced_node, new_distance
+
+          if options[:ignore_directions]
+            reverse = DistancedOrientedNode.new
+            reverse.node = onode.node
+            reverse.first_side = onode.reverse.first_side
+            reverse.distance = new_distance
             to_return[onode.to_settable] = new_distance
-            pqueue.push distanced_node, new_distance
-
-            if options[:ignore_directions]
-              reverse = DistancedOrientedNode.new
-              reverse.node = onode.node
-              reverse.first_side = onode.reverse.first_side
-              reverse.distance = new_distance
-              to_return[onode.to_settable] = new_distance
-              pqueue.push reverse, new_distance
-            end
+            pqueue.push reverse, new_distance
           end
         end
       end
@@ -142,5 +156,6 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
     def inspect
       "DistancedOrientedNode #{object_id}: node=#{@node.node_id} first=#{@first_side} distance=#{@distance}"
     end
+    alias_method :to_s, :inspect
   end
 end

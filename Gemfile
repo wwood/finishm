@@ -11,7 +11,7 @@ gem 'ruby-graphviz'
 gem 'ds'
 gem 'hopcsv', '~> 0.4'
 gem 'bio-velvet', '~>0.5'
-gem 'bio-velvet_underground', '~>0.1'
+gem 'bio-velvet_underground', '~>0.2', '>=0.2.1'
 gem 'ruby-progressbar'
 gem 'yargraph', '~>0.0.4'
 
