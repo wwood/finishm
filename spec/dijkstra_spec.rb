@@ -24,7 +24,7 @@ describe "Dijkstra" do
     dijkstra.min_distances(f.graph, onode, :neighbour_finder => finder
       ).should == {[1, :start_is_first]=>0,
         [2, :start_is_first]=>0,
-        [3, :end_is_first] => 80,
-        [4, :end_is_first] => 90}
+        [3, :end_is_first] => 80.0,
+        [4, :end_is_first] => 80.0}
   end
 end

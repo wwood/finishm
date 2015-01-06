@@ -67,7 +67,6 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
           log.debug "Queuing new distance for neighbour: #{onode}: #{new_distance}" if log.debug?
           # new shortest distance found. queue it up
           distanced_node = DistancedOrientedNode.new
-          p onode.node
           distanced_node.node = onode.node
           distanced_node.first_side = onode.first_side
           distanced_node.distance = new_distance
@@ -141,9 +140,9 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
 
     # Which side of the node is not first?
     def second_side
-      @first_side == OrientedNodeTrail::START_IS_FIRST ?
-      OrientedNodeTrail::END_IS_FIRST :
-        OrientedNodeTrail::START_IS_FIRST
+      @first_side == Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST ?
+      Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST :
+        Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
     end
 
     def next_neighbours(graph)

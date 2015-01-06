@@ -25,7 +25,6 @@ class Bio::FinishM::PairedEndNeighbourFinder
       dereplicated[key] = n
     end
     paired_neighbours.each do |n|
-      log.debug "Working with paired neighbour #{n} with node #{n.node}" if log.debug?
       key = n.node.node_id
       next if dereplicated[key] #skip those already connected by direct connection
       dereplicated[key] = n
@@ -40,9 +39,9 @@ class Bio::FinishM::PairedEndNeighbourFinder
     # Create a hash of paired node_ids to [fwd_noded_read, rev_noded_read]
     node_ids_to_read_and_pair = {}
     oriented_node.node.short_reads.each do |read|
-      # skip reads not going in the expected direction
-      next unless (read.direction == true and oriented_node.first_side = Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST) or
-      (read.direction == false and oriented_node.first_side = Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST)
+      # skip reads not going in the direction consistent with direction of travel
+      next unless (read.direction == true and oriented_node.first_side == Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST) or
+      (read.direction == false and oriented_node.first_side == Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST)
 
       pair_read_id = @finishm_graph.velvet_sequences.pair_id(read.read_id)
       unless pair_read_id.nil? #i.e. if read is paired
@@ -75,7 +74,11 @@ class Bio::FinishM::PairedEndNeighbourFinder
         direction_vote[key] += 1
       end
       found_direction = direction_vote.max{|a,b| a[1] <=> b[1]}[0]
-      log.debug "Found best direction #{found_direction}" if log.debug?
+      if found_direction == true
+        neighbour.first_side = Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST
+      elsif found_direction == false
+        neighbour.first_side = Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
+      end
 
       distance_sum = 0
       num_adjoining_reads = 0
@@ -99,7 +102,6 @@ class Bio::FinishM::PairedEndNeighbourFinder
 
       neighbour.num_adjoining_reads = num_adjoining_reads
       neighbours.push neighbour
-      log.debug "Setting neighbour node as #{neighbour.node}" if log.debug?
     end
 
     return neighbours
@@ -119,7 +121,7 @@ class Bio::FinishM::PairedEndNeighbourFinder
     end
   end
 
-  class Neighbour
+  class Neighbour < Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode
     PAIRED_END_CONNECTION = :paired_end_connection
     DIRECT_CONNECTION = :direct_connection
     attr_accessor :connection_type
@@ -136,7 +138,6 @@ class Bio::FinishM::PairedEndNeighbourFinder
     def inspect
       "Neighbour #{object_id}: node=#{@node.node_id} first=#{@first_side} distance=#{@distance} num_adjoining_reads=#{@num_adjoining_reads} connection_type:#{@connection_type}"
     end
-
     alias_method :to_s, :inspect
   end
 end

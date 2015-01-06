@@ -164,11 +164,16 @@ class Bio::FinishM::Visualiser
       nodes_within_leash, node_ids_at_leash = get_nodes_within_leash(finishm_graph, interesting_node_ids, options)
       log.info "Found #{node_ids_at_leash.length} nodes at the end of the #{options[:leash_length] }bp leash" if options[:leash_length]
 
+      # Determine paired-end connections
+      log.info "Determining paired-end node connections.."
+      paired_end_links = find_paired_end_linkages(finishm_graph, nodes_within_leash)
+
       log.info "Converting assembly to a graphviz"
       gv = viser.graphviz(finishm_graph.graph, {
         :start_node_ids => interesting_node_ids,
         :nodes => nodes_within_leash,
         :end_node_ids => node_ids_at_leash,
+        :paired_nodes_hash => paired_end_links,
         })
 
 
@@ -187,11 +192,16 @@ class Bio::FinishM::Visualiser
       nodes_within_leash, node_ids_at_leash = get_nodes_within_leash(finishm_graph, options[:interesting_nodes], options)
       log.info "Found #{node_ids_at_leash.length} nodes at the end of the #{options[:leash_length] }bp leash" if options[:leash_length]
 
+      # Determine paired-end connections
+      log.info "Determining paired-end node connections.."
+      paired_end_links = find_paired_end_linkages(finishm_graph, nodes_within_leash)
+
       log.info "Converting assembly to a graphviz"
       gv = viser.graphviz(finishm_graph.graph, {
         :start_node_ids => options[:interesting_nodes],
         :nodes => nodes_within_leash,
         :end_node_ids => node_ids_at_leash,
+        :paired_nodes_hash => paired_end_links,
         })
 
     elsif options[:assembly_files]
@@ -272,7 +282,6 @@ class Bio::FinishM::Visualiser
 
       # Determine paired-end connections
       log.info "Determining paired-end node connections.."
-      binding.pry
       paired_end_links = find_paired_end_linkages(finishm_graph, nodes_within_leash)
 
       # create gv object
@@ -314,11 +323,13 @@ class Bio::FinishM::Visualiser
   def get_nodes_within_leash(finishm_graph, node_ids, options={})
     log.info "Finding nodes within the leash length of #{options[:graph_search_leash_length] }.."
     dijkstra = Bio::AssemblyGraphAlgorithms::Dijkstra.new
+    finder = Bio::FinishM::PairedEndNeighbourFinder.new(finishm_graph, 500) #TODO: this hard-coded 100 isn't great here
 
     nodes_within_leash_hash = dijkstra.min_distances_from_many_nodes_in_both_directions(
       finishm_graph.graph, node_ids.collect{|n| finishm_graph.graph.nodes[n]}, {
         :ignore_directions => true,
         :leash_length => options[:graph_search_leash_length],
+        :neighbour_finder => finder
         })
     nodes_within_leash = nodes_within_leash_hash.keys.collect{|k| finishm_graph.graph.nodes[k[0]]}
     log.info "Found #{nodes_within_leash.collect{|o| o.node_id}.uniq.length} node(s) within the leash length"
@@ -368,10 +379,9 @@ class Bio::FinishM::Visualiser
   end
 
   def find_paired_end_linkages(finishm_graph, node_array)
-    seq_id_to_node_id_hash = finishm_graph.sequence_id_to_node_ids_hash(node_array)
     paired_end_links = {}
     node_array.each do |node|
-      paired_end_links[node.node_id] = finishm_graph.paired_nodes(node, seq_id_to_node_id_hash)
+      paired_end_links[node.node_id] = finishm_graph.paired_nodes(node)
     end
     return paired_end_links
   end
