@@ -18,8 +18,7 @@ class Bio::FinishM::PairedEndNeighbourFinder
       key = oneigh.node_id
       raise if dereplicated[key]
       n = Neighbour.new
-      binding.pry
-      n.node = oneigh
+      n.node = oneigh.node
       n.first_side = oneigh.first_side
       n.connection_type = Neighbour::DIRECT_CONNECTION
       n.distance = 0
