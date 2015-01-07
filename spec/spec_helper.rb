@@ -43,6 +43,7 @@ class GraphTesting
           node.ends_of_kmers_of_node = 'A'*node.length
           node.ends_of_kmers_of_twin_node = 'T'*node.length
           node.coverages = [5]
+          node.short_reads = Bio::Velvet::Graph::NodedReadArray.new
         end
         nodes[ident] = node
       end
@@ -227,7 +228,7 @@ class GraphTesting
         noded_read = Bio::Velvet::Graph::NodedRead.new
         noded_read.read_id = i
 
-        node.short_reads ||= []
+        node.short_reads ||= Bio::Velvet::Graph::NodedReadArray.new
         node.short_reads.push noded_read
       end
     end
@@ -246,13 +247,18 @@ class GraphTesting
           noded_read.direction = true
           noded_read.start_coord = 0
           noded_read.offset_from_start_of_node = 0
-          node.short_reads ||= []
+          node.short_reads ||= Bio::Velvet::Graph::NodedReadArray.new
           node.short_reads.push noded_read
 
           read_id_to_node_id[node_or_read] ||= []
           read_id_to_node_id[node_or_read].push node.node_id
         end
       end
+    end
+
+    # set all nodes without reads too
+    finishm_graph.graph.nodes.each do |node|
+      read_id_to_node_id[node.node_id] ||= []
     end
 
     finishm_graph.read_to_nodes = read_id_to_node_id
@@ -264,6 +270,11 @@ class GraphTesting
   def self.make_reads_paired(finishm_graph)
     range = (finishm_graph.read_to_nodes.keys.min..finishm_graph.read_to_nodes.keys.max)
     finishm_graph.velvet_sequences = DummySequenceStore.new(range)
+  end
+
+  def self.set_node_length(node, length)
+    node.ends_of_kmers_of_node = 'A'*length
+    node.ends_of_kmers_of_twin_node = 'T'*length
   end
 end
 

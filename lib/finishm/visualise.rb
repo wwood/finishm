@@ -11,6 +11,9 @@ class Bio::FinishM::Visualiser
       :graph_search_leash_length => 20000,
       :interesting_probes => nil,
       :contig_end_length => 200,
+      :max_nodes => 50,
+      :min_adjoining_reads => 2,
+      :max_adjoining_node_coverage => 300,
     })
     optparse_object.separator "Output visualisation formats (one or more of these must be used)"
     optparse_object.on("--assembly-svg PATH", "Output assembly as a SVG file [default: off]") do |arg|
@@ -92,6 +95,13 @@ class Bio::FinishM::Visualiser
     optparse_object.on("--leash-length NUM", Integer, "Don't explore too far in the graph, only this far and not much more [default: unused unless --probe-ids or --nodes is specified, otherwise #{options[:graph_search_leash_length] }]") do |arg|
       options[:graph_search_leash_length] = arg
     end
+    optparse_object.on("--max-nodes NUM", Integer, "Maximum number of nodes to explore out from each probe node, or 0 for no maximum [default: #{options[:max_nodes] }]") do |arg|
+      if arg==0
+        options[:max_nodes] = nil
+      else
+        options[:max_nodes] = arg
+      end
+    end
 
     optparse_object.separator "\nOptional graph-related arguments:\n\n"
     Bio::FinishM::GraphGenerator.new.add_options optparse_object, options
@@ -150,7 +160,6 @@ class Bio::FinishM::Visualiser
         options[:probe_reads] = options[:interesting_probes]
       end
 
-      options[:dont_parse_reads] = true #the sequences of the reads themselves are not of use
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
 
       # Output probe map if asked
@@ -184,8 +193,6 @@ class Bio::FinishM::Visualiser
       else
         log.info "Targeting #{options[:interesting_nodes].length} node(s) #{options[:interesting_nodes].inspect}"
       end
-      options[:dont_parse_noded_reads] = true
-      options[:dont_parse_reads] = true
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
 
       log.info "Finding nodes within the leash length of #{options[:graph_search_leash_length] }.."
@@ -321,15 +328,19 @@ class Bio::FinishM::Visualiser
   end
 
   def get_nodes_within_leash(finishm_graph, node_ids, options={})
-    log.info "Finding nodes within the leash length of #{options[:graph_search_leash_length] }.."
+    log.info "Finding nodes within the leash length of #{options[:graph_search_leash_length] } with maximum node count #{options[:max_nodes] }.."
     dijkstra = Bio::AssemblyGraphAlgorithms::Dijkstra.new
-    finder = Bio::FinishM::PairedEndNeighbourFinder.new(finishm_graph, 500) #TODO: this hard-coded 100 isn't great here
+
+    @finder = Bio::FinishM::PairedEndNeighbourFinder.new(finishm_graph, 500) #TODO: this hard-coded 100 isn't great here
+    @finder.min_adjoining_reads = options[:min_adjoining_reads]
+    @finder.max_adjoining_node_coverage = options[:max_adjoining_node_coverage]
 
     nodes_within_leash_hash = dijkstra.min_distances_from_many_nodes_in_both_directions(
       finishm_graph.graph, node_ids.collect{|n| finishm_graph.graph.nodes[n]}, {
         :ignore_directions => true,
         :leash_length => options[:graph_search_leash_length],
-        :neighbour_finder => finder
+        :max_nodes => options[:max_nodes],
+        :neighbour_finder => @finder
         })
     nodes_within_leash = nodes_within_leash_hash.keys.collect{|k| finishm_graph.graph.nodes[k[0]]}
     log.info "Found #{nodes_within_leash.collect{|o| o.node_id}.uniq.length} node(s) within the leash length"
@@ -381,7 +392,14 @@ class Bio::FinishM::Visualiser
   def find_paired_end_linkages(finishm_graph, node_array)
     paired_end_links = {}
     node_array.each do |node|
-      paired_end_links[node.node_id] = finishm_graph.paired_nodes(node)
+      paired_end_links[node.node_id] = []
+      [Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST,
+        Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST].each do |direction|
+          onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(node, direction)
+
+          paired_end_links[node.node_id].push @finder.neighbours(onode).collect{|n| n.node.node_id}.uniq
+        end
+      paired_end_links[node.node_id].flatten!
     end
     return paired_end_links
   end

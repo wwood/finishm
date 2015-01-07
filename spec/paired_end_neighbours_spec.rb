@@ -69,4 +69,58 @@ describe "PairedNeighbours" do
     neigh.distance.should == 80
     neigh.num_adjoining_reads.should == 2
   end
+
+  it 'should work with min number of num_adjoining_reads' do
+    f = GraphTesting.finishm_graph([[1,2],[3,4]])
+    GraphTesting.add_reads_to_nodes(f, [[1, 1],[2, 1,3,5],[3, 2,4,6]])
+    GraphTesting.make_reads_paired(f)
+    finder = Bio::FinishM::PairedEndNeighbourFinder.new(f, 100)
+    onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(f.graph.nodes[2], :start_is_first)
+
+    finder.min_adjoining_reads = 0
+    neighs = finder.neighbours(onode)
+    neighs.collect{|n| n.node.node_id}.should == [3]
+
+    finder.min_adjoining_reads = 4
+    neighs = finder.neighbours(onode)
+    neighs.collect{|n| n.node.node_id}.should == []
+  end
+
+  it 'should not accept when min_adjoining_reads is violated after orientation checking' do
+    f = GraphTesting.finishm_graph([[1,2],[3,4]])
+    GraphTesting.add_reads_to_nodes(f, [[1, 1],[2, 1,3,5],[3, 2,4,6]])
+    GraphTesting.make_reads_paired(f)
+    finder = Bio::FinishM::PairedEndNeighbourFinder.new(f, 100)
+    onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(f.graph.nodes[2], :start_is_first)
+
+    finder.min_adjoining_reads = 3
+    neighs = finder.neighbours(onode)
+    neighs.collect{|n| n.node.node_id}.should == [3]
+
+    f.graph.nodes[3].short_reads.get_read_by_id(4).direction = false
+    finder.min_adjoining_reads = 3
+    neighs = finder.neighbours(onode)
+    neighs.collect{|n| n.node.node_id}.should == []
+  end
+
+  it 'should avoid high coverage nodes' do
+    f = GraphTesting.finishm_graph([[1,2],[3,4]])
+    GraphTesting.add_reads_to_nodes(f, [[1, 1],[2, 1,3,5],[3, 2,4,6]])
+    GraphTesting.make_reads_paired(f)
+    finder = Bio::FinishM::PairedEndNeighbourFinder.new(f, 100)
+    onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(f.graph.nodes[2], :start_is_first)
+
+    neighs = finder.neighbours(onode)
+    neighs.collect{|n| n.node.node_id}.should == [3]
+
+    f.graph.nodes[3].coverages = [99*10,99*10]
+
+    finder.max_adjoining_node_coverage = 98
+    neighs = finder.neighbours(onode)
+    neighs.collect{|n| n.node.node_id}.should == []
+
+    finder.max_adjoining_node_coverage = 99
+    neighs = finder.neighbours(onode)
+    neighs.collect{|n| n.node.node_id}.should == [3]
+  end
 end

@@ -1,6 +1,9 @@
 class Bio::FinishM::PairedEndNeighbourFinder
   include Bio::FinishM::Logging
 
+  # parameters for exploration (and code optimisation, actually)
+  attr_accessor :min_adjoining_reads, :max_adjoining_node_coverage
+
   def initialize(finishm_graph, insert_size)
     @finishm_graph = finishm_graph
     @insert_size = insert_size
@@ -36,8 +39,10 @@ class Bio::FinishM::PairedEndNeighbourFinder
   # are paired with reads of the given node. Each distance is the estimated
   # distance separating the nodes.
   def paired_neighbour_distances(oriented_node)
-    # Create a hash of paired node_ids to [fwd_noded_read, rev_noded_read]
-    node_ids_to_read_and_pair = {}
+    # Collect a list of node IDs that have a sufficient number of connections
+    #hash of node ID to Array of [first_read, second_read_id] where first_read is on the current
+    # node and second_read is on the neighbour
+    neighbour_node_read_pairs = {}
     oriented_node.node.short_reads.each do |read|
       # skip reads not going in the direction consistent with direction of travel
       next unless (read.direction == true and oriented_node.first_side == Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST) or
@@ -46,13 +51,36 @@ class Bio::FinishM::PairedEndNeighbourFinder
       pair_read_id = @finishm_graph.velvet_sequences.pair_id(read.read_id)
       unless pair_read_id.nil? #i.e. if read is paired
         @finishm_graph.read_to_nodes[pair_read_id].each do |node_id|
-          node_ids_to_read_and_pair[node_id] ||= []
-          rev_read = @finishm_graph.graph.nodes[node_id].short_reads.find{|sr| sr.read_id == pair_read_id}
-          if rev_read.nil?
-            raise "unexpectedly didn't find read attached to node when one was expected: #{pair_read_id}"
-          end
-          node_ids_to_read_and_pair[node_id] << [read, rev_read]
+          neighbour_node_read_pairs[node_id] ||= []
+          neighbour_node_read_pairs[node_id] << [read, pair_read_id]
         end
+      end
+    end
+
+    # Create a hash of paired node_ids to [fwd_noded_read, rev_noded_read]
+    node_ids_to_read_and_pair = {}
+    neighbour_node_read_pairs.each do |neighbour_node_id, pairs|
+      next if (@min_adjoining_reads and pairs.length < @min_adjoining_reads)
+
+      # ignore neighbours that have too much coverage, these are likely
+      # to be incorrect connections e.g. adapter contamination
+      neighbour_node = @finishm_graph.graph.nodes[neighbour_node_id]
+      log.debug "Found neighbour node coverage #{neighbour_node.coverage}" if log.debug?
+      if @max_adjoining_node_coverage and neighbour_node.coverage > @max_adjoining_node_coverage
+        log.debug "Skipping node #{neighbour_node} as it has coverage #{neighbour_node.coverage} not < #{@max_adjoining_node_coverage}" if log.debug?
+        next
+      end
+
+      node_ids_to_read_and_pair[neighbour_node_id] ||= []
+
+      pairs.each do |pair|
+        read = pair[0]
+        pair_read_id = pair[1]
+        rev_read = neighbour_node.short_reads.get_read_by_id(pair_read_id)
+        if rev_read.nil?
+          raise "unexpectedly didn't find read attached to node when one was expected: #{pair_read_id}"
+        end
+        node_ids_to_read_and_pair[neighbour_node_id] << [read, rev_read]
       end
     end
 
@@ -93,15 +121,20 @@ class Bio::FinishM::PairedEndNeighbourFinder
         end
       end
 
-      if distance_sum < 0
-        # don't predict negative distances
-        neighbour.distance = 0
-      else
-        neighbour.distance = distance_sum.to_f / num_adjoining_reads
-      end
+      # don't accept when no adjoining reads are found
+      if num_adjoining_reads > 0 and
+        (@min_adjoining_reads.nil? or num_adjoining_reads >= @min_adjoining_reads)
 
-      neighbour.num_adjoining_reads = num_adjoining_reads
-      neighbours.push neighbour
+        if distance_sum < 0
+          # don't predict negative distances
+          neighbour.distance = 0
+        else
+          neighbour.distance = distance_sum.to_f / num_adjoining_reads
+        end
+
+        neighbour.num_adjoining_reads = num_adjoining_reads
+        neighbours.push neighbour
+      end
     end
 
     return neighbours

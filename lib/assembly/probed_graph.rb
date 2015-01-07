@@ -1,4 +1,5 @@
 class Bio::FinishM::ProbedGraph
+  include Bio::FinishM::Logging
   attr_accessor :probe_nodes, :probe_node_directions, :probe_node_reads, :graph
 
   attr_accessor :velvet_result_directory
@@ -88,6 +89,8 @@ class Bio::FinishM::ProbedGraph
   # single ended then this method always returns []
   def paired_nodes(node)
     to_return_node_ids = Set.new
+    binding.pry
+    log.debug "Found #{node.short_reads.length} short reads associated with node #{node}" if log.debug?
     node.short_reads.each do |read|
       pair_read_id = @velvet_sequences.pair_id(read.read_id)
       unless pair_read_id.nil? #i.e. if read is paired

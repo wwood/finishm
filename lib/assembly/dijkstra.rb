@@ -10,10 +10,16 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
   #    can be set to nil to search indefinitely
   # :ignore_directions: => true or false (default). If true, explore direction-independently.
   #   i.e. if 1s->3s and 2s->3s, then include 2s in the returned set of min_distances
-  #   and continue exploring from 2s.
+  #   and continue exploring from 2s. Return each found node twice, once for each direction
   # :neighbour_finder => an object that responds to #neighbours(oriented_node) and
   #   returns an array of Bio::FinishM::PairedEndNeighbourFinder::Neighbour objects
   #   default: just search using OrientedNode#next_neighbours
+  # :max_nodes => maximum number of nodes to return, to prevent out of control
+  #   exploring of the graph. If there is plenty of nodes to explore, then the
+  #   length of the returned hash is options[:max_nodes]+1 (+1 because the starting
+  #   node is included). It will probably be longer if :ignore_directions == true, in that
+  #   case the number of node_ids is constrained. It may also be longer if there is ties
+  #   at the edges of the constrained exploration.
   #
   # Returns a Hash of [node_id, first_side] => distance
   def min_distances(graph, initial_oriented_node, options={})
@@ -26,6 +32,7 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
 
     to_return = {}
     first_node = true
+    found_nodes = Set.new([first.node.node_id])
 
     while min_distanced_node = pqueue.shift
 
@@ -40,13 +47,35 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
         break
       end
 
+      if options[:max_nodes] and found_nodes.length > options[:max_nodes]
+        log.debug "passed max-nodes threshold and have #{found_nodes.length} nodes" if log.debug?
+        # remove extras that may have been queued if we are over the limit
+        distances_direction_agnostic = {}
+        to_return.each do |key, distance|
+          prev = distances_direction_agnostic[key[0]]
+          if prev.nil? or prev > distance
+            distances_direction_agnostic[key[0]] = distance
+          end
+        end
+        if distances_direction_agnostic.length > options[:max_nodes]
+          sorted = distances_direction_agnostic.to_a.sort{|a,b| a[1]<=>b[1]}
+          # deal with ties i.e. at the edge there can be multiple neighbours
+          last_distance = sorted[options[:max_nodes]][1]
+
+          # only keep those nodes that are sufficiently close
+          to_return.select! do |key, distance|
+            distance <= last_distance
+          end
+        end
+        break
+      end
+
       # Queue nodes after this one
       current_distance = min_distanced_node.distance
 
       # Find neighbouring nodes
       neighbours = nil
       if options[:neighbour_finder]
-        log.debug "Finding neighbours of #{min_distanced_node} with inner class #{min_distanced_node.node.class}" if log.debug?
         neighbours = options[:neighbour_finder].neighbours(min_distanced_node)
       else
         neighbours = min_distanced_node.next_neighbours(graph)
@@ -54,8 +83,17 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
 
       # explore each neighbour node
       neighbours.each do |onode|
+        found_nodes << onode.node.node_id
         new_distance = current_distance
-        new_distance += onode.distance if options[:neighbour_finder]
+        if options[:neighbour_finder]
+          # Don't use negative distances as this algorithm cannot handle it, and it is impossible
+          # anyway
+          if onode.distance > 0
+            new_distance += onode.distance
+          else
+            new_distance += 0
+          end
+        end
         unless first_node
           new_distance += min_distanced_node.node.length_alone
         end
@@ -86,6 +124,24 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
 
       first_node = false
     end
+
+    # if ignore directions, then fixup the return so that each direction is included
+    if options[:ignore_directions]
+      new_to_return = {}
+      to_return.each do |key, distance|
+        keys = [
+          Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST,
+          Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST].collect do |direction|
+            [key[0], direction]
+          end
+        new_distance = keys.collect{|k| to_return[k]}.reject{|d| d.nil?}.min
+        keys.each do |key|
+          new_to_return[key] = new_distance
+        end
+      end
+      to_return = new_to_return
+    end
+
     return to_return
   end
 
