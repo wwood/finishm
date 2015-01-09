@@ -35,6 +35,7 @@ To hack on finishm:
 ```
 git clone https://github.com/wwood/finishm.git
 cd finishm
+bundle install
 git submodule update --init
 cd ext/src
 make MAXKMERLENGTH=255 finishm velveth velvetg
