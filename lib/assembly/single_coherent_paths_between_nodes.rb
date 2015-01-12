@@ -290,7 +290,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
 
 
     while path_halves = stack.pop
-      log.debug path_halves.collect{|half| half.collect{|onode| onode.node.node_id}.join(',')}.join(' and ')
+      log.debug path_halves.collect{|half| half.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') if log.debug?
       first_half = path_halves[0]
       second_half = path_halves[1]
       if first_half.length == 0
