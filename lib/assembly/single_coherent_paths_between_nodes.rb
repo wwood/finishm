@@ -290,7 +290,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
 
 
     while path_halves = stack.pop
-      log.debug path_halves.collect{|half| half.collect{|onode| onode.node.node_id}.join(',')}.join(' and ')
+      log.debug path_halves.collect{|half| half.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') if log.debug?
       first_half = path_halves[0]
       second_half = path_halves[1]
       if first_half.length == 0
@@ -304,7 +304,8 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
           # particularly when there is more than one connected circuit detected.
           log.warn "Linking path(s) detected, but cycle also detected. Giving up on this link."
           to_return.circular_paths_detected = true
-          return to_return
+          #NOTE: ignores cycle path instead of completely stopping search
+          #return to_return
         else
           paths_to_last = problems[array_trail_to_settable(first_half, recoherence_kmer)].known_paths
           paths_to_last.each do |path|
