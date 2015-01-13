@@ -173,13 +173,13 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
 
     # There should be at least 1 read that spans the collected nodes and the last node
     # The trail validates if the above statement is true.
-    #TODO: there's a possible 'bug' here in that there's garauntee that the read is overlays the
+    #TODO: there's a possible 'bug' here in that there's guarantee that the read is overlays the
     # nodes in a consecutive and gapless manner. But I suspect that is unlikely to be a problem in practice.
     final_node = path.trail[-1].node
     possible_reads = final_node.short_reads.collect{|nr| nr.read_id}
     log.debug "validate starting from #{final_node.node_id}: Initial short reads: #{possible_reads.join(',') }" if log.debug?
     collected_nodes.each do |node|
-      log.debug "Validating node #{node}"
+      log.debug "Validating node #{node}" if log.debug?
       current_set = Set.new node.node.short_reads.collect{|nr| nr.read_id}
       possible_reads.select! do |r|
         current_set.include? r
@@ -302,9 +302,10 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
           # Ignore - this is a cycle, which rarely happens
           #TODO: circular paths should be dealt with in some manner. Really no simple solution, however,
           # particularly when there is more than one connected circuit detected.
-          log.warn "Linking path(s) detected, but cycle also detected. Giving up on this link."
+          #log.warn "Linking path(s) detected, but cycle also detected. Giving up on this link."
+          log.warn "Linking path(s) detected, but cycle also detected. Ignoring possible repeats."
           to_return.circular_paths_detected = true
-          #NOTE: ignores cycle path instead of completely stopping search
+          #NOTE: commented out to ignore cycle path instead of completely stopping search
           #return to_return
         else
           paths_to_last = problems[array_trail_to_settable(first_half, recoherence_kmer)].known_paths
@@ -337,3 +338,5 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     attr_accessor :terminal_node_keys
   end
 end
+
+
