@@ -265,7 +265,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     return false #no candidate reads pass
   end
 
-  def find_paths_from_problems(problems, recoherence_kmer)
+  def find_paths_from_problems(problems, recoherence_kmer, max_cycles=0)
     stack = DS::Stack.new
 
     to_return = Bio::AssemblyGraphAlgorithms::TrailSet.new
@@ -283,37 +283,36 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       overall_solution = problems[key]
       stack.push [
         overall_solution.known_paths[0].to_a,
-        []
+        [],
         ]
     end
     all_paths = []
 
 
-    while path_halves = stack.pop
-      log.debug path_halves.collect{|half| half.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') if log.debug?
-      first_half = path_halves[0]
-      second_half = path_halves[1]
-      if first_half.length == 0
+    while path_parts = stack.pop
+      log.debug path_parts.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') if log.debug?
+      first_part = path_parts[0]
+      second_part = path_parts[1]
+      if first_part.length == 0
         # If we've tracked all the way to the beginning
-        all_paths.push second_half
+        all_paths.push second_part
       else
-        last = first_half.last
-        if second_half.include?(last)
+        last = first_part.last
+        if second_part.include?(last)
           # Ignore - this is a cycle, which rarely happens
           #TODO: circular paths should be dealt with in some manner. Really no simple solution, however,
           # particularly when there is more than one connected circuit detected.
-          #log.warn "Linking path(s) detected, but cycle also detected. Giving up on this link."
-          log.warn "Linking path(s) detected, but cycle also detected. Ignoring possible repeats."
-          to_return.circular_paths_detected = true
-          #NOTE: commented out to ignore cycle path instead of completely stopping search
-          #return to_return
-        else
-          paths_to_last = problems[array_trail_to_settable(first_half, recoherence_kmer)].known_paths
-          paths_to_last.each do |path|
-            to_push = [path[0...(path.length-1)],[last,second_half].flatten]
-            log.debug "Pushing #{to_push.collect{|half| half.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') }" if log.debug?
-            stack.push to_push
-          end
+          cycle_end = second_part.index(last)
+          cycle = [last,second_part[0...cycle_end]].flatten
+          log.debug "Linking path(s) detected, but cycle #{cycle.collect{|onode| onode.node.node.id}.join(',')} also detected." if log.debug?
+          to_return.circular_paths_detected = true unless to_return.circular_paths_detected
+          next if max_cycles == 0 or !check_path_max_cycles(last, second_part, max_cycles)
+        end
+        paths_to_last = problems[array_trail_to_settable(first_part, recoherence_kmer)].known_paths
+        paths_to_last.each do |path|
+          to_push = [path[0...(path.length-1)],[last,second_part].flatten]
+          log.debug "Pushing #{to_push.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') }" if log.debug?
+          stack.push to_push
         end
       end
     end
@@ -322,6 +321,43 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     return to_return
   end
 
+  def check_path_max_cycles(last, path, max_cycles)
+    log.debug "Finding all cycles for node #{last.node_id} in path #{path.collect{|onode| onode.node.node_id}.join(',')}" if log.debug?
+    remaining = path
+
+    cycles = []
+    cycle_ids = Hash.new
+    cycle_id_sequence = []
+
+    while remaining.include?(last)
+      position = remaining.index(last)
+      cycle = remaining[0...position]
+      remaining = remaining[(position+1)...-1]
+      log.debug "Found cycle: #{cycle.collect{|onode| onode.node.node_id}.join(',')}" if log.debug?
+
+      set_key = cycle.collect{|onode| node.to_settable}
+      if cycles.has_key?(set_key)
+        cycle_id_sequence.push cycle_ids[set_key]
+      else
+        cycle_id = cycles.length
+        cycle_ids[set_key] = cycle_id
+        cycle_id_sequence.push cycle_id
+        cycles.push cycle
+      end
+    end
+
+    max_count, repeated = SequenceRepeatFinder.max_repeats_from_start(cycle_id_sequence)
+    if max_count > max_cycles
+      if log.debug?
+        # reconstruct cycle
+        repeated_cycle = repeated.collect{|cycle_id| cycles[cycle_id]}.flatten
+        log.debug "Cycle #{repeated_cycle.collect{|onode| onode.node.node_id}.join(',')} repeats exceeds maximum value: #{max_cycles}"
+      end
+      return false
+    end
+    log.debug "All cycles successfully checked." if log.debug?
+    return true
+  end
 
   class DynamicProgrammingProblem
     attr_accessor :min_distance, :known_paths
@@ -336,6 +372,33 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
   class ProblemSet < Hash
     # Array of keys to this hash that end in the terminal onode
     attr_accessor :terminal_node_keys
+  end
+
+  class SequenceRepeatFinder
+    # Takes a sequence and a length n. Pulls a subsequence of length n from start of
+    # sequence and checks to see if subsequence is cycled in the remaining sequence
+    def starts_with_repeats_of_length(sequence, n)
+      return 0 if n > sequence.length
+      subseq = sequence.first(n)
+      remaining = sequence[n...-1]
+      count = 0
+      while remaining.length >= n
+        to_compare = remaining.first(n)
+        break if subseq != to_compare
+        remaining = remaining[n...-1]
+        count += 1
+        index += n
+      end
+      return count, subseq
+    end
+    # Search for repeats from start of sequence and return the maximum number
+    def max_repeats_from_start(sequence)
+      seq_len = sequence.length
+      seq_lim = floor(seq_len/2)
+      return (1..seq_lim).collect do |index|
+        starts_with_repeats_of_length(sequence, index)
+      end.max{|pair| pair[0]} #Compare by count value. Return [count,subseq] pair
+    end
   end
 end
 
