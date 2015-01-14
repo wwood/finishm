@@ -180,6 +180,25 @@ describe "SingleCoherentPathsBetweenNodes" do
     ]
   end
 
+  it 'should find paths with cycles in a graph with a circuit' do
+    graph, initial_path, terminal_onode = GraphTesting.emit_ss([
+      [1,2],
+      [2,3],
+      [1,5],
+      [5,3],
+      [5,5],
+      [3,4]
+    ], 1, 4)
+    finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, nil, nil, { max_cycles: 1 })
+    paths.circular_paths_detected.should == true
+    GraphTesting.sorted_paths(paths.trails).should == [
+      [1,2,3,4],
+      [1,5,3,4],
+      [1,5,5,3,4]
+    ]
+  end
+
   it 'should not be subject duplication that may comes from leash length problems' do
     graph, initial_path, terminal_onode = GraphTesting.emit_ss([
       [1,2],
@@ -342,6 +361,27 @@ describe "SingleCoherentPathsBetweenNodes" do
     it 'should validate when multiple nodes at the end do not have that read listed' do
       #e.g. when there is a 1bp node 2nd last, and the last node's length is at least 2bp shorter than the kmer
       # not needed I don't think?
+    end
+  end
+
+  describe 'CycleFromStartCounter' do
+    counter = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder::CycleFromStartCounter.new
+
+    it 'should find cycles in a sequence of ids' do
+      sequences = [
+        [1,2,3],
+        [1,2,1,2],
+        [1,2,1,2,1,2],
+        [1,1,2,1,1,2,1,1,2]
+      ]
+      counter.starts_with_repeat_length(sequences[0], 1).should == [1, [1]]
+      counter.starts_with_repeat_length(sequences[1], 2).should == [2, [1,2]]
+      counter.starts_with_repeat_length(sequences[2], 2).should == [3, [1,2]]
+      counter.starts_with_repeat_length(sequences[3], 1).should == [2, [1]]
+      counter.starts_with_repeat_length(sequences[3], 3).should == [3, [1,1,2]]
+      counter.starts_with_repeat_length(sequences[0], 4).should == [0, []]
+      counter.starts_with_max_repeat_number(sequences[0])[0].should == 1
+      counter.starts_with_max_repeat_number(sequences[3]).should == [3, [1,1,2]]
     end
   end
 end

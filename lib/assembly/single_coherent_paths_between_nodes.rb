@@ -17,9 +17,9 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
   def find_all_connections_between_two_nodes(graph, initial_path, terminal_oriented_node,
     leash_length, recoherence_kmer, sequence_hash, options={})
 
-    problems = find_all_problems(graph, initial_path, terminal_oriented_node, leash_length, recoherence_kmer, sequence_hash)
+    problems = find_all_problems(graph, initial_path, terminal_oriented_node, leash_length, recoherence_kmer, sequence_hash, options)
 
-    paths = find_paths_from_problems(problems, recoherence_kmer)
+    paths = find_paths_from_problems(problems, recoherence_kmer, options)
     return paths
   end
 
@@ -265,7 +265,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     return false #no candidate reads pass
   end
 
-  def find_paths_from_problems(problems, recoherence_kmer, max_cycles=0)
+  def find_paths_from_problems(problems, recoherence_kmer, options={})
     stack = DS::Stack.new
 
     to_return = Bio::AssemblyGraphAlgorithms::TrailSet.new
@@ -304,9 +304,15 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
           # particularly when there is more than one connected circuit detected.
           cycle_end = second_part.index(last)
           cycle = [last,second_part[0...cycle_end]].flatten
-          log.debug "Linking path(s) detected, but cycle #{cycle.collect{|onode| onode.node.node.id}.join(',')} also detected." if log.debug?
+          log.debug "Linking path(s) detected, but cycle #{cycle.collect{|onode| onode.node.node_id}.join(',')} also detected." if log.debug?
           to_return.circular_paths_detected = true unless to_return.circular_paths_detected
-          next if max_cycles == 0 or !check_path_max_cycles(last, second_part, max_cycles)
+          if !options[:max_cycles]
+            log.debug "Not finishing cyclic path as max_cycles unspecified." if log.debug?
+            next
+          elsif !check_path_max_cycles(last, second_part, options[:max_cycles])
+            log.debug "Not finishing cyclic path with too many repeated cycles." if log.debug?
+            next
+          end
         end
         paths_to_last = problems[array_trail_to_settable(first_part, recoherence_kmer)].known_paths
         paths_to_last.each do |path|
@@ -321,7 +327,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     return to_return
   end
 
-  def check_path_max_cycles(last, path, max_cycles)
+  def check_path_max_cycles(last, path, max_cycles=1)
     log.debug "Finding all cycles for node #{last.node_id} in path #{path.collect{|onode| onode.node.node_id}.join(',')}" if log.debug?
     remaining = path
 
@@ -331,12 +337,12 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
 
     while remaining.include?(last)
       position = remaining.index(last)
-      cycle = remaining[0...position]
-      remaining = remaining[(position+1)...-1]
-      log.debug "Found cycle: #{cycle.collect{|onode| onode.node.node_id}.join(',')}" if log.debug?
+      cycle = remaining[0..position]
+      remaining = remaining[(position+1)..-1]
+      log.debug "Found cycle: #{cycle.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
 
-      set_key = cycle.collect{|onode| node.to_settable}
-      if cycles.has_key?(set_key)
+      set_key = cycle.collect{|onode| onode.to_settable}
+      if cycle_ids.has_key?(set_key)
         cycle_id_sequence.push cycle_ids[set_key]
       else
         cycle_id = cycles.length
@@ -346,11 +352,12 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       end
     end
 
-    max_count, repeated = SequenceRepeatFinder.max_repeats_from_start(cycle_id_sequence)
+    counter = CycleFromStartCounter.new
+    max_count, repeated_sequence = counter.starts_with_max_repeat_number(cycle_id_sequence)
     if max_count > max_cycles
       if log.debug?
         # reconstruct cycle
-        repeated_cycle = repeated.collect{|cycle_id| cycles[cycle_id]}.flatten
+        repeated_cycle = repeated_sequence.collect{|cycle_id| cycles[cycle_id]}.flatten
         log.debug "Cycle #{repeated_cycle.collect{|onode| onode.node.node_id}.join(',')} repeats exceeds maximum value: #{max_cycles}"
       end
       return false
@@ -374,30 +381,45 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     attr_accessor :terminal_node_keys
   end
 
-  class SequenceRepeatFinder
+  class CycleFromStartCounter
+    include Bio::FinishM::Logging
+
     # Takes a sequence and a length n. Pulls a subsequence of length n from start of
-    # sequence and checks to see if subsequence is cycled in the remaining sequence
-    def starts_with_repeats_of_length(sequence, n)
-      return 0 if n > sequence.length
+    # sequence and checks to see if subsequence is cycled in the sequence
+    def starts_with_repeat_length(sequence, n)
+      log.debug "Searching sequence #{sequence} for cycle of size #{n}." if log.debug?
+      return [0, []] if n > sequence.length
       subseq = sequence.first(n)
-      remaining = sequence[n...-1]
+      remaining = sequence
       count = 0
       while remaining.length >= n
+        log.debug "Searching for cycle #{subseq} in #{remaining}" if log.debug?
         to_compare = remaining.first(n)
-        break if subseq != to_compare
-        remaining = remaining[n...-1]
+        log.debug "Found #{to_compare} to compare." if log.debug?
+        if subseq != to_compare
+          log.debug "Doesn't match. Ending search." if log.debug?
+          break
+        end
+        remaining = remaining[n..-1]
         count += 1
-        index += n
+        log.debug "Match number #{count} found." if log.debug?
       end
       return count, subseq
     end
-    # Search for repeats from start of sequence and return the maximum number
-    def max_repeats_from_start(sequence)
+    # Search for cycles from start of sequence and return the cycled sequence with
+    # maximum repeats and the number of repeats
+    def starts_with_max_repeat_number(sequence)
       seq_len = sequence.length
-      seq_lim = floor(seq_len/2)
-      return (1..seq_lim).collect do |index|
-        starts_with_repeats_of_length(sequence, index)
-      end.max{|pair| pair[0]} #Compare by count value. Return [count,subseq] pair
+      seq_lim = (seq_len/2).floor
+      log.debug "Maximum possible cycle length of #{sequence} is #{seq_lim}." if log.debug?
+      if seq_lim == 0
+        return [1, sequence]
+      end
+      max_seqs = (1..seq_lim).collect do |index|
+        starts_with_repeat_length(sequence, index)
+      end
+      log.debug "Counts #{max_seqs.collect{|pair| pair[0]}} and sequences #{max_seqs.collect{|pair| pair[1]}} correspond to lengths #{(1..seq_lim).collect{|i| i}}." if log.debug?
+      return max_seqs.max_by{|pair| pair[0]} #Compare by count value. Return [count,subseq] pair
     end
   end
 end
