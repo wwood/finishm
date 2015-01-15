@@ -299,9 +299,6 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       else
         last = first_part.last
         if second_part.include?(last)
-          # Ignore - this is a cycle, which rarely happens
-          #TODO: circular paths should be dealt with in some manner. Really no simple solution, however,
-          # particularly when there is more than one connected circuit detected.
           log.debug "Cycle at node #{last.node_id} detected in previous path #{second_part.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
           to_return.circular_paths_detected = true unless to_return.circular_paths_detected
           if !options[:max_cycles]
@@ -324,6 +321,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     to_return.trails = all_paths
     return to_return
   end
+
   def check_path_max_cycles(last, path, max_cycles=1)
     log.debug "Finding all simple cycles for node #{last.node_id} in path #{path.collect{|onode| onode.node.node_id}.join(',')}" if log.debug?
     remaining = path
