@@ -442,24 +442,4 @@ describe "SingleCoherentPathsBetweenNodes" do
       # not needed I don't think?
     end
   end
-
-#  describe 'CycleFromStartCounter' do
-#    counter = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder::CycleFromStartCounter.new
-#
-#    it 'should check for a minimum number of cycles in the start of a sequence of ids' do
-#      counter.starts_with_minimum_repeats_of_size([1,2,3], 1, 1).should == true
-#      counter.starts_with_minimum_repeats_of_size([1,2,3], 1, 2).should == false
-#      counter.starts_with_minimum_repeats_of_size([1,2,1,2,1,2,3], 2, 2).should == true
-#      counter.starts_with_minimum_repeats_of_size([1,2,1,2,1,2,3], 2, 3).should == true
-#      counter.starts_with_minimum_repeats_of_size([1,2,1,2,1,2,3], 2, 4).should == false
-#      counter.starts_with_minimum_repeats_of_size([1,1,2,1,1,2,1,1,2,1,2], 1, 2).should == true
-#      counter.starts_with_minimum_repeats_of_size([1,1,2,1,1,2,1,1,2,1,2], 1, 3).should == false
-#      counter.starts_with_minimum_repeats_of_size([1,1,2,1,1,2,1,1,2,1,2], 3, 2).should == true
-#      counter.starts_with_minimum_repeats_of_size([1,1,2,1,1,2,1,1,2,1,2], 3, 4).should == false
-#      counter.starts_with_minimum_repeats_of_size([], 4, 1).should == false
-#      counter.starts_with_minimum_repeats([1,2,3], 1).should == [true, 1]
-#      counter.starts_with_minimum_repeats([1,1,2,1,1,2,1,1,2,1,2], 3).should == [true, 3]
-#      counter.starts_with_minimum_repeats([1,1,2,1,1,2,1,1,2,1,2], 4).should == [false, nil]
-#    end
-#  end
 end
