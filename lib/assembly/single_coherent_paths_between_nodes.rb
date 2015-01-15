@@ -287,6 +287,8 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         ]
     end
     all_paths = []
+    max_cycles = options[:max_cycles] || 1
+
 
     while path_parts = stack.pop
       log.debug path_parts.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') if log.debug?
@@ -300,10 +302,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         if second_part.include?(last)
           log.debug "Cycle at node #{last.node_id} detected in previous path #{second_part.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
           to_return.circular_paths_detected = true unless to_return.circular_paths_detected
-          if !options[:max_cycles]
-            log.debug "Not finishing cyclic path as max_cycles unspecified." if log.debug?
-            next
-          elsif !check_path_max_cycles(last, second_part, options[:max_cycles])
+          if max_cycles == 0 or !check_path_cycle_count_for_node(last, second_part, max_cycles)
             log.debug "Not finishing cyclic path with too many repeated cycles." if log.debug?
             next
           end
@@ -321,14 +320,15 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     return to_return
   end
 
-  def check_path_max_cycles(last, path, max_cycles=1)
-    log.debug "Finding all simple cycles for node #{last.node_id} in path #{path.collect{|onode| onode.node.node_id}.join(',')}" if log.debug?
+  # For a terminal node, find and count unique 'simple'cycles in a path that begin at the terminal node, up to a
+  # maximum number of repeats. If maximum count is exceeded return false else return true.
+  def check_path_cycle_count_for_node(node, path, max_cycles=1)
+    log.debug "Finding all simple cycles for node #{node.node_id} in path #{path.collect{|onode| onode.node.node_id}.join(',')}" if log.debug?
     remaining = path
-
     cycles = Hash.new
 
-    while remaining.include?(last)
-      position = remaining.index(last)
+    while remaining.include?(node)
+      position = remaining.index(node)
       cycle = remaining[0..position]
       remaining = remaining[(position+1)..-1]
       log.debug "Found cycle: #{cycle.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
@@ -361,57 +361,6 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     # Array of keys to this hash that end in the terminal onode
     attr_accessor :terminal_node_keys
   end
-
-#  class CycleFromStartCounter
-#    include Bio::FinishM::Logging
-#
-#    # Search for a repeated cycle of length `size` from start of `sequence` with a minimum number of
-#    # repeats.
-#    def starts_with_minimum_repeats_of_size(sequence, size, min)
-#      raise if min < 1 #Undefined behaviour
-#      log.debug "Searching sequence #{sequence} for cycle of size #{size}" if log.debug?
-#      return false if size > sequence.length #
-#      subseq = sequence.first(size)
-#      log.debug "Searching for cycle #{subseq}" if log.debug?
-#      remaining = sequence
-#      count = 0
-#      while remaining.length >= size
-#        to_compare = remaining.first(size)
-#        log.debug "Next #{size} elements in sequence are #{to_compare}" if log.debug?
-#        if subseq != to_compare
-#          log.debug "Doesn't match. Ending search." if log.debug?
-#          break
-#        end
-#        remaining = remaining[size..-1]
-#        count += 1
-#        log.debug "Match number #{count} found." if log.debug?
-#        if !min.nil? and count >= min
-#          log.debug "Minimum match number found." if log.debug?
-#          return true
-#        end
-#      end
-#      return false
-#    end
-#    # Search for cycles of any size from start of sequence and return a pair of values: a boolean
-#    # with value true if a cycle repeating at least a minimum number of times is found, or false;
-#    # and the smallest cycle length for which this is true, or nil if not true for any cycle length.
-#    def starts_with_minimum_repeats(sequence, min)
-#      raise if min < 1 #Undefined behaviour
-#      seq_len = sequence.length
-#      seq_lim = (seq_len/min).floor
-#      return false if seq_lim == 0 #Sequence too short to contain minimum repeats
-#      log.debug "Check all starting cycles of #{sequence} up to length #{seq_lim}" if log.debug?
-#      exceeds = (1..seq_lim).find do |index|
-#        starts_with_minimum_repeats_of_size(sequence, index, min)
-#      end
-#      if exceeds.nil?
-#        log.debug "No cycles repeated #{min} times or more."
-#        return false, nil
-#      end
-#      log.debug "Sequence #{sequence.first(exceeds)} repeated at least #{min} times in #{sequence}." if log.debug?
-#      return true, exceeds
-#    end
-#  end
 end
 
 

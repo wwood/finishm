@@ -162,24 +162,6 @@ describe "SingleCoherentPathsBetweenNodes" do
     fail
   end
 
-  it 'should find paths in a graph with a circuit' do
-    graph, initial_path, terminal_onode = GraphTesting.emit_ss([
-      [1,2],
-      [2,3],
-      [1,5],
-      [5,3],
-      [5,5], #circuit
-      [3,4]
-    ],1 ,4)
-    finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
-    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, nil, nil)
-    paths.circular_paths_detected.should == true
-    GraphTesting.sorted_paths(paths.trails).should == [
-      [1,2,3,4],
-      [1,5,3,4],
-    ]
-  end
-
   it 'should find paths with cycles in a graph with a circuit' do
     graph, initial_path, terminal_onode = GraphTesting.emit_ss([
       [1,2],
@@ -275,6 +257,24 @@ describe "SingleCoherentPathsBetweenNodes" do
       [1,2,3,3,2,3,2,4],
       [1,2,3,3,2,4],
       [1,2,4]
+    ]
+  end
+
+  it 'should only find non-circular paths in a graph with a circuit when told' do
+    graph, initial_path, terminal_onode = GraphTesting.emit_ss([
+      [1,2],
+      [2,3],
+      [1,5],
+      [5,3],
+      [5,5], #circuit
+      [3,4]
+    ],1 ,4)
+    finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, nil, nil, { max_cycles: 0 })
+    paths.circular_paths_detected.should == true
+    GraphTesting.sorted_paths(paths.trails).should == [
+      [1,2,3,4],
+      [1,5,3,4],
     ]
   end
 
