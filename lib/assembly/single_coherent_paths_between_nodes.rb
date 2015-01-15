@@ -288,7 +288,6 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     end
     all_paths = []
 
-
     while path_parts = stack.pop
       log.debug path_parts.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') if log.debug?
       first_part = path_parts[0]
