@@ -168,7 +168,7 @@ describe "SingleCoherentPathsBetweenNodes" do
       [2,3],
       [1,5],
       [5,3],
-      [5,5],
+      [5,5], #circuit
       [3,4]
     ],1 ,4)
     finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
@@ -196,6 +196,54 @@ describe "SingleCoherentPathsBetweenNodes" do
       [1,2,3,4],
       [1,5,3,4],
       [1,5,5,3,4]
+    ]
+  end
+
+  it 'should find paths with cycles in a graph with a multi-entry/exit circuit' do
+    graph, initial_path, terminal_onode = GraphTesting.emit_ss([
+      [1,2], #enter circuit 2-3-5-2
+      [2,3],
+      [3,5],
+      [5,2],
+      [1,5], #enter circuit 2-3-5-2
+      [2,4], #exit circuit
+      [3,4] #exit circuit
+    ], 1, 4)
+    finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, nil, nil, { max_cycles: 1 })
+    paths.circular_paths_detected.should == true
+    GraphTesting.sorted_paths(paths.trails).should == [
+      [1,2,3,4],
+      [1,2,3,5,2,3,4],
+      [1,2,3,5,2,4],
+      [1,2,4],
+      [1,5,2,3,4],
+      [1,5,2,3,5,2,3,4],
+      [1,5,2,3,5,2,4],
+      [1,5,2,4],
+    ]
+  end
+
+  it 'should find paths with cycles in a graph with a figure 8 circuit' do
+    graph, initial_path, terminal_onode = GraphTesting.emit_ss([
+      [1,2],
+      [2,3],
+      [3,2],
+      [3,5],
+      [5,3],
+      [5,4]
+    ], 1, 4)
+    finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, nil, nil, { max_cycles: 1 })
+    paths.circular_paths_detected.should == true
+    GraphTesting.sorted_paths(paths.trails).should == [
+      [1,2,3,2,3,5,4],
+      [1,2,3,2,3,5,3,2,3,5,4],
+      [1,2,3,2,3,5,3,5,4],
+      [1,2,3,5,4],
+      [1,2,3,5,3,2,3,5,4],
+      [1,2,3,5,3,2,3,5,3,5,4],
+      [1,2,3,5,3,5,4],
     ]
   end
 
@@ -367,21 +415,20 @@ describe "SingleCoherentPathsBetweenNodes" do
   describe 'CycleFromStartCounter' do
     counter = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder::CycleFromStartCounter.new
 
-    it 'should find cycles in a sequence of ids' do
-      sequences = [
-        [1,2,3],
-        [1,2,1,2],
-        [1,2,1,2,1,2],
-        [1,1,2,1,1,2,1,1,2]
-      ]
-      counter.starts_with_repeat_length(sequences[0], 1).should == [1, [1]]
-      counter.starts_with_repeat_length(sequences[1], 2).should == [2, [1,2]]
-      counter.starts_with_repeat_length(sequences[2], 2).should == [3, [1,2]]
-      counter.starts_with_repeat_length(sequences[3], 1).should == [2, [1]]
-      counter.starts_with_repeat_length(sequences[3], 3).should == [3, [1,1,2]]
-      counter.starts_with_repeat_length(sequences[0], 4).should == [0, []]
-      counter.starts_with_max_repeat_number(sequences[0])[0].should == 1
-      counter.starts_with_max_repeat_number(sequences[3]).should == [3, [1,1,2]]
+    it 'should check for a minimum number of cycles in the start of a sequence of ids' do
+      counter.starts_with_minimum_repeats_of_size([1,2,3], 1, 1).should == true
+      counter.starts_with_minimum_repeats_of_size([1,2,3], 1, 2).should == false
+      counter.starts_with_minimum_repeats_of_size([1,2,1,2,1,2,3], 2, 2).should == true
+      counter.starts_with_minimum_repeats_of_size([1,2,1,2,1,2,3], 2, 3).should == true
+      counter.starts_with_minimum_repeats_of_size([1,2,1,2,1,2,3], 2, 4).should == false
+      counter.starts_with_minimum_repeats_of_size([1,1,2,1,1,2,1,1,2,1,2], 1, 2).should == true
+      counter.starts_with_minimum_repeats_of_size([1,1,2,1,1,2,1,1,2,1,2], 1, 3).should == false
+      counter.starts_with_minimum_repeats_of_size([1,1,2,1,1,2,1,1,2,1,2], 3, 2).should == true
+      counter.starts_with_minimum_repeats_of_size([1,1,2,1,1,2,1,1,2,1,2], 3, 4).should == false
+      counter.starts_with_minimum_repeats_of_size([], 4, 1).should == false
+      counter.starts_with_minimum_repeats([1,2,3], 1).should == [true, 1]
+      counter.starts_with_minimum_repeats([1,1,2,1,1,2,1,1,2,1,2], 3).should == [true, 3]
+      counter.starts_with_minimum_repeats([1,1,2,1,1,2,1,1,2,1,2], 4).should == [false, nil]
     end
   end
 end

@@ -302,9 +302,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
           # Ignore - this is a cycle, which rarely happens
           #TODO: circular paths should be dealt with in some manner. Really no simple solution, however,
           # particularly when there is more than one connected circuit detected.
-          cycle_end = second_part.index(last)
-          cycle = [last,second_part[0...cycle_end]].flatten
-          log.debug "Linking path(s) detected, but cycle #{cycle.collect{|onode| onode.node.node_id}.join(',')} also detected." if log.debug?
+          log.debug "Cycle at node #{last.node_id} detected in previous path #{second_part.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
           to_return.circular_paths_detected = true unless to_return.circular_paths_detected
           if !options[:max_cycles]
             log.debug "Not finishing cyclic path as max_cycles unspecified." if log.debug?
@@ -328,7 +326,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
   end
 
   def check_path_max_cycles(last, path, max_cycles=1)
-    log.debug "Finding all cycles for node #{last.node_id} in path #{path.collect{|onode| onode.node.node_id}.join(',')}" if log.debug?
+    log.debug "Finding all simple cycles for node #{last.node_id} in path #{path.collect{|onode| onode.node.node_id}.join(',')}" if log.debug?
     remaining = path
 
     cycles = []
@@ -344,25 +342,29 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       set_key = cycle.collect{|onode| onode.to_settable}
       if cycle_ids.has_key?(set_key)
         cycle_id_sequence.push cycle_ids[set_key]
+        log.debug "Cycle matches existing id #{cycle_ids[set_key]}." if log.debug?
       else
         cycle_id = cycles.length
         cycle_ids[set_key] = cycle_id
         cycle_id_sequence.push cycle_id
         cycles.push cycle
+        log.debug "Cycle assigned id #{cycle_id}." if log.debug?
       end
     end
 
+    log.debug "Check for super-cycles in sequence of cycle ids: #{cycle_id_sequence}" if log.debug?
+    at_least = max_cycles+1
     counter = CycleFromStartCounter.new
-    max_count, repeated_sequence = counter.starts_with_max_repeat_number(cycle_id_sequence)
-    if max_count > max_cycles
+    exceeds, size = counter.starts_with_minimum_repeats(cycle_id_sequence, at_least)
+    if exceeds
       if log.debug?
-        # reconstruct cycle
-        repeated_cycle = repeated_sequence.collect{|cycle_id| cycles[cycle_id]}.flatten
-        log.debug "Cycle #{repeated_cycle.collect{|onode| onode.node.node_id}.join(',')} repeats exceeds maximum value: #{max_cycles}"
+        #reconstruct super-cycle
+        super_cycle = cycle_id_sequence.first(size).collect{|id| cycles[id]}.flatten
+        log.debug "Found super-cycle #{super_cycle.collect{|onode| onode.node.node_id}.join(',')} with more that #{max_cycles} cycles" if log.debug?
       end
       return false
     end
-    log.debug "All cycles successfully checked." if log.debug?
+    log.debug "All super-cycles successfully checked." if log.debug?
     return true
   end
 
@@ -384,42 +386,51 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
   class CycleFromStartCounter
     include Bio::FinishM::Logging
 
-    # Takes a sequence and a length n. Pulls a subsequence of length n from start of
-    # sequence and checks to see if subsequence is cycled in the sequence
-    def starts_with_repeat_length(sequence, n)
-      log.debug "Searching sequence #{sequence} for cycle of size #{n}." if log.debug?
-      return [0, []] if n > sequence.length
-      subseq = sequence.first(n)
+    # Search for a repeated cycle of length `size` from start of `sequence` with a minimum number of
+    # repeats.
+    def starts_with_minimum_repeats_of_size(sequence, size, min)
+      raise if min < 1 #Undefined behaviour
+      log.debug "Searching sequence #{sequence} for cycle of size #{size}" if log.debug?
+      return false if size > sequence.length #
+      subseq = sequence.first(size)
+      log.debug "Searching for cycle #{subseq}" if log.debug?
       remaining = sequence
       count = 0
-      while remaining.length >= n
-        log.debug "Searching for cycle #{subseq} in #{remaining}" if log.debug?
-        to_compare = remaining.first(n)
-        log.debug "Found #{to_compare} to compare." if log.debug?
+      while remaining.length >= size
+        to_compare = remaining.first(size)
+        log.debug "Next #{size} elements in sequence are #{to_compare}" if log.debug?
         if subseq != to_compare
           log.debug "Doesn't match. Ending search." if log.debug?
           break
         end
-        remaining = remaining[n..-1]
+        remaining = remaining[size..-1]
         count += 1
         log.debug "Match number #{count} found." if log.debug?
+        if !min.nil? and count >= min
+          log.debug "Minimum match number found." if log.debug?
+          return true
+        end
       end
-      return count, subseq
+      return false
     end
-    # Search for cycles from start of sequence and return the cycled sequence with
-    # maximum repeats and the number of repeats
-    def starts_with_max_repeat_number(sequence)
+    # Search for cycles of any size from start of sequence and return a pair of values: a boolean
+    # with value true if a cycle repeating at least a minimum number of times is found, or false;
+    # and the smallest cycle length for which this is true, or nil if not true for any cycle length.
+    def starts_with_minimum_repeats(sequence, min)
+      raise if min < 1 #Undefined behaviour
       seq_len = sequence.length
-      seq_lim = (seq_len/2).floor
-      log.debug "Maximum possible cycle length of #{sequence} is #{seq_lim}." if log.debug?
-      if seq_lim == 0
-        return [1, sequence]
+      seq_lim = (seq_len/min).floor
+      return false if seq_lim == 0 #Sequence too short to contain minimum repeats
+      log.debug "Check all starting cycles of #{sequence} up to length #{seq_lim}" if log.debug?
+      exceeds = (1..seq_lim).find do |index|
+        starts_with_minimum_repeats_of_size(sequence, index, min)
       end
-      max_seqs = (1..seq_lim).collect do |index|
-        starts_with_repeat_length(sequence, index)
+      if exceeds.nil?
+        log.debug "No cycles repeated #{min} times or more."
+        return false, nil
       end
-      log.debug "Counts #{max_seqs.collect{|pair| pair[0]}} and sequences #{max_seqs.collect{|pair| pair[1]}} correspond to lengths #{(1..seq_lim).collect{|i| i}}." if log.debug?
-      return max_seqs.max_by{|pair| pair[0]} #Compare by count value. Return [count,subseq] pair
+      log.debug "Sequence #{sequence.first(exceeds)} repeated at least #{min} times in #{sequence}." if log.debug?
+      return true, exceeds
     end
   end
 end
