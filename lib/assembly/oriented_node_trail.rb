@@ -452,6 +452,10 @@ module Bio
             [@node.node_id, @first_side]
           end
 
+          def hash
+            to_settable.hash
+          end
+
           def node_id
             @node.node_id
           end
