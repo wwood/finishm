@@ -18,6 +18,7 @@ module Bio
       end
 
       def each
+        @trails ||= []
         @trails.each{|t| yield t}
       end
     end
