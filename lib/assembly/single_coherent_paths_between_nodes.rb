@@ -16,17 +16,13 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
   # Recohere reads (singled ended only) in an attempt to remove bubbles.
   #
   # Options:
-  # * max_paths: the maxmimum number of paths to return. If this maximum is exceeded, an empty solution set is returned
+  # * max_gapfill_paths: the maxmimum number of paths to return. If this maximum is exceeded, an empty solution set is returned
   def find_all_connections_between_two_nodes(graph, initial_path, terminal_oriented_node,
     leash_length, recoherence_kmer, sequence_hash, options={})
 
     problems = find_all_problems(graph, initial_path, terminal_oriented_node, leash_length, recoherence_kmer, sequence_hash, options)
 
-<<<<<<< HEAD
-    paths = find_paths_from_problems(problems, recoherence_kmer, options[:max_gapfill_paths])
-=======
     paths = find_paths_from_problems(problems, recoherence_kmer, options)
->>>>>>> tim_local/master
     return paths
   end
 
@@ -272,14 +268,12 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     return false #no candidate reads pass
   end
 
-<<<<<<< HEAD
-  def find_paths_from_problems(problems, recoherence_kmer, max_num_paths=2196)
-    max_num_paths ||= 2196
-=======
   def find_paths_from_problems(problems, recoherence_kmer, options={})
->>>>>>> tim_local/master
-    stack = DS::Stack.new
+    max_num_paths = options[:max_gapfill_paths]
+    max_num_paths ||= 2196
+    max_cycles = options[:max_cycles] || 1
 
+    stack = DS::Stack.new
     to_return = Bio::AssemblyGraphAlgorithms::TrailSet.new
 
     # if there is no solutions to the overall problem then there is no solution at all
@@ -296,43 +290,16 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         [],
         ]
     end
-<<<<<<< HEAD
-
 
     all_paths_hash = {}
-    while path_halves = stack.pop
-      log.debug path_halves.collect{|half| half.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') if log.debug?
-      first_half = path_halves[0]
-      second_half = path_halves[1]
-
-      # add this solution if required
-      # I've had some trouble getting the Ruby Set to work here, but this is effectively the same thing anyway.
-      key = [first_half, second_half].flatten.hash
-      all_paths_hash[key] ||= [first_half, second_half].flatten
-
-      if !max_num_paths.nil? and all_paths_hash.length >= max_num_paths
-        log.info "Exceeded the maximum number of allowable paths in this gapfill" if log.info?
-        to_return.max_path_limit_exceeded = true
-        all_paths_hash = {}
-        break
-      end
-
-      if first_half.length == 0
-        # If we've tracked all the way to the beginning,
-        # then there's no need to track further
-=======
-    all_paths = []
-    max_cycles = options[:max_cycles] || 1
-
-
     while path_parts = stack.pop
-      log.debug path_parts.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') if log.debug?
+      log.debug path_parts.collect{|half| half.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') if log.debug?
       first_part = path_parts[0]
       second_part = path_parts[1]
+
       if first_part.length == 0
-        # If we've tracked all the way to the beginning
-        all_paths.push second_part
->>>>>>> tim_local/master
+        # If we've tracked all the way to the beginning,
+        # then there's no need to track further
       else
         last = first_part.last
         if second_part.include?(last)
@@ -349,6 +316,18 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
           log.debug "Pushing #{to_push.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') }" if log.debug?
           stack.push to_push
         end
+      end
+
+      # add this solution if required
+      # I've had some trouble getting the Ruby Set to work here, but this is effectively the same thing.
+      key = [first_part, second_part].flatten.hash
+      all_paths_hash[key] ||= [first_part, second_part].flatten
+
+      if !max_num_paths.nil? and all_paths_hash.length >= max_num_paths
+        log.info "Exceeded the maximum number of allowable paths in this gapfill" if log.info?
+        to_return.max_path_limit_exceeded = true
+        all_paths_hash = {}
+        break
       end
     end
 
