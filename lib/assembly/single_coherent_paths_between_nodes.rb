@@ -20,9 +20,13 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
   def find_all_connections_between_two_nodes(graph, initial_path, terminal_oriented_node,
     leash_length, recoherence_kmer, sequence_hash, options={})
 
-    problems = find_all_problems(graph, initial_path, terminal_oriented_node, leash_length, recoherence_kmer, sequence_hash)
+    problems = find_all_problems(graph, initial_path, terminal_oriented_node, leash_length, recoherence_kmer, sequence_hash, options)
 
+<<<<<<< HEAD
     paths = find_paths_from_problems(problems, recoherence_kmer, options[:max_gapfill_paths])
+=======
+    paths = find_paths_from_problems(problems, recoherence_kmer, options)
+>>>>>>> tim_local/master
     return paths
   end
 
@@ -176,13 +180,13 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
 
     # There should be at least 1 read that spans the collected nodes and the last node
     # The trail validates if the above statement is true.
-    #TODO: there's a possible 'bug' here in that there's garauntee that the read is overlays the
+    #TODO: there's a possible 'bug' here in that there's guarantee that the read is overlays the
     # nodes in a consecutive and gapless manner. But I suspect that is unlikely to be a problem in practice.
     final_node = path.trail[-1].node
     possible_reads = final_node.short_reads.collect{|nr| nr.read_id}
     log.debug "validate starting from #{final_node.node_id}: Initial short reads: #{possible_reads.join(',') }" if log.debug?
     collected_nodes.each do |node|
-      log.debug "Validating node #{node}"
+      log.debug "Validating node #{node}" if log.debug?
       current_set = Set.new node.node.short_reads.collect{|nr| nr.read_id}
       possible_reads.select! do |r|
         current_set.include? r
@@ -268,8 +272,12 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     return false #no candidate reads pass
   end
 
+<<<<<<< HEAD
   def find_paths_from_problems(problems, recoherence_kmer, max_num_paths=2196)
     max_num_paths ||= 2196
+=======
+  def find_paths_from_problems(problems, recoherence_kmer, options={})
+>>>>>>> tim_local/master
     stack = DS::Stack.new
 
     to_return = Bio::AssemblyGraphAlgorithms::TrailSet.new
@@ -285,9 +293,10 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       overall_solution = problems[key]
       stack.push [
         overall_solution.known_paths[0].to_a,
-        []
+        [],
         ]
     end
+<<<<<<< HEAD
 
 
     all_paths_hash = {}
@@ -311,22 +320,34 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       if first_half.length == 0
         # If we've tracked all the way to the beginning,
         # then there's no need to track further
+=======
+    all_paths = []
+    max_cycles = options[:max_cycles] || 1
+
+
+    while path_parts = stack.pop
+      log.debug path_parts.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') if log.debug?
+      first_part = path_parts[0]
+      second_part = path_parts[1]
+      if first_part.length == 0
+        # If we've tracked all the way to the beginning
+        all_paths.push second_part
+>>>>>>> tim_local/master
       else
-        last = first_half.last
-        if second_half.include?(last)
-          # Ignore - this is a cycle, which rarely happens
-          #TODO: circular paths should be dealt with in some manner. Really no simple solution, however,
-          # particularly when there is more than one connected circuit detected.
-          log.warn "Linking path(s) detected, but cycle also detected. Giving up on this link."
-          to_return.circular_paths_detected = true
-          return to_return
-        else
-          paths_to_last = problems[array_trail_to_settable(first_half, recoherence_kmer)].known_paths
-          paths_to_last.each do |path|
-            to_push = [path[0...(path.length-1)],[last,second_half].flatten]
-            log.debug "Pushing #{to_push.collect{|half| half.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') }" if log.debug?
-            stack.push to_push
+        last = first_part.last
+        if second_part.include?(last)
+          log.debug "Cycle at node #{last.node_id} detected in previous path #{second_part.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
+          to_return.circular_paths_detected = true unless to_return.circular_paths_detected
+          if max_cycles == 0 or !check_path_cycle_count_for_node(last, second_part, max_cycles)
+            log.debug "Not finishing cyclic path with too many repeated cycles." if log.debug?
+            next
           end
+        end
+        paths_to_last = problems[array_trail_to_settable(first_part, recoherence_kmer)].known_paths
+        paths_to_last.each do |path|
+          to_push = [path[0...(path.length-1)],[last,second_part].flatten]
+          log.debug "Pushing #{to_push.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') }" if log.debug?
+          stack.push to_push
         end
       end
     end
@@ -335,6 +356,32 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     return to_return
   end
 
+  # For a terminal node, find and count unique 'simple'cycles in a path that begin at the terminal node, up to a
+  # maximum number of repeats. If maximum count is exceeded return false else return true.
+  def check_path_cycle_count_for_node(node, path, max_cycles=1)
+    log.debug "Finding all simple cycles for node #{node.node_id} in path #{path.collect{|onode| onode.node.node_id}.join(',')}" if log.debug?
+    remaining = path
+    cycles = Hash.new
+
+    while remaining.include?(node)
+      position = remaining.index(node)
+      cycle = remaining[0..position]
+      remaining = remaining[(position+1)..-1]
+      log.debug "Found cycle: #{cycle.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
+
+      set_key = cycle.collect{|onode| onode.to_settable}
+      cycles[set_key] ||= 0
+      cycles[set_key] += 1
+      log.debug "Found repeat #{cycles[set_key]}" if log.debug?
+
+      if cycles[set_key] > max_cycles
+        log.debug "Max cycles #{max_cycles} reached" if log.debug?
+        return false
+      end
+    end
+    log.debug "All cycles successfully checked." if log.debug?
+    return true
+  end
 
   class DynamicProgrammingProblem
     attr_accessor :min_distance, :known_paths
@@ -351,3 +398,5 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     attr_accessor :terminal_node_keys
   end
 end
+
+
