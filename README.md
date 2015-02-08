@@ -38,6 +38,7 @@ cd finishm
 bundle install
 git submodule update --init
 cd ext/src
+git checkout -b finishm origin/finishm #possibly this step is not required for newer versions of git
 make MAXKMERLENGTH=255 finishm velveth velvetg
 cp obj/shared/libfinishm.so.1.0 ../../lib/external/
 cd ../..

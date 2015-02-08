@@ -340,6 +340,33 @@ describe "SingleCoherentPathsBetweenNodes" do
     ]
   end
 
+  it 'should respect max paths' do
+    graph, initial_path, terminal_onode = GraphTesting.emit_ss([
+      [1,2],
+      [2,3],
+      [1,5],
+      [5,3],
+      [3,4]
+    ], 1, 4)
+    GraphTesting.add_noded_reads(graph,[
+      [1,2,3,4],
+      [1,5,3,4],
+      ])
+    finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 18, Bio::Velvet::Sequences.new)
+    paths.circular_paths_detected.should == false
+    paths.max_path_limit_exceeded.should == false
+    GraphTesting.sorted_paths(paths.trails).should == [
+      [1,2,3,4],
+      [1,5,3,4],
+    ]
+
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, 18, Bio::Velvet::Sequences.new, :max_gapfill_paths => 1)
+    paths.circular_paths_detected.should == false
+    paths.max_path_limit_exceeded.should == true
+    GraphTesting.sorted_paths(paths.trails).should == []
+  end
+
   describe 'validate paths by recoherence' do
     graph = Bio::Velvet::Graph.parse_from_file(File.join(TEST_DATA_DIR,'gapfilling','5','velvet51_3.5','LastGraph'))
     sequences = Bio::Velvet::Sequences.parse_from_file(File.join(TEST_DATA_DIR,'gapfilling','5','velvet51_3.5','Sequences'))

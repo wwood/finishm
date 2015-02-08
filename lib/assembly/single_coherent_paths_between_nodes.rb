@@ -14,6 +14,9 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
   # Find all paths between the initial and terminal node in the graph.
   # Don't search in the graph when the distance in base pairs exceeds the leash length.
   # Recohere reads (singled ended only) in an attempt to remove bubbles.
+  #
+  # Options:
+  # * max_gapfill_paths: the maxmimum number of paths to return. If this maximum is exceeded, an empty solution set is returned
   def find_all_connections_between_two_nodes(graph, initial_path, terminal_oriented_node,
     leash_length, recoherence_kmer, sequence_hash, options={})
 
@@ -266,15 +269,16 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
   end
 
   def find_paths_from_problems(problems, recoherence_kmer, options={})
+    max_num_paths = options[:max_gapfill_paths]
+    max_num_paths ||= 2196
+    max_cycles = options[:max_cycles] || 1
+
     stack = DS::Stack.new
-
     to_return = Bio::AssemblyGraphAlgorithms::TrailSet.new
-    to_return.circular_paths_detected = false
-    to_return.trails = []
-
 
     # if there is no solutions to the overall problem then there is no solution at all
     if problems.terminal_node_keys.nil? or problems.terminal_node_keys.empty?
+      to_return.trails = []
       return to_return
     end
 
@@ -286,17 +290,16 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         [],
         ]
     end
-    all_paths = []
-    max_cycles = options[:max_cycles] || 1
 
-
+    all_paths_hash = {}
     while path_parts = stack.pop
-      log.debug path_parts.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') if log.debug?
+      log.debug path_parts.collect{|half| half.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') if log.debug?
       first_part = path_parts[0]
       second_part = path_parts[1]
+
       if first_part.length == 0
-        # If we've tracked all the way to the beginning
-        all_paths.push second_part
+        # If we've tracked all the way to the beginning,
+        # then there's no need to track further
       else
         last = first_part.last
         if second_part.include?(last)
@@ -314,9 +317,21 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
           stack.push to_push
         end
       end
+
+      # add this solution if required
+      # I've had some trouble getting the Ruby Set to work here, but this is effectively the same thing.
+      key = [first_part, second_part].flatten.hash
+      all_paths_hash[key] ||= [first_part, second_part].flatten
+
+      if !max_num_paths.nil? and all_paths_hash.length >= max_num_paths
+        log.info "Exceeded the maximum number of allowable paths in this gapfill" if log.info?
+        to_return.max_path_limit_exceeded = true
+        all_paths_hash = {}
+        break
+      end
     end
 
-    to_return.trails = all_paths
+    to_return.trails = all_paths_hash.values
     return to_return
   end
 

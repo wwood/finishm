@@ -300,6 +300,7 @@ example: finishm gapfill --contigs to_gapfill.fasta --fastq-gz reads.1.fq.gz,rea
         :recoherence_kmer => options[:recoherence_kmer],
         :sequences => finishm_graph.velvet_sequences,
         :max_explore_nodes => options[:max_explore_nodes],
+        :max_gapfill_paths => options[:max_gapfill_paths],
         }
       )
     if trails.circular_paths_detected

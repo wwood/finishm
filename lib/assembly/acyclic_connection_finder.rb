@@ -4,13 +4,21 @@ require 'set'
 module Bio
   module AssemblyGraphAlgorithms
 
-    # Represents a set of trails, and whether or not circularity has been detected.
+    # Represents a set of trails, and whether or not circularity has been detected,
+    # and whether too many paths have been detected.
     class TrailSet
       attr_accessor :trails
       attr_accessor :circular_paths_detected
+      attr_accessor :max_path_limit_exceeded
       include Enumerable
 
+      def initialize
+        @circular_paths_detected = false
+        @max_path_limit_exceeded = false
+      end
+
       def each
+        @trails ||= []
         @trails.each{|t| yield t}
       end
     end
