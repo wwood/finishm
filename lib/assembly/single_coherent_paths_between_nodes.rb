@@ -300,6 +300,19 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       if first_part.length == 0
         # If we've tracked all the way to the beginning,
         # then there's no need to track further
+
+        # add this solution if required
+        # I've had some trouble getting the Ruby Set to work here, but this is effectively the same thing.
+        log.debug "Found solution: #{second_part.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
+        key = second_part.hash
+        all_paths_hash[key] ||= second_part.flatten
+
+        if !max_num_paths.nil? and all_paths_hash.length >= max_num_paths
+          log.info "Exceeded the maximum number of allowable paths in this gapfill" if log.info?
+          to_return.max_path_limit_exceeded = true
+          all_paths_hash = {}
+          break
+        end
       else
         last = first_part.last
         if second_part.include?(last)
@@ -318,17 +331,6 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         end
       end
 
-      # add this solution if required
-      # I've had some trouble getting the Ruby Set to work here, but this is effectively the same thing.
-      key = [first_part, second_part].flatten.hash
-      all_paths_hash[key] ||= [first_part, second_part].flatten
-
-      if !max_num_paths.nil? and all_paths_hash.length >= max_num_paths
-        log.info "Exceeded the maximum number of allowable paths in this gapfill" if log.info?
-        to_return.max_path_limit_exceeded = true
-        all_paths_hash = {}
-        break
-      end
     end
 
     to_return.trails = all_paths_hash.values
