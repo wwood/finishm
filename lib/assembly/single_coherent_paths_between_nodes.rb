@@ -273,7 +273,15 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     max_num_paths ||= 2196
     max_cycles = options[:max_cycles] || 1
 
-    stack = DS::Stack.new
+    # Use a maximal cycle count and finish length priority queue.
+    # The idea is to finish paths as quickly as possible, allowing complete paths to be
+    # counted. To achieve this, we prioritise in order:
+    #   I. Minimum number of repeats of the most frequent cycle.
+    #   II. Shortest length of `first part` of path (finish length).
+    # This is justified as flat paths are guaranteed to be valid, and a shorter first part
+    # indicates less hops to reach a complete path, and is likely to spawn less additional
+    # paths on the queue (though not guaranteed).
+    pqueue = DS::AnyPriorityQueue.new {|a,b| a < b}
     to_return = Bio::AssemblyGraphAlgorithms::TrailSet.new
 
     # if there is no solutions to the overall problem then there is no solution at all
@@ -285,14 +293,15 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     # push all solutions to the "ending in the final node" solutions to the stack
     problems.terminal_node_keys.each do |key|
       overall_solution = problems[key]
-      stack.push [
-        overall_solution.known_paths[0].to_a,
+      first_part = overall_solution.known_paths[0].to_a
+      pqueue.enqueue [
+        first_part,
         [],
-        ]
+        ], ComparableArray.new([0, first_part.length])
     end
 
     all_paths_hash = {}
-    while path_parts = stack.pop
+    while path_parts = pqueue.dequeue
       log.debug path_parts.collect{|half| half.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') if log.debug?
       first_part = path_parts[0]
       second_part = path_parts[1]
@@ -318,16 +327,19 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         if second_part.include?(last)
           log.debug "Cycle at node #{last.node_id} detected in previous path #{second_part.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
           to_return.circular_paths_detected = true unless to_return.circular_paths_detected
-          if max_cycles == 0 or !check_path_cycle_count_for_node(last, second_part, max_cycles)
+          cycle_count = path_cycle_count([first_part, second_part].flatten, max_cycles)
+          if max_cycles == 0 or cycle_count > max_cycles
             log.debug "Not finishing cyclic path with too many repeated cycles." if log.debug?
             next
           end
+        else
+          cycle_count = 0
         end
         paths_to_last = problems[array_trail_to_settable(first_part, recoherence_kmer)].known_paths
         paths_to_last.each do |path|
           to_push = [path[0...(path.length-1)],[last,second_part].flatten]
           log.debug "Pushing #{to_push.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') }" if log.debug?
-          stack.push to_push
+          pqueue.enqueue to_push, ComparableArray.new([cycle_count, path.length-1])
         end
       end
 
@@ -337,10 +349,36 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     return to_return
   end
 
-  # For a terminal node, find and count unique 'simple'cycles in a path that begin at the terminal node, up to a
-  # maximum number of repeats. If maximum count is exceeded return false else return true.
-  def check_path_cycle_count_for_node(node, path, max_cycles=1)
-    log.debug "Finding all simple cycles for node #{node.node_id} in path #{path.collect{|onode| onode.node.node_id}.join(',')}" if log.debug?
+  # Iterate through unique nodes of path and find maximal cycle counts
+  def path_cycle_count(path, max_cycles=1)
+    log.debug "Finding cycles in path #{path.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
+    remaining = path
+    node_counts = Hash.new
+
+    while !remaining.empty?
+      node = remaining[0]
+      log.debug "Next node is #{node.node.node_id}."
+      remaining = remaining[1..-1]
+      if node_counts.has_key? node.to_settable
+        log.debug "Node already done." if log.debug?
+        next  # only consider each node once
+      end
+      log.debug "Counting cycles through node."
+      cycle_count = path_cycle_count_for_node(node, remaining, max_cycles)
+      if cycle_count > max_cycles
+        return cycle_count
+      end
+      node_counts[node.to_settable] = cycle_count
+    end
+    log.debug "Most repeated cycle in path occured #{node_counts.values.max} times."
+    return node_counts.values.max
+  end
+
+  # For an initial node, find and count unique 'simple'cycles in a path that begin at the initial
+  # node, up to a max_cycles. Return count for the maximally repeated cycle if less than max_cycles,
+  # or max_cycles.
+  def path_cycle_count_for_node(node, path, max_cycles=1)
+    log.debug "Finding all simple cycles for node #{node.node_id} in path #{path.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
     remaining = path
     cycles = Hash.new
 
@@ -353,15 +391,20 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       set_key = cycle.collect{|onode| onode.to_settable}
       cycles[set_key] ||= 0
       cycles[set_key] += 1
-      log.debug "Found repeat #{cycles[set_key]}" if log.debug?
+      log.debug "Found repeat #{cycles[set_key]}." if log.debug?
 
       if cycles[set_key] > max_cycles
-        log.debug "Max cycles #{max_cycles} reached" if log.debug?
-        return false
+        log.debug "Max cycles #{max_cycles} reached." if log.debug?
+        return cycles[set_key]
       end
     end
-    log.debug "All cycles successfully checked." if log.debug?
-    return true
+    if cycles.empty?
+      max_counts = 0
+    else
+      max_counts = cycles.values.max
+    end
+    log.debug "Most cycles found #{max_counts}." if log.debug?
+    return max_counts
   end
 
   class DynamicProgrammingProblem
@@ -377,6 +420,10 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
   class ProblemSet < Hash
     # Array of keys to this hash that end in the terminal onode
     attr_accessor :terminal_node_keys
+  end
+
+  class ComparableArray < Array
+    include Comparable
   end
 end
 
