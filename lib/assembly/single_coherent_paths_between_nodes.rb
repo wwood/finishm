@@ -273,15 +273,17 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     max_num_paths ||= 2196
     max_cycles = options[:max_cycles] || 1
 
-    # Use a maximal cycle count and finish length priority queue.
-    # The idea is to finish paths as quickly as possible, allowing complete paths to be
-    # counted. To achieve this, we prioritise in order:
-    #   I. Minimum number of repeats of the most frequent cycle.
-    #   II. Shortest length of `first part` of path (finish length).
-    # This is justified as flat paths are guaranteed to be valid, and a shorter first part
-    # indicates less hops to reach a complete path, and is likely to spawn less additional
-    # paths on the queue (though not guaranteed).
-    pqueue = DS::AnyPriorityQueue.new {|a,b| a < b}
+    # Separate stacks for valid paths and paths which exceed the maximum allowed
+    # cycle count.
+    # Each backtrack spawns a set of new paths, which are cycle counted. If any cycle
+    # is repeated more than max_cycles, the new path is pushed to the max_cycle_stack,
+    # otherwise the path is pushed to the main stack. Main stack paths are prioritised.
+    # The parachute can kill the search once the main stack exceeds max_gapfill_paths,
+    # since all paths on it are valid.
+    # The max_cycle_stack paths must be tracked until cycle repeats in second_part exceed
+    # max_cycles, as they can spawn valid paths with backtracking.
+    stack = DS::Stack.new
+    max_cycle_stack = DS::Stack.new
     to_return = Bio::AssemblyGraphAlgorithms::TrailSet.new
 
     # if there is no solutions to the overall problem then there is no solution at all
@@ -294,14 +296,14 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     problems.terminal_node_keys.each do |key|
       overall_solution = problems[key]
       first_part = overall_solution.known_paths[0].to_a
-      pqueue.enqueue [
+      stack.push [
         first_part,
         [],
-        ], ComparableArray.new([0, first_part.length])
+        ]
     end
 
     all_paths_hash = {}
-    while path_parts = pqueue.dequeue
+    while path_parts = stack.pop || max_cycle_stack.pop
       log.debug path_parts.collect{|half| half.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') if log.debug?
       first_part = path_parts[0]
       second_part = path_parts[1]
@@ -315,20 +317,12 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         log.debug "Found solution: #{second_part.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
         key = second_part.hash
         all_paths_hash[key] ||= second_part.flatten
-
-        if !max_num_paths.nil? and all_paths_hash.length >= max_num_paths
-          log.info "Exceeded the maximum number of allowable paths in this gapfill" if log.info?
-          to_return.max_path_limit_exceeded = true
-          all_paths_hash = {}
-          break
-        end
       else
         last = first_part.last
         if second_part.include?(last)
           log.debug "Cycle at node #{last.node_id} detected in previous path #{second_part.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
           to_return.circular_paths_detected = true unless to_return.circular_paths_detected
-          cycle_count = path_cycle_count([first_part, second_part].flatten, max_cycles)
-          if max_cycles == 0 or cycle_count > max_cycles
+          if max_cycles == 0  or max_cycles < path_cycle_count_for_node(last, second_part, max_cycles)
             log.debug "Not finishing cyclic path with too many repeated cycles." if log.debug?
             next
           end
@@ -338,9 +332,22 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         paths_to_last = problems[array_trail_to_settable(first_part, recoherence_kmer)].known_paths
         paths_to_last.each do |path|
           to_push = [path[0...(path.length-1)],[last,second_part].flatten]
-          log.debug "Pushing #{to_push.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') }" if log.debug?
-          pqueue.enqueue to_push, ComparableArray.new([cycle_count, path.length-1])
+          if max_cycles < path_cycle_count(to_push.flatten, max_cycles)
+            log.debug "Pushing #{to_push.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') } to secondary stack" if log.debug?
+            max_cycle_stack.push to_push
+          else
+            log.debug "Pushing #{to_push.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') } to main stack" if log.debug?
+            stack.push to_push
+          end
         end
+      end
+
+      # max_num_paths parachute
+      if !max_num_paths.nil? and stack.size > max_num_paths
+        log.info "Exceeded the maximum number of allowable paths in this gapfill" if log.info?
+        to_return.max_path_limit_exceeded = true
+        all_paths_hash = {}
+        break
       end
 
     end
@@ -363,7 +370,6 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         log.debug "Node already done." if log.debug?
         next  # only consider each node once
       end
-      log.debug "Counting cycles through node."
       cycle_count = path_cycle_count_for_node(node, remaining, max_cycles)
       if cycle_count > max_cycles
         return cycle_count
@@ -394,7 +400,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       log.debug "Found repeat #{cycles[set_key]}." if log.debug?
 
       if cycles[set_key] > max_cycles
-        log.debug "Max cycles #{max_cycles} reached." if log.debug?
+        log.debug "Max cycles #{max_cycles} exceeded." if log.debug?
         return cycles[set_key]
       end
     end
@@ -420,10 +426,6 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
   class ProblemSet < Hash
     # Array of keys to this hash that end in the terminal onode
     attr_accessor :terminal_node_keys
-  end
-
-  class ComparableArray < Array
-    include Comparable
   end
 end
 

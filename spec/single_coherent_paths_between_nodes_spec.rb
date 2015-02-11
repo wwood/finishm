@@ -172,7 +172,7 @@ describe "SingleCoherentPathsBetweenNodes" do
       [3,4]
     ], 1, 4)
     finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
-    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, nil, nil, { max_cycles: 1 })
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, nil, nil, :max_cycles => 1)
     paths.circular_paths_detected.should == true
     GraphTesting.sorted_paths(paths.trails).should == [
       [1,2,3,4],
@@ -192,7 +192,7 @@ describe "SingleCoherentPathsBetweenNodes" do
       [3,4] #exit circuit
     ], 1, 4)
     finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
-    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, nil, nil, { max_cycles: 1 })
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, nil, nil, :max_cycles => 1)
     paths.circular_paths_detected.should == true
     GraphTesting.sorted_paths(paths.trails).should == [
       [1,2,3,4],
@@ -216,7 +216,7 @@ describe "SingleCoherentPathsBetweenNodes" do
       [5,4]
     ], 1, 4)
     finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
-    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, nil, nil, { max_cycles: 1 })
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, nil, nil, :max_cycles => 1)
     paths.circular_paths_detected.should == true
     GraphTesting.sorted_paths(paths.trails).should == [
       [1,2,3,2,3,5,3,5,4],
@@ -238,7 +238,7 @@ describe "SingleCoherentPathsBetweenNodes" do
       [2,4]
     ], 1, 4)
     finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
-    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, nil, nil, { max_cycles: 1})
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, nil, nil, :max_cycles => 1)
     paths.circular_paths_detected.should == true
     GraphTesting.sorted_paths(paths.trails).should == [
       [1,2,2,3,2,3,3,2,4],
@@ -270,7 +270,7 @@ describe "SingleCoherentPathsBetweenNodes" do
       [3,4]
     ],1 ,4)
     finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
-    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, nil, nil, { max_cycles: 0 })
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, nil, nil, :max_cycles => 0)
     paths.circular_paths_detected.should == true
     GraphTesting.sorted_paths(paths.trails).should == [
       [1,2,3,4],
@@ -365,6 +365,26 @@ describe "SingleCoherentPathsBetweenNodes" do
     paths.circular_paths_detected.should == false
     paths.max_path_limit_exceeded.should == true
     GraphTesting.sorted_paths(paths.trails).should == []
+  end
+
+  it 'should only count valid paths when respecting max paths' do
+    # cyclone graph
+    graph, initial_path, terminal_onode = GraphTesting.emit_ss([
+      [1,2],
+      [2,2], # circuit 2-2
+      [2,4], # circuit 2-4-2
+      [4,2],
+      [2,5], # circuit 2-5-2
+      [5,2],
+      [2,3],
+    ], 1, 3)
+    finder = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
+    paths = finder.find_all_connections_between_two_nodes(graph, initial_path, terminal_onode, nil, nil, nil, {:max_gapfill_paths => 1, :max_cycles => 0 })
+    paths.circular_paths_detected.should == true
+    paths.max_path_limit_exceeded.should == false
+    GraphTesting.sorted_paths(paths.trails).should == [
+      [1,2,3],
+      ]
   end
 
   describe 'validate paths by recoherence' do
