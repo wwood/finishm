@@ -284,6 +284,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     # max_cycles, as they can spawn valid paths with backtracking.
     stack = DS::Stack.new
     max_cycle_stack = DS::Stack.new
+    counter = CycleCounter.new(max_cycles)
     to_return = Bio::AssemblyGraphAlgorithms::TrailSet.new
 
     # if there is no solutions to the overall problem then there is no solution at all
@@ -322,7 +323,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         if second_part.include?(last)
           log.debug "Cycle at node #{last.node_id} detected in previous path #{second_part.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
           to_return.circular_paths_detected = true unless to_return.circular_paths_detected
-          if max_cycles == 0  or max_cycles < path_cycle_count_for_node(last, second_part, max_cycles)
+          if max_cycles == 0  or max_cycles < counter.path_cycle_count([last, second_part].flatten)
             log.debug "Not finishing cyclic path with too many repeated cycles." if log.debug?
             next
           end
@@ -332,7 +333,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         paths_to_last = problems[array_trail_to_settable(first_part, recoherence_kmer)].known_paths
         paths_to_last.each do |path|
           to_push = [path[0...(path.length-1)],[last,second_part].flatten]
-          if max_cycles < path_cycle_count(to_push.flatten, max_cycles)
+          if max_cycles < counter.path_cycle_count(to_push.flatten)
             log.debug "Pushing #{to_push.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') } to secondary stack" if log.debug?
             max_cycle_stack.push to_push
           else
@@ -343,7 +344,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       end
 
       # max_num_paths parachute
-      if !max_num_paths.nil? and stack.size > max_num_paths
+      if !max_num_paths.nil? and (stack.size + all_paths_hash.length) > max_num_paths
         log.info "Exceeded the maximum number of allowable paths in this gapfill" if log.info?
         to_return.max_path_limit_exceeded = true
         all_paths_hash = {}
@@ -356,61 +357,112 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     return to_return
   end
 
-  # Iterate through unique nodes of path and find maximal cycle counts
-  def path_cycle_count(path, max_cycles=1)
-    log.debug "Finding cycles in path #{path.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
-    remaining = path
-    node_counts = Hash.new
+  class CycleCounter
+    include Bio::FinishM::Logging
 
-    while !remaining.empty?
-      node = remaining[0]
-      log.debug "Next node is #{node.node.node_id}."
-      remaining = remaining[1..-1]
-      if node_counts.has_key? node.to_settable
-        log.debug "Node already done." if log.debug?
-        next  # only consider each node once
-      end
-      cycle_count = path_cycle_count_for_node(node, remaining, max_cycles)
-      if cycle_count > max_cycles
-        return cycle_count
-      end
-      node_counts[node.to_settable] = cycle_count
+    def initialize(max_cycles = 1)
+      @max_cycles = max_cycles
+      @path_cache = Hash.new
+      # Cache max_cycles for previously seen paths
     end
-    log.debug "Most repeated cycle in path occured #{node_counts.values.max} times."
-    return node_counts.values.max
-  end
 
-  # For an initial node, find and count unique 'simple'cycles in a path that begin at the initial
-  # node, up to a max_cycles. Return count for the maximally repeated cycle if less than max_cycles,
-  # or max_cycles.
-  def path_cycle_count_for_node(node, path, max_cycles=1)
-    log.debug "Finding all simple cycles for node #{node.node_id} in path #{path.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
-    remaining = path
-    cycles = Hash.new
 
-    while remaining.include?(node)
-      position = remaining.index(node)
-      cycle = remaining[0..position]
-      remaining = remaining[(position+1)..-1]
-      log.debug "Found cycle: #{cycle.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
+    # Iterate through unique nodes of path and find maximal cycle counts
+    def path_cycle_count(path)
+      log.debug "Finding cycles in path #{path.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
+      first_part = []
+      second_part = path
+      keys = []
+      count = nil
+      reached_max_cycles = false
 
-      set_key = cycle.collect{|onode| onode.to_settable}
-      cycles[set_key] ||= 0
-      cycles[set_key] += 1
-      log.debug "Found repeat #{cycles[set_key]}." if log.debug?
+      # Iterate along path and look for the remaining path in cache. Remember the iterated
+      # path and the remaining path. Stop if a cache count is found, else use zero.
+      while count.nil? and !second_part.empty?
+        key = second_part.collect{|onode| onode.to_settable}.flatten
 
-      if cycles[set_key] > max_cycles
-        log.debug "Max cycles #{max_cycles} exceeded." if log.debug?
-        return cycles[set_key]
+        # Check if path value is cached
+        if @path_cache.has_key? key
+          count = @path_cache[key]
+          log.debug "Found cached count #{count} for path #{second_part.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
+          break
+        else
+          first_part = [first_part, second_part.first].flatten
+          second_part = second_part[1..-1]
+        end
       end
+
+      if second_part.empty?
+        log.debug "Reached end of path without finding cached count." if log.debug?
+        count = 0
+      end
+
+      # The max cycle count for a path is the largest of:
+      #   I. Cycle count for initial node of path in remaining path (without initial
+      #      node), or
+      #   II. Max cycle count of remaining path.
+
+      # We then iterate back through the iterated path. If count does not exceed
+      # max_cycles, we count cycles for each node in the remaining path, then
+      # backtrack by moving the node to the remaining path set. We record the count
+      # for each remaining path
+      while !first_part.empty?
+
+        node = first_part.last
+        if !reached_max_cycles
+          log.debug "Next node is #{node.node.node_id}." if log.debug?
+          node_count = path_cycle_count_for_node(node, second_part, @max_cycles)
+          count = [count, node_count].max
+          reached_max_cycles = count > @max_cycles
+        end
+
+        second_part = [node, second_part].flatten
+        first_part = first_part[0...-1]
+
+        key = second_part.collect{|onode| onode.to_settable}.flatten
+        @path_cache[key] = count
+        log.debug "Caching cycle count #{count} for path #{second_part.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
+      end
+      if reached_max_cycles and log.debug?
+        log.debug "Most repeated cycle in path occured #{count} or more times."
+      elsif log.debug?
+        log.debug "Most repeated cycle in path occured #{count} times."
+      end
+      return count
     end
-    if cycles.empty?
-      max_counts = 0
-    else
-      max_counts = cycles.values.max
+
+    # For an initial node, find and count unique 'simple'cycles in a path that begin at the initial
+    # node, up to a max_cycles. Return count for the maximally repeated cycle if less than max_cycles,
+    # or max_cycles.
+    def path_cycle_count_for_node(node, path, max_cycles=1)
+      log.debug "Finding all simple cycles for node #{node.node_id} in path #{path.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
+      remaining = path
+      cycles = Hash.new
+
+      while remaining.include?(node)
+        position = remaining.index(node)
+        cycle = remaining[0..position]
+        remaining = remaining[(position+1)..-1]
+        log.debug "Found cycle: #{cycle.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
+
+        set_key = cycle.collect{|onode| onode.to_settable}.flatten
+        cycles[set_key] ||= 0
+        cycles[set_key] += 1
+        log.debug "Found repeat #{cycles[set_key]}." if log.debug?
+
+        if cycles[set_key] > max_cycles
+          log.debug "Max cycles #{max_cycles} exceeded." if log.debug?
+          return cycles[set_key]
+        end
+      end
+      if cycles.empty?
+        max_counts = 0
+      else
+        max_counts = cycles.values.max
+      end
+      log.debug "Most cycles found #{max_counts}." if log.debug?
+      return max_counts
     end
-    log.debug "Most cycles found #{max_counts}." if log.debug?
-    return max_counts
   end
 
   class DynamicProgrammingProblem
