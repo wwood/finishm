@@ -18,7 +18,9 @@ module Bio
       end
 
       def each
-        @trails.each{|t| yield t}
+        unless @trails.nil?
+          @trails.each{|t| yield t}
+        end
       end
     end
 
