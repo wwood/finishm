@@ -334,6 +334,7 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
         )
       gapfilled = true
     end
+    scaffold_sequence.gsub!('-','') #remove gaps i.e. where the consensus is a gap
     return scaffold_sequence, variants, gapfilled
   end
 
