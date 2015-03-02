@@ -251,7 +251,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
     recoherencer = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder.new
 
     path = initial_path.copy
-    visited_onodes = Set.new
+    #visited_onodes = Set.new
     initial_path[0...-1].each do |onode| #Add all except the last node to already seen nodes list
       visited_onodes << onode.to_settable
     end

@@ -557,8 +557,8 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       end
 
       while onode = stack.pop
-        setable = onode.to_settable
-        next if seen_nodes.key?(setable)
+        settable = onode.to_settable
+        next if seen_nodes.key?(settable)
 
         if block_given?
           if @is_reverse
@@ -568,10 +568,10 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
           end
         end
 
-        seen_nodes[setable] = onode
+        seen_nodes[settable] = onode
 
         # queue neighbours
-        @known_problems[setable].each do |dpp|
+        @known_problems[settable].each do |dpp|
           stack.push dpp.path[-2] unless dpp.path.length < 2
         end
       end
