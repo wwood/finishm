@@ -3,6 +3,7 @@ require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
 Bio::Log::CLI.logger('stderr'); Bio::Log::CLI.trace('debug'); log = Bio::Log::LoggerPlus.new('finishm'); Bio::Log::CLI.configure('finishm')
 
 class GraphTesting
+
   def self.metapath_to_array(metapath)
     to_return = []
     metapath.collect do |node_or_arr|
@@ -11,12 +12,14 @@ class GraphTesting
         rev = node_or_arr.is_reverse
         node_or_arr.each_path do |path|
           path_in_bubble = rev ? path[1..-1] : path[0...-1]
+          print "#{path_in_bubble.length}\n"
           if path_in_bubble.length == 1
             paths.push path_in_bubble[0].node_id
           else
             paths.push path_in_bubble.collect{|onode| onode.node_id}
           end
         end
+        print "got paths #{paths.collect{|path| path.to_s}.join(',')}\n"
         if rev
           to_return.push node_or_arr.converging_oriented_node_settable[0]
           to_return.push paths.sort
@@ -253,6 +256,26 @@ describe "BubblyAssembler" do
       metapath, visited_nodes = cartographer.assemble_from(initial_path)
       GraphTesting.metapath_to_array(metapath).should == [1,[2,4],3,5]
       visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1..5).to_a + [99] #debatable whether 99 should be included here, but eh
+    end
+
+    it 'should not close bubbles prematurely' do
+      # bubble breaker graph
+      graph, initial_path, terminal = GraphTesting.emit_ss([
+        [1,2],
+        [2,3],
+        [3,4],
+        [1,4],
+        [3,5],
+        [4,5],
+        [4,6],
+        [5,6],
+        [6,7]
+        ], 1, 6)
+      cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
+      cartographer.assembly_options[:max_tip_length] = 11
+      metapath, visited_nodes = cartographer.assemble_from(initial_path)
+      GraphTesting.metapath_to_array(metapath).should == [1,[[2,3,4,5],[2,3,4],[2,3,5],[4,5],4],6,7]
+      visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1..7).to_a
     end
 
     it 'should handle circuits in bubbles' do
