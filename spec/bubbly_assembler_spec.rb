@@ -213,7 +213,10 @@ describe "BubblyAssembler" do
       GraphTesting.metapath_to_array(metapath).should == [1,[2,4],3,5,6]
       visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1..6).to_a + [99]
 
-      metapath2, visited_nodes2 = cartographer.assemble_from(metapath[0..1], Set.new((1..4)))
+      metapath2, visited_nodes2 = cartographer.assemble_from(
+        metapath[0..1],
+        Set.new(visited_nodes.to_a.select{|s| s[0] <= 4 })
+        )
       GraphTesting.metapath_to_array(metapath2).should == [1,[2,4],3,5,6]
       visited_nodes2.to_a.collect{|s| s[0]}.sort.should == (1..6).to_a + [99]
     end

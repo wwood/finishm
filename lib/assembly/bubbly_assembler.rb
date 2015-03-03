@@ -22,11 +22,13 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
 
   DEFAULT_MAX_BUBBLE_LENGTH = 500
   DEFAULT_BUBBLE_NODE_COUNT_LIMIT = 20 #so, so very 'un-educated' guess
+  DEFAULT_BUBBLE_FORK_LIMIT = 20
 
   def initialize(graph, assembly_options={})
     opts = assembly_options
     opts[:max_bubble_length] ||= DEFAULT_MAX_BUBBLE_LENGTH
     opts[:bubble_node_count_limit] ||= DEFAULT_BUBBLE_NODE_COUNT_LIMIT
+    opts[:bubble_fork_limit] ||= DEFAULT_BUBBLE_FORK_LIMIT
     super graph, opts
   end
 
@@ -60,6 +62,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
         visited_oriented_node_settables << e.to_settable
       end
     end
+    log.debug "Starting with visited nodes #{visited_oriented_node_settables.to_a.join(',')}" if log.debug?
 
     current_mode = :linear # :linear, :bubble, or :finished
 
@@ -205,6 +208,14 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
 
                 current_bubble.enqueue new_problem
                 log.debug "Enqueued #{new_problem.to_shorthand}, total nodes now #{current_bubble.num_known_problems} and num forks #{current_bubble.num_legit_forks}" if log.debug?
+
+                # check to make sure we aren't going overboard in the bubbly-ness
+                if !@assembly_options[:bubble_node_count_limit].nil? and current_bubble.num_known_problems > @assembly_options[:bubble_node_count_limit]
+                  log.debug "Too complex a bubble detected, giving up" if log.debug?
+                  metapath.fate = MetaPath::NODE_COUNT_LIMIT_REACHED
+                  current_mode = :finished
+                  break
+                end
               end
             else
 
@@ -253,7 +264,8 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
 
 
                     # check to make sure we aren't going overboard in the bubbly-ness
-                    if !@assembly_options[:bubble_node_count_limit].nil? and current_bubble.num_legit_forks > @assembly_options[:bubble_node_count_limit]
+                    if (!@assembly_options[:bubble_fork_limit].nil? and current_bubble.num_legit_forks > @assembly_options[:bubble_fork_limit]) or
+                        (!@assembly_options[:bubble_node_count_limit].nil? and current_bubble.num_known_problems > @assembly_options[:bubble_node_count_limit])
                       log.debug "Too complex a bubble detected, giving up" if log.debug?
                       metapath.fate = MetaPath::NODE_COUNT_LIMIT_REACHED
                       current_mode = :finished
