@@ -11,19 +11,13 @@ class GraphTesting
         rev = node_or_arr.is_reverse
         node_or_arr.each_path do |path|
           path_in_bubble = rev ? path[1..-1] : path[0...-1]
-          print "#{path_in_bubble.length}\n"
-          if path_in_bubble.length == 1
-            paths.push path_in_bubble[0].node_id
-          else
-            paths.push path_in_bubble.collect{|onode| onode.node_id}
-          end
+          paths.push path_in_bubble.collect{|onode| onode.node_id}
         end
-        print "got paths #{paths.collect{|path| path.to_s}.join(',')}\n"
         if rev
           to_return.push node_or_arr.converging_oriented_node_settable[0]
-          to_return.push paths.sort
+          to_return.push paths.sort.collect{|path| path.length == 1 ? path[0] : path }
         else
-          to_return.push paths.sort
+          to_return.push paths.sort.collect{|path| path.length == 1 ? path[0] : path }
           to_return.push node_or_arr.converging_oriented_node_settable[0]
         end
       elsif node_or_arr.kind_of?(Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode)
