@@ -119,27 +119,26 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
             log.debug "Starting a bubble forking from metapath #{metapath.to_shorthand}" if log.debug?
 
             legit_neighbours.each do |oneigh|
-              new_problem = DynamicProgrammingProblem.new
-              new_problem.distance = 0
-              new_path = Bio::Velvet::Graph::OrientedNodeTrail.new
-              new_path.add_oriented_node oneigh
-              new_problem.path = new_path
-              new_problem.ubiquitous_oriented_nodes = Set.new
-              new_problem.ubiquitous_oriented_nodes << oneigh.to_settable
-
+              # Stop if a circuit is detected
               if visited_oriented_node_settables.include?(oneigh.to_settable)
-                log.debug "Detected regular circuit by running into #{neighbour.to_settable}" if log.debug?
                 metapath.fate = MetaPath::CIRCUIT_FATE
                 current_mode = :finished
                 break
               else
-                log.debug "Adding problem to bubble: #{new_problem}" if log.debug?
-
-                current_bubble.enqueue new_problem
-                current_mode = :bubble
-                break
+                new_problem = DynamicProgrammingProblem.new
+                new_problem.distance = 0
+                new_path = Bio::Velvet::Graph::OrientedNodeTrail.new
+                new_path.add_oriented_node oneigh
+                new_problem.path = new_path
+                new_problem.ubiquitous_oriented_nodes = Set.new
+                new_problem.ubiquitous_oriented_nodes << oneigh.to_settable
               end
             end
+            log.debug "Adding problem to bubble: #{new_problem}" if log.debug?
+
+            current_bubble.enqueue new_problem
+            current_mode = :bubble
+            break
           end
         end
 
