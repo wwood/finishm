@@ -360,10 +360,10 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
   class CycleCounter
     include Bio::FinishM::Logging
 
-    def initialize(max_cycles = 1)
+    def initialize(max_cycles = 1, forward = false)
       @max_cycles = max_cycles
-      @path_cache = Hash.new
-      # Cache max_cycles for previously seen paths
+      @path_cache = Hash.new # Cache max_cycles for previously seen paths
+      @forward = forward # By default builds hash moving backwards from end of path. This flag will reverse path direction and build hash moving forwards.
     end
 
 
@@ -375,6 +375,8 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       keys = []
       count = nil
       reached_max_cycles = false
+
+      secondpath = second_part.reverse if @forward
 
       # Iterate along path and look for the remaining path in cache. Remember the iterated
       # path and the remaining path. Stop if a cache count is found, else use zero.
@@ -438,6 +440,8 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       log.debug "Finding all simple cycles for node #{node.node_id} in path #{path.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
       remaining = path
       cycles = Hash.new
+
+      remaining = remaining.reverse if @forward
 
       while remaining.include?(node)
         position = remaining.index(node)

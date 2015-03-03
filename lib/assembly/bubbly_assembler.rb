@@ -36,7 +36,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
   #
   # Return an Array of Path arrays, a MetaPath, where each path array are the different paths
   # that can be taken at each fork point
-  def assemble_from(starting_path, visited_nodes=Set.new)
+  def assemble_from(starting_path, visited_oriented_node_settables=Set.new)
     leash_length = @assembly_options[:max_bubble_length]
     current_bubble = nil
     if log.info? and starting_path.kind_of?(Bio::Velvet::Graph::OrientedNodeTrail)
@@ -50,7 +50,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
     end
 
     # Keep track of nodes visited in this trajectory already so circuits can be avoided
-    visited_oriented_node_settables = Set.new
+    #visited_oriented_node_settables = Set.new
     starting_path.each do |e|
       if e.kind_of?(Bubble)
         e.oriented_nodes do |onode|
@@ -99,6 +99,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
             neighbour = legit_neighbours[0]
 
             # Stop if a circuit is detected
+            # Tim - Always finish on a circuit in linear mode. Presumably there is no way out.
             if visited_oriented_node_settables.include?(neighbour.to_settable)
               log.debug "Detected regular circuit by running into #{neighbour.to_settable}" if log.debug?
               metapath.fate = MetaPath::CIRCUIT_FATE
@@ -115,25 +116,18 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
             log.debug "Starting a bubble forking from metapath #{metapath.to_shorthand}" if log.debug?
 
             legit_neighbours.each do |oneigh|
-              # Stop if a circuit is detected
-              if visited_oriented_node_settables.include?(oneigh.to_settable)
-                metapath.fate = MetaPath::CIRCUIT_FATE
-                current_mode = :finished
-                break
-              else
-                new_problem = DynamicProgrammingProblem.new
-                new_problem.distance = 0
-                new_path = Bio::Velvet::Graph::OrientedNodeTrail.new
-                new_path.add_oriented_node oneigh
-                new_problem.path = new_path
-                new_problem.ubiquitous_oriented_nodes = Set.new
-                new_problem.ubiquitous_oriented_nodes << oneigh.to_settable
+              new_problem = DynamicProgrammingProblem.new
+              new_problem.distance = 0
+              new_path = Bio::Velvet::Graph::OrientedNodeTrail.new
+              new_path.add_oriented_node oneigh
+              new_problem.path = new_path
+              new_problem.ubiquitous_oriented_nodes = Set.new
+              new_problem.ubiquitous_oriented_nodes << oneigh.to_settable
 
-                log.debug "Adding problem to bubble: #{new_problem}" if log.debug?
+              log.debug "Adding problem to bubble: #{new_problem}" if log.debug?
 
-                current_bubble.enqueue new_problem
-                current_mode = :bubble
-              end
+              current_bubble.enqueue new_problem
+              current_mode = :bubble
             end
             break
           end
@@ -169,21 +163,22 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
             # Bubble ended in a convergent fashion
 
             # detect circuits
+            # Tim - This could be unnecessary?
             if current_bubble.circuitous?
               metapath.fate = MetaPath::CIRCUIT_WITHIN_BUBBLE_FATE
               current_mode = :finished
               break
-            else
-              metapath << current_bubble
-              # Add the nodes in the bubble to the list of visited nodes
-              current_bubble.oriented_nodes do |onode|
-                visited_oriented_node_settables << onode.to_settable
-              end
-
-              current_bubble = nil
-              current_mode = :linear
-              break
             end
+
+            metapath << current_bubble
+            # Add the nodes in the bubble to the list of visited nodes
+            current_bubble.oriented_nodes do |onode|
+              visited_oriented_node_settables << onode.to_settable
+            end
+
+            current_bubble = nil
+            current_mode = :linear
+            break
           else
             # otherwise we must search on in the bubble
             # get all neighbours that are not short tips
@@ -204,10 +199,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
               new_problem.path = new_path
               new_problem.ubiquitous_oriented_nodes = Set.new problem.ubiquitous_oriented_nodes
               if new_problem.ubiquitous_oriented_nodes.include?(oneigh.to_settable)
-                log.debug "Found circuit within bubble on #{oneigh}, giving up" if log.debug?
-                metapath.fate = MetaPath::CIRCUIT_WITHIN_BUBBLE_FATE
-                current_mode = :finished
-                break
+                log.debug "Found circuit within bubble on #{oneigh}, ignoring path" if log.debug?
               else
                 new_problem.ubiquitous_oriented_nodes << oneigh.to_settable
 
@@ -407,15 +399,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       @internal_array.length
     end
 
-    def [](index)
-      @internal_array[index]
-    end
-
-    def delete_at(index)
-      @internal_array.delete_at(index)
-    end
-
-    # Yield all oriented nodes anywhere in the regular or bubble
+        # Yield all oriented nodes anywhere in the regular or bubble
     # bits.
     def each_oriented_node
       @internal_array.each do |e|
@@ -594,14 +578,14 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
         #log.debug "Pushed to stack #{initial_solution.path.to_shorthand}" if log.debug?
       end
 
-      while path_halves = problems_to_yield.dequeue
-        direct_node_trail = path_halves[0]
-        second_half = path_halves[1]
-        #log.debug "Dequeued #{direct_node_trail.to_shorthand} and [#{second_half.collect{|o| o.to_shorthand}.join(',') }]" if log.debug?
+      while path_parts = problems_to_yield.dequeue
+        direct_node_trail = path_parts[0]
+        second_part = path_parts[1]
+        #log.debug "Dequeued #{direct_node_trail.to_shorthand} and [#{second_part.collect{|o| o.to_shorthand}.join(',') }]" if log.debug?
 
         # yield the direct path
         direct_path = Bio::Velvet::Graph::OrientedNodeTrail.new
-        direct_path.trail = [direct_node_trail.trail, second_half].flatten
+        direct_path.trail = [direct_node_trail.trail, second_part].flatten
         if @is_reverse
           yield direct_path.reverse
         else
@@ -615,8 +599,8 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
           new_problems = @known_problems[new_head_onode.to_settable]
           #log.debug "Found new problems: #{new_problems.collect{|prob| prob.to_shorthand}.join(' ') }" if log.debug?
           if new_problems.length > 1
-            raise CircuitousPathDetected if second_half.include?(new_head_onode)
-            new_second_half = [new_head_onode]+[direct_node_trail.trail[-1]]+second_half
+            raise CircuitousPathDetected if second_part.include?(new_head_onode)
+            new_second_part = [new_head_onode]+[direct_node_trail.trail[-1]]+second_part
             new_problems.each do |new_problem|
               # Don't enqueue the path that was just printed
               next if direct_path.trail[0...-1] == new_problem.path.trail
@@ -624,8 +608,8 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
               # TODO: deal with circuits
               new_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
               new_trail.trail = new_problem.path[0...-1]
-              #log.debug "Enqueuing #{new_trail.to_shorthand} and [#{new_second_half.collect{|o| o.to_shorthand}.join(',') }]" if log.debug?
-              problems_to_yield.push [new_trail, new_second_half]
+              #log.debug "Enqueuing #{new_trail.to_shorthand} and [#{new_second_part.collect{|o| o.to_shorthand}.join(',') }]" if log.debug?
+              problems_to_yield.push [new_trail, new_second_part]
             end
           end
         end
