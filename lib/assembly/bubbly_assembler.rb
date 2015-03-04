@@ -239,7 +239,6 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
               end
             else
 
-            log.debug "#{filterTips.class} is lambda"
               legit_neighbours = neighbours.reject &filterTips
 
               if legit_neighbours.length == 0
@@ -522,7 +521,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       if @known_problems.key? settable
         @known_problems[settable].push dynamic_programming_problem
       else
-        @known_problems[settable] ||= [dynamic_programming_problem]
+        @known_problems[settable] = [dynamic_programming_problem]
         @queue.enqueue dynamic_programming_problem, dynamic_programming_problem.distance
         @current_problems << settable
       end
@@ -542,7 +541,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       while prob_key = stack.pop
         next if seen_problems.include? prob_key #already in queue
         @known_problems[prob_key].each do |problem|
-          log.debug "Looking for #{settable} in problem nodes #{problem.ubiquitous_oriented_nodes}" if log.debug?
+          log.debug "Looking for #{settable} in problem nodes #{problem.ubiquitous_oriented_nodes.to_a}" if log.debug?
           return false unless problem.ubiquitous_oriented_nodes.include? settable #found path that doesn't converge
 
           unless problem.path.length < 2
@@ -608,13 +607,13 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       problems_to_yield = DS::Queue.new
       @known_problems[@converging_oriented_node_settable].each do |initial_solution|
         problems_to_yield.push [initial_solution.path, []]
-        #log.debug "Pushed to stack #{initial_solution.path.to_shorthand}" if log.debug?
+        log.debug "Pushed to stack #{initial_solution.path.to_shorthand}" if log.debug?
       end
 
       while path_parts = problems_to_yield.dequeue
         direct_node_trail = path_parts[0]
         second_part = path_parts[1]
-        #log.debug "Dequeued #{direct_node_trail.to_shorthand} and [#{second_part.collect{|o| o.to_shorthand}.join(',') }]" if log.debug?
+        log.debug "Dequeued #{direct_node_trail.to_shorthand} and [#{second_part.collect{|o| o.to_shorthand}.join(',') }]" if log.debug?
 
         # yield the direct path
         direct_path = Bio::Velvet::Graph::OrientedNodeTrail.new
@@ -630,7 +629,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
           new_head_onode = direct_node_trail.trail[-2]
 
           new_problems = @known_problems[new_head_onode.to_settable]
-          #log.debug "Found new problems: #{new_problems.collect{|prob| prob.to_shorthand}.join(' ') }" if log.debug?
+          log.debug "Found new problems: #{new_problems.collect{|prob| prob.to_shorthand}.join(' ') }" if log.debug?
           if new_problems.length > 1
             raise CircuitousPathDetected if second_part.include?(new_head_onode)
             new_second_part = [new_head_onode]+[direct_node_trail.trail[-1]]+second_part
@@ -641,7 +640,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
               # TODO: deal with circuits
               new_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
               new_trail.trail = new_problem.path[0...-1]
-              #log.debug "Enqueuing #{new_trail.to_shorthand} and [#{new_second_part.collect{|o| o.to_shorthand}.join(',') }]" if log.debug?
+              log.debug "Enqueuing #{new_trail.to_shorthand} and [#{new_second_part.collect{|o| o.to_shorthand}.join(',') }]" if log.debug?
               problems_to_yield.push [new_trail, new_second_part]
             end
           end
