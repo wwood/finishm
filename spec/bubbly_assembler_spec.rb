@@ -267,7 +267,7 @@ describe "BubblyAssembler" do
       cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
       cartographer.assembly_options[:max_tip_length] = 11
       metapath, visited_nodes = cartographer.assemble_from(initial_path)
-      GraphTesting.metapath_to_array(metapath).should == [1,[[2,3,4,5],[2,3,4],[2,3,5],[4,5],4],6,7]
+      GraphTesting.metapath_to_array(metapath).should == [1,[[2,3,4],[2,3,4,5],[2,3,5],4,[4,5]],6,7]
       visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1..7).to_a
     end
 
