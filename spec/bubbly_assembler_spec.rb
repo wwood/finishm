@@ -671,4 +671,27 @@ describe 'Bubble' do
     metapath, v = cartographer.assemble_from initial_path
     metapath.coverage.should == 0.5
   end
+
+  it 'should only return each path once' do
+    # low-road graph
+    graph, initial_path, terminal = GraphTesting.emit_ss([
+      [1,2],
+      [2,3],
+      [3,7],
+      [7,8], #extend path out of bubble to avoid begin dropped as a 'long tip'
+      [1,4],
+      [4,5],
+      [5,6],
+      [5,2],
+      [6,3],
+      ], 1, 1)
+    cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph, {
+      :max_tip_length => -1,
+      :min_contig_size => 0,
+      }
+    metapath, v = cartographer.assemble_from initial_path
+    GraphTesting.metapath_to_array(metapath).should == [1,[2,[4,5,2],[4,5,6]],3,7,8]
+    metapath.to_shorthand.should == '1s,{2s,3s|4s,5s,2s,3s|4s,5s,6s,3s},7s,8s'
+    metapath.reference_trail.to_shorthand.should == '1s,2s,3s,7s,8s'
+  end
 end

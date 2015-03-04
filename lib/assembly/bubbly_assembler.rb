@@ -502,7 +502,6 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
     def initialize
       @queue = DS::AnyPriorityQueue.new {|a,b| a<=b}
       @known_problems = {}
-      @ubiquitous_oriented_nodes = {}
       @current_problems = Set.new
       @num_legit_forks = 0
     end
@@ -511,18 +510,35 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
     # removing it from the bubble
     def shift
       prob = @queue.shift
+
+      prob.ubiquitous_oriented_nodes = ubiquitous_oriented_nodes(prob)
+
       @current_problems.delete prob.to_settable
       return prob
     end
 
+    def ubiquitous_oriented_nodes(prob)
+      #merge ubiquitous nodes for relevant problems
+      @known_problems[prob.to_settable].reduce(prob.ubiquitous_oriented_nodes) do |memo, problem|
+        memo & problem.ubiquitous_oriented_nodes
+      end
+    end
+
+    def shortest_problem_distance(prob)
+      # prioritise by the shortest distance for current problem
+      @known_problems[prob.to_settable].collect{|prob| prob.distance}.min
+    end
+
+
     def enqueue(dynamic_programming_problem)
       settable = dynamic_programming_problem.to_settable
 
-      if @known_problems.key? settable
-        @known_problems[settable].push dynamic_programming_problem
-      else
-        @known_problems[settable] = [dynamic_programming_problem]
-        @queue.enqueue dynamic_programming_problem, dynamic_programming_problem.distance
+      @known_problems[settable] ||= []
+      @known_problems[settable].push dynamic_programming_problem
+
+      # don't requeue problem
+      unless @current_problems.include? settable
+        @queue.enqueue dynamic_programming_problem, shortest_problem_distance(dynamic_programming_problem)
         @current_problems << settable
       end
     end
@@ -531,25 +547,9 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
     # return true if the given problem converges the bubble, else false
     def convergent_on?(dynamic_programming_problem)
       settable =  dynamic_programming_problem.to_settable
-      stack = DS::Stack.new
-      seen_problems = Set.new
 
-      @queue.each do |problem|
-        stack.push problem.to_settable
-      end
-
-      while prob_key = stack.pop
-        next if seen_problems.include? prob_key #already in queue
-        @known_problems[prob_key].each do |problem|
-          log.debug "Looking for #{settable} in problem nodes #{problem.ubiquitous_oriented_nodes.to_a}" if log.debug?
-          return false unless problem.ubiquitous_oriented_nodes.include? settable #found path that doesn't converge
-
-          unless problem.path.length < 2
-            next_key_from_end = problem.path[-2].to_settable
-            stack.push next_key_from_end
-          end
-        end
-        seen_problems << prob_key
+      @queue.each do |problem| #convergent until not
+        return false unless ubiquitous_oriented_nodes(problem).include? settable
       end
       return true
     end
