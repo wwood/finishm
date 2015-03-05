@@ -327,8 +327,8 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
             log.debug "Not finishing cyclic path with too many repeated cycles." if log.debug?
             next
           end
-        else
-          cycle_count = 0
+        #else
+          #cycle_count = 0
         end
         paths_to_last = problems[array_trail_to_settable(first_part, recoherence_kmer)].known_paths
         paths_to_last.each do |path|

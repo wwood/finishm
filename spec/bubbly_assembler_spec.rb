@@ -529,7 +529,7 @@ describe 'metapath' do
       :min_contig_size => 0,
       }
     metapath, v = cartographer.assemble_from initial_path
-    metapath.to_shorthand.should == '1s,{3s|2s,3s},4s'
+    metapath.to_shorthand.should == '1s,{2s,3s|3s},4s'
     metapath.reference_trail.to_shorthand.should == '1s,2s,3s,4s'
 
 
@@ -672,7 +672,7 @@ describe 'Bubble' do
     metapath.coverage.should == 0.5
   end
 
-  it 'should only return each path once' do
+  it 'should return each path once' do
     # low-road graph
     graph, initial_path, terminal = GraphTesting.emit_ss([
       [1,2],

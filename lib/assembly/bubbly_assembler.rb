@@ -604,45 +604,53 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
     # Assumes the path is convergent.
     def each_path
       raise unless converged?
-      problems_to_yield = DS::Queue.new
-      @known_problems[@converging_oriented_node_settable].each do |initial_solution|
-        problems_to_yield.push [initial_solution.path, []]
-        log.debug "Pushed to stack #{initial_solution.path.to_shorthand}" if log.debug?
-      end
 
-      while path_parts = problems_to_yield.dequeue
+      # Tim - use priority queue to yield shortest paths first
+      queue = DS::AnyPriorityQueue.new {|a, b| a<=b}
+      initial_solution = @known_problems[@converging_oriented_node_settable][0]
+      queue.enqueue [initial_solution.path, [], 0], 0
+      log.debug "Pushed to stack #{initial_solution.path.to_shorthand}" if log.debug?
+
+      while path_parts = queue.dequeue
         direct_node_trail = path_parts[0]
         second_part = path_parts[1]
-        log.debug "Dequeued #{direct_node_trail.to_shorthand} and [#{second_part.collect{|o| o.to_shorthand}.join(',') }]" if log.debug?
+        second_distance = path_parts[2]
+        log.debug "Popped #{direct_node_trail.to_shorthand} and [#{second_part.collect{|o| o.to_shorthand}.join(',') }]" if log.debug?
 
-        # yield the direct path
-        direct_path = Bio::Velvet::Graph::OrientedNodeTrail.new
-        direct_path.trail = [direct_node_trail.trail, second_part].flatten
-        if @is_reverse
-          yield direct_path.reverse
+
+        if direct_node_trail.trail.length == 0
+          yield_path = Bio::Velvet::Graph::OrientedNodeTrail.new
+          yield_path.trail = second_part
+          if @is_reverse
+            yield yield_path.reverse
+          else
+            log.debug "Yielded #{yield_path.to_shorthand}" if log.debug?
+            yield yield_path
+          end
         else
-          yield direct_path
-        end
+          # go down the path, looking for other paths
+          head_onode = direct_node_trail.trail[-1]
+          #new_head_onode = direct_node_trail.trail[-2]
 
-        # go down the path, looking for other paths
-        unless direct_node_trail.trail.length < 3
-          new_head_onode = direct_node_trail.trail[-2]
-
-          new_problems = @known_problems[new_head_onode.to_settable]
+          new_problems = @known_problems[head_onode.to_settable]
           log.debug "Found new problems: #{new_problems.collect{|prob| prob.to_shorthand}.join(' ') }" if log.debug?
-          if new_problems.length > 1
-            raise CircuitousPathDetected if second_part.include?(new_head_onode)
-            new_second_part = [new_head_onode]+[direct_node_trail.trail[-1]]+second_part
-            new_problems.each do |new_problem|
-              # Don't enqueue the path that was just printed
-              next if direct_path.trail[0...-1] == new_problem.path.trail
-
-              # TODO: deal with circuits
-              new_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
-              new_trail.trail = new_problem.path[0...-1]
-              log.debug "Enqueuing #{new_trail.to_shorthand} and [#{new_second_part.collect{|o| o.to_shorthand}.join(',') }]" if log.debug?
-              problems_to_yield.push [new_trail, new_second_part]
+          raise CircuitousPathDetected if second_part.include?(head_onode)
+          new_second_part = [head_onode]+second_part
+          new_second_distance = head_onode.node.length_alone+second_distance
+          problem_leads = Set.new
+          new_problems.each do |new_problem|
+            # Only enqueue paths where the second-to-head onode is not already queued
+            unless new_problem.path.length < 2
+              lead_settable = new_problem.path[-2].to_settable
+              next if problem_leads.include? lead_settable
+              problem_leads << lead_settable
             end
+
+            # TODO: deal with circuits
+            new_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
+            new_trail.trail = new_problem.path[0...-1]
+            log.debug "Enqueuing #{new_trail.to_shorthand} and [#{new_second_part.collect{|o| o.to_shorthand}.join(',') }]" if log.debug?
+            queue.enqueue [new_trail, new_second_part, new_second_distance], new_second_distance
           end
         end
       end
@@ -669,7 +677,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
     def to_shorthand
       shorts = []
       if converged?
-        shorts = paths.collect{|path| path.to_shorthand}
+        shorts = paths.sort{|a,b| a.to_shorthand <=> b.to_shorthand }.collect{|path| path.to_shorthand}
       else
         @queue.each do |problem|
           shorts.push problem.to_shorthand
