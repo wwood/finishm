@@ -284,8 +284,8 @@ describe "BubblyAssembler" do
       cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
       cartographer.assembly_options[:max_tip_length] = -1
       metapath, visited_nodes = cartographer.assemble_from(initial_path)
-      GraphTesting.metapath_to_array(metapath).should == [1]
-      visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1]
+      GraphTesting.metapath_to_array(metapath).should == [1,[2,[2,10,2],3],4]
+      visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1,2,3,4,10]
     end
 
     it 'should not die on bubbles that have circuits around the converging node' do
@@ -297,10 +297,13 @@ describe "BubblyAssembler" do
         [5,4],
         [4,3],
         [3,5],
+        [3,8],
+        [8,9],
         ], 1, 4)
       cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
       cartographer.assembly_options[:max_tip_length] = -1
       graph.nodes[20].ends_of_kmers_of_node = 'T'*100 #make this long so the circuit is discovered first
+      graph.nodes[8].ends_of_kmers_of_node = 'T'*100 #make exit from bubble long so it is not discarded as a dead-end
       metapath, visited_nodes = cartographer.assemble_from(initial_path)
       metapath.reference_trail.to_shorthand.should == '1s'
       GraphTesting.metapath_to_array(metapath).should == [1]
