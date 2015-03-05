@@ -360,10 +360,10 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
   class CycleCounter
     include Bio::FinishM::Logging
 
-    def initialize(max_cycles = 1, forward = false)
+    def initialize(max_cycles, options = {})
       @max_cycles = max_cycles
       @path_cache = Hash.new # Cache max_cycles for previously seen paths
-      @forward = forward # By default builds hash moving backwards from end of path. This flag will reverse path direction and build hash moving forwards.
+      @forward = options[:forward] || false # By default builds hash moving backwards from end of path. This flag will reverse path direction and build hash moving forwards.
     end
 
 

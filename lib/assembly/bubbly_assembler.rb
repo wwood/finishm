@@ -23,12 +23,14 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
   DEFAULT_MAX_BUBBLE_LENGTH = 500
   DEFAULT_BUBBLE_NODE_COUNT_LIMIT = 20 #so, so very 'un-educated' guess
   DEFAULT_BUBBLE_FORK_LIMIT = 20
+  DEFAULT_MAX_CYCLES = 1
 
   def initialize(graph, assembly_options={})
     opts = assembly_options
     opts[:max_bubble_length] ||= DEFAULT_MAX_BUBBLE_LENGTH
     opts[:bubble_node_count_limit] ||= DEFAULT_BUBBLE_NODE_COUNT_LIMIT
     opts[:bubble_fork_limit] ||= DEFAULT_BUBBLE_FORK_LIMIT
+    opts[:max_cycles] ||= DEFAULT_MAX_CYCLES
     super graph, opts
   end
 
@@ -40,6 +42,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
   # that can be taken at each fork point
   def assemble_from(starting_path, visited_oriented_node_settables=Set.new)
     leash_length = @assembly_options[:max_bubble_length]
+    max_cycles = @assembly_options[:max_cycles]
     current_bubble = nil
     if log.info? and starting_path.kind_of?(Bio::Velvet::Graph::OrientedNodeTrail)
       log.info "Assembling from: #{starting_path.to_shorthand}"
@@ -97,6 +100,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
     end
     log.debug "Starting with visited nodes #{visited_oriented_node_settables.to_a.join(',')}" if log.debug?
 
+    counter = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder::CycleCounter.new max_cycles, {:forward => true}
     current_mode = :linear # :linear, :bubble, or :finished
 
     while current_mode != :finished
@@ -125,7 +129,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
             neighbour = legit_neighbours[0]
 
             # Stop if a circuit is detected
-            # Tim - Always finish on a circuit in linear mode. Presumably there is no way out.
+            # Tim - Always stop on a circuit in linear mode. Presumably means there is no way out.
             if visited_oriented_node_settables.include?(neighbour.to_settable)
               log.debug "Detected regular circuit by running into #{neighbour.to_settable}" if log.debug?
               metapath.fate = MetaPath::CIRCUIT_FATE
@@ -142,19 +146,11 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
             log.debug "Starting a bubble forking from metapath #{metapath.to_shorthand}" if log.debug?
 
             legit_neighbours.each do |oneigh|
-              # Stop if a circuit is detected
-              if visited_oriented_node_settables.include?(oneigh.to_settable)
-                metapath.fate = MetaPath::CIRCUIT_FATE
-                current_mode = :finished
-                break
-              else
+              new_problem = baseProblem.call oneigh
+              log.debug "Adding problem to bubble: #{new_problem}" if log.debug?
 
-                new_problem = baseProblem.call oneigh
-                log.debug "Adding problem to bubble: #{new_problem}" if log.debug?
-
-                current_bubble.enqueue new_problem
-                current_mode = :bubble
-              end
+              current_bubble.enqueue new_problem
+              current_mode = :bubble
             end
             break
           end
@@ -188,14 +184,6 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
             current_bubble.converge_on problem
             # convergement!
             # Bubble ended in a convergent fashion
-
-            # detect circuits
-            # Tim - This could be unnecessary?
-            if current_bubble.circuitous?
-              metapath.fate = MetaPath::CIRCUIT_WITHIN_BUBBLE_FATE
-              current_mode = :finished
-              break
-            end
 
             metapath << current_bubble
             # Add the nodes in the bubble to the list of visited nodes
@@ -609,13 +597,13 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       queue = DS::AnyPriorityQueue.new {|a, b| a<=b}
       initial_solution = @known_problems[@converging_oriented_node_settable][0]
       queue.enqueue [initial_solution.path, [], 0], 0
-      log.debug "Pushed to stack #{initial_solution.path.to_shorthand}" if log.debug?
+      #log.debug "Pushed to stack #{initial_solution.path.to_shorthand}" if log.debug?
 
       while path_parts = queue.dequeue
         direct_node_trail = path_parts[0]
         second_part = path_parts[1]
         second_distance = path_parts[2]
-        log.debug "Popped #{direct_node_trail.to_shorthand} and [#{second_part.collect{|o| o.to_shorthand}.join(',') }]" if log.debug?
+        #log.debug "Popped #{direct_node_trail.to_shorthand} and [#{second_part.collect{|o| o.to_shorthand}.join(',') }]" if log.debug?
 
 
         if direct_node_trail.trail.length == 0
@@ -624,7 +612,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
           if @is_reverse
             yield yield_path.reverse
           else
-            log.debug "Yielded #{yield_path.to_shorthand}" if log.debug?
+            #log.debug "Yielded #{yield_path.to_shorthand}" if log.debug?
             yield yield_path
           end
         else
@@ -633,7 +621,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
           #new_head_onode = direct_node_trail.trail[-2]
 
           new_problems = @known_problems[head_onode.to_settable]
-          log.debug "Found new problems: #{new_problems.collect{|prob| prob.to_shorthand}.join(' ') }" if log.debug?
+          #log.debug "Found new problems: #{new_problems.collect{|prob| prob.to_shorthand}.join(' ') }" if log.debug?
           raise CircuitousPathDetected if second_part.include?(head_onode)
           new_second_part = [head_onode]+second_part
           new_second_distance = head_onode.node.length_alone+second_distance
@@ -649,7 +637,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
             # TODO: deal with circuits
             new_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
             new_trail.trail = new_problem.path[0...-1]
-            log.debug "Enqueuing #{new_trail.to_shorthand} and [#{new_second_part.collect{|o| o.to_shorthand}.join(',') }]" if log.debug?
+            #log.debug "Enqueuing #{new_trail.to_shorthand} and [#{new_second_part.collect{|o| o.to_shorthand}.join(',') }]" if log.debug?
             queue.enqueue [new_trail, new_second_part, new_second_distance], new_second_distance
           end
         end
