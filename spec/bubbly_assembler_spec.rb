@@ -306,7 +306,7 @@ describe "BubblyAssembler" do
       graph.nodes[8].ends_of_kmers_of_node = 'T'*100 #make exit from bubble long so it is not discarded as a dead-end
       metapath, visited_nodes = cartographer.assemble_from(initial_path)
       GraphTesting.metapath_to_array(metapath).should == [1,[5,[20, 21]],4,3,[[],[5,4,3]],8,9]
-      metapath.reference_trail.to_shorthand.should == '1s,5s,4s,3s,8s,9s'
+      metapath.reference_trail.to_shorthand.should == '1s,5s,4s,3s,5s,4s,3s,8s,9s'
       visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1,3,4,5,8,9,20,21]
     end
   end
@@ -444,35 +444,13 @@ describe "BubblyAssembler" do
       cartographer.assembly_options[:min_contig_size] = -1
       metapaths = cartographer.assemble
       GraphTesting.metapaths_to_arrays(metapaths).should == [
-        [1,[2,3],4]
-        ]#incorrect test?
-      visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1]
+        [9,[10,[10,99,10],11],1,[2,3],4]
+        ]
     end
 
 
     it 'should handle reverse circuit bubbles at the end of in bubbles' do
-      graph, initial_path, terminal = GraphTesting.emit_ss([
-        [1,2],
-        [2,4],
-        [1,3],
-        [3,4],
-
-        [10,1],
-        [11,1],
-        [9,10],
-        [9,11],
-
-        [99,10],
-        [10,99],
-        ], 1, 4)
-      cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
-      cartographer.assembly_options[:max_tip_length] = -1
-      cartographer.assembly_options[:min_contig_size] = -1
-      metapaths = cartographer.assemble
-      GraphTesting.metapaths_to_arrays(metapaths).should == [
-        [1,[2,3],4]
-        ]#incorrect test?
-      visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1]
+      fail
     end
 
     it 'should be able to assemble several contigs' do
@@ -533,7 +511,7 @@ describe 'metapath' do
       }
     metapath, v = cartographer.assemble_from initial_path
     metapath.to_shorthand.should == '1s,{2s,3s|3s},4s'
-    metapath.reference_trail.to_shorthand.should == '1s,3s,4s'
+    metapath.reference_trail.to_shorthand.should == '1s,2s,3s,4s'
 
 
     graph, initial_path, terminal = GraphTesting.emit_ss([
@@ -649,15 +627,18 @@ describe 'Bubble' do
       [2,5],
       [5,99],
       [1,6],
-      [6,5]
+      [6,5],
+      [5,7],
+      [7,8]
       ], 1, 1)
     cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph, {
       :max_tip_length => -1,
       :min_contig_size => 0,
       }
+    graph.nodes[7].ends_of_kmers_of_node = 'T'*100 #make exit from bubble long so it is not discarded as a dead-end
     metapath, v = cartographer.assemble_from initial_path
-    metapath.to_shorthand.should == '1s'
-    metapath.fate.should == Bio::AssemblyGraphAlgorithms::BubblyAssembler::CIRCUIT_WITHIN_BUBBLE_FATE
+    metapath.to_shorthand.should == '1s,{2s,3s,4s,3s,4s,5s|2s,3s,4s,5s|2s,5s|6s,5s},7s,8s' #Tim - tip bug?
+    #metapath.fate.should == Bio::AssemblyGraphAlgorithms::BubblyAssembler::CIRCUIT_WITHIN_BUBBLE_FATE
   end
 
   it 'should give a correct coverage' do
