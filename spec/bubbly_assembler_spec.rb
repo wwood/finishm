@@ -305,9 +305,9 @@ describe "BubblyAssembler" do
       graph.nodes[20].ends_of_kmers_of_node = 'T'*100 #make this long so the circuit is discovered first
       graph.nodes[8].ends_of_kmers_of_node = 'T'*100 #make exit from bubble long so it is not discarded as a dead-end
       metapath, visited_nodes = cartographer.assemble_from(initial_path)
-      metapath.reference_trail.to_shorthand.should == '1s'
-      GraphTesting.metapath_to_array(metapath).should == [1]
-      visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1]
+      GraphTesting.metapath_to_array(metapath).should == [1,[5,[20, 21]],4,3,[[],[5,4,3]],8,9]
+      metapath.reference_trail.to_shorthand.should == '1s,5s,4s,3s,8s,9s'
+      visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1,3,4,5,8,9,20,21]
     end
   end
 
@@ -533,7 +533,7 @@ describe 'metapath' do
       }
     metapath, v = cartographer.assemble_from initial_path
     metapath.to_shorthand.should == '1s,{2s,3s|3s},4s'
-    metapath.reference_trail.to_shorthand.should == '1s,2s,3s,4s'
+    metapath.reference_trail.to_shorthand.should == '1s,3s,4s'
 
 
     graph, initial_path, terminal = GraphTesting.emit_ss([

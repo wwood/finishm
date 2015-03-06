@@ -42,7 +42,6 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
   # that can be taken at each fork point
   def assemble_from(starting_path, visited_oriented_node_settables=Set.new)
     leash_length = @assembly_options[:max_bubble_length]
-    current_bubble = nil
     if log.info? and starting_path.kind_of?(Bio::Velvet::Graph::OrientedNodeTrail)
       log.info "Assembling from: #{starting_path.to_shorthand}"
     end
@@ -59,6 +58,10 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       is_tip
     end
 
+    filterVisited = lambda do |oneigh|
+      visited_oriented_node_settables.include? oneigh.to_settable
+    end
+
     baseProblem = lambda do |oneigh|
       new_problem = DynamicProgrammingProblem.new
       new_problem.distance = 0
@@ -67,6 +70,8 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       new_problem.path = new_path
       new_problem.ubiquitous_oriented_nodes = Set.new
       new_problem.ubiquitous_oriented_nodes << oneigh.to_settable
+      new_problem.visited_oriented_nodes = Set.new
+      new_problem.visited_oriented_nodes << oneigh.to_settable
       new_problem
     end
 
@@ -78,9 +83,12 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       new_problem.path = new_path
       new_problem.ubiquitous_oriented_nodes = Set.new problem.ubiquitous_oriented_nodes
       new_problem.ubiquitous_oriented_nodes << oneigh.to_settable
+      new_problem.visited_oriented_nodes = Set.new problem.visited_oriented_nodes
+      new_problem.visited_oriented_nodes << oneigh.to_settable
       new_problem
     end
 
+    current_bubble = nil
     metapath = MetaPath.new
     starting_path.each do |oriented_node|
       log.debug "adding onode at the start: #{oriented_node.to_shorthand}" if log.debug?
@@ -130,7 +138,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
             # Stop if a circuit is detected
             # Tim - Always stop on a circuit in linear mode. Presumably means there is no way out.
             if visited_oriented_node_settables.include?(neighbour.to_settable)
-              log.debug "Detected regular circuit by running into #{neighbour.to_settable}" if log.debug?
+              log.debug "Detected circuit in linear mode by running into #{neighbour.to_settable}" if log.debug?
               metapath.fate = MetaPath::CIRCUIT_FATE
               current_mode = :finished
               break
@@ -141,8 +149,14 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
 
           else
             # Reached a fork in the graph here, the point of this algorithm, really.
-            current_bubble = Bubble.new
+            current_bubble = Bubble.new metapath.last_oriented_node
             log.debug "Starting a bubble forking from metapath #{metapath.to_shorthand}" if log.debug?
+
+            if legit_neighbours.all? &filterVisited
+              log.debug "Detected fork in linear mode where all neighbours have been previously traversed. This is effectively a dead end." if log.debug?
+              metapath.fate = MetaPath::CIRCUIT_FATE
+              current_mode = :finished
+            end
 
             legit_neighbours.each do |oneigh|
               new_problem = baseProblem.call oneigh
@@ -208,7 +222,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
 
               oneigh = neighbours[0]
               new_problem = extendedProblem.call problem, oneigh
-              new_problem.circular_path_detected = true if current_bubble.visited_oriented_nodes(problem).include? oneigh.to_settable
+              new_problem.circular_path_detected = true if problem.visited_oriented_nodes.include? oneigh.to_settable
               current_bubble.enqueue new_problem
               log.debug "Enqueued #{new_problem.to_shorthand}, total nodes now #{current_bubble.num_known_problems} and num forks #{current_bubble.num_legit_forks}" if log.debug?
 
@@ -236,7 +250,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
 
                 legit_neighbours.each do |oneigh|
                   new_problem = extendedProblem.call problem, oneigh
-                  new_problem.circular_path_detected = true if current_bubble.visited_oriented_nodes(problem).include? oneigh.to_settable
+                  new_problem.circular_path_detected = true if problem.visited_oriented_nodes.include? oneigh.to_settable
                   current_bubble.enqueue new_problem
                   log.debug "Enqueued #{new_problem.to_shorthand}, total nodes now #{current_bubble.num_known_problems} and num forks #{current_bubble.num_legit_forks}" if log.debug?
 
@@ -468,23 +482,26 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
     include Bio::FinishM::Logging
 
     # The DynamicProgrammingProblem this bubble converges on
-    attr_reader :converging_oriented_node_settable, :is_reverse
+    attr_reader :converging_oriented_node_settable, :is_reverse, :root
 
     # how many legit forks have been explored
     attr_accessor :num_legit_forks
 
-    def initialize(options = {})
+    def initialize(bubble_root, options = {})
       @queue = DS::AnyPriorityQueue.new {|a,b| a<=b}
       @known_problems = {}
       @current_problems = Set.new
       @num_legit_forks = 0
       @max_cycles = options[:max_cycles] || DEFAULT_MAX_CYCLES
+      @root = bubble_root
     end
 
     # Return the next closest dynamic programming problem,
     # removing it from the bubble
     def shift
       prob = @queue.shift
+      prob.ubiquitous_oriented_nodes = ubiquitous_oriented_nodes(prob)
+      prob.visited_oriented_nodes = visited_oriented_nodes(prob)
       @current_problems.delete prob.to_settable unless prob.nil?
       return prob
     end
@@ -507,7 +524,6 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       # prioritise by the shortest distance for current problem
       @known_problems[prob.to_settable].collect{|prob| prob.distance}.min
     end
-
 
     def enqueue(dynamic_programming_problem)
       settable = dynamic_programming_problem.to_settable
@@ -537,6 +553,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
     # Finish off the bubble, assuming convergent_on? the given problem == true
     def converge_on(dynamic_programming_problem)
       @converging_oriented_node_settable = dynamic_programming_problem.to_settable
+      each_path({:max_cycles => 0}) {|| break if @circuitous}
       #free some memory
       @queue = nil
       @current_problems = nil
@@ -580,28 +597,62 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       @known_problems.length
     end
 
+
     # Iterate over the paths returning each as an OrientedNodeTrail.
     # Assumes the path is convergent.
-    def each_path(max_cycles = @max_cycles)
+    def each_path(options = {})
       raise unless converged?
+      max_cycles = options[:max_cycles] || @max_cycles
+      # Metric used to prioritise each_path
+      comparator = lambda do |a,b|
+        nodea = nil
+        nodeb = nil
+
+        if a.path.length == 1 and b.path.length > 1
+          # Here the comparison cannot be made on 2nd last node coverages
+          # since one of the paths goes straight from the initial to the terminal
+          # node. Choose instead based on if the second last node has higher or lower
+          # coverage than the final node
+          nodea = a.path[-1]
+          nodeb = b.path[-2]
+        elsif b.path.length == 1 and a.path.length > 1
+          nodea = a.path[-2]
+          nodeb = b.path[-1]
+        else
+          nodea = a.path[-2]
+          nodeb = b.path[-2]
+        end
+      end
 
       log.debug "Iterating through each path of bubble" if log.debug?
 
-      # Tim - use priority queue to yield shortest paths first
-      queue = DS::AnyPriorityQueue.new {|a, b| a<=b}
+      # Tim - use stack and push paths with lowest coverage first
+      stack = DS::Stack.new
       counter = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder::CycleCounter.new max_cycles
       initial_solution = @known_problems[@converging_oriented_node_settable][0]
-      queue.enqueue [initial_solution.path, [], 0], 0
+      stack.push [initial_solution.path, []]
+      converging_onode = converging_oriented_node
       #log.debug "Pushed to stack #{initial_solution.path.to_shorthand}" if log.debug?
 
-      while path_parts = queue.dequeue
+
+      while path_parts = stack.pop
         direct_node_trail = path_parts[0]
         second_part = path_parts[1]
-        second_distance = path_parts[2]
         #log.debug "Popped #{direct_node_trail.to_shorthand} and [#{second_part.collect{|o| o.to_shorthand}.join(',') }]" if log.debug?
 
 
         if direct_node_trail.trail.length == 0
+
+          # check for cycles through bubble root
+          if second_part.include? @root
+            log.debug "Found cycle through bubble root." if log.debug?
+            @circuitous = true unless @circuitous
+            if max_cycles == 0 or max_cycles < counter.path_cycle_count([@root]+second_part)
+              log.debug "Not finishing cyclic path with too many cycles." if log.debug?
+              next
+            end
+          end
+
           yield_path = Bio::Velvet::Graph::OrientedNodeTrail.new
           yield_path.trail = second_part
           if @is_reverse
@@ -614,8 +665,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
           # go down the path, looking for other paths
           head_onode = direct_node_trail.trail[-1]
           new_second_part = [head_onode]+second_part
-          new_second_distance = second_distance+head_onode.node.length_alone
-          if second_part.length > 1 and head_onode.to_settable == @converging_oriented_node_settable
+          if second_part.length > 1 and head_onode == converging_oriented_node
             log.debug "Ignoring path with cycle through converged node." if log.debug?
             next
           end
@@ -631,19 +681,20 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
           new_problems = @known_problems[head_onode.to_settable]
           #log.debug "Found new problems: #{new_problems.collect{|prob| prob.to_shorthand}.join(' ') }" if log.debug?
           problem_leads = Set.new
-          new_problems.each do |new_problem|
+          new_problems.reject do |new_problem|
             # Only enqueue paths where the second-to-head onode is not already queued
             unless new_problem.path.length < 2
               lead_settable = new_problem.path[-2].to_settable
-              next if problem_leads.include? lead_settable
+              return true if problem_leads.include? lead_settable
               problem_leads << lead_settable
             end
-
+            false
+          end.sort(&comparator).each do |new_problem|
             # TODO: deal with circuits
             new_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
             new_trail.trail = new_problem.path[0...-1]
             #log.debug "Enqueuing #{new_trail.to_shorthand} and [#{new_second_part.collect{|o| o.to_shorthand}.join(',') }]" if log.debug?
-            queue.enqueue [new_trail, new_second_part, new_second_distance], new_second_distance
+            stack.push [new_trail, new_second_part]
           end
         end
       end
@@ -700,76 +751,40 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
     def reference_trail(max_cycles = @max_cycles)
       raise unless converged?
 
-      log.debug "Finding reference trail" if log.debug?
+      converging_onode = converging_oriented_node
+      log.debug "Finding reference trail from node #{converging_onode.node.node_id}" if log.debug?
 
-      reference_trail = []
-      #counter = Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder::CycleCounter.new max_cycles
-      comparator = lambda do |problem1, problem2|
-        onode1 = nil
-        onode2 = nil
-        if problem1.path.length == 1 and problem2.path.length > 1
+      # Metric used to prioritise each_path
+      metric = lambda do |ahead, behind|
+        if ahead.length == 1
           # Here the comparison cannot be made on 2nd last node coverages
           # since one of the paths goes straight from the initial to the terminal
           # node. Choose instead based on if the second last node has higher or lower
           # coverage than the final node
-          onode1 = problem1.path[-1]
-          onode2 = problem2.path[-2]
-        elsif problem2.path.length == 1 and problem1.path.length > 1
-          onode1 = problem1.path[-2]
-          onode2 = problem2.path[-1]
+          node = ahead[-1].node
         else
-          onode1 = problem1.path[-2]
-          onode2 = problem2.path[-2]
+          node = ahead[-2].node
         end
-        log.debug "Comparing nodes #{onode1.node.node_id} and #{onode2.node.node_id}" if log.debug?
-
-        # Prefer non-cyclic routes
-        log.debug "Looking for nodes in reference trail #{reference_trail.collect{|onode| onode.node.node_id}.join(',')}" if log.debug?
-        return -1 if reference_trail.include? onode1 and
-            (problem2.path.length == 1  or !reference_trail.include? onode2)
-        return 1 if reference_trail.include? onode2 and
-            (problem1.path.length == 1 or !reference_trail.include? onode1)
-
-        log.debug "Comparing coverages" if log.debug?
-        if onode1.node.coverage == onode2.node.coverage
-          log.debug "Coverage is the same" if log.debug?
-          -(onode1.node.node_id <=> onode2.node.node_id)
-        else
-          onode1.node.coverage <=> onode2.node.coverage
-        end
+        log.debug "Computing metric value for path of length #{behind.length} to node #{node.node_id} with coverage #{node.coverage}" if log.debug?
+        ComparableArray.new [-behind.length, -node.coverage, node.node_id]
       end
 
-
-      current_problem = @known_problems[@converging_oriented_node_settable].max do |problem1, problem2|
-        comparator.call problem1, problem2
+      reference_trail = nil
+      each_path({
+        :max_cycles => max_cycles,
+        :measure => metric,
+      }) do |path|
+        #break when first path is found
+        reference_trail = path
+        break
       end
 
-      while !current_problem.nil?
-        onode_to_add = current_problem.path[-1]
-        log.debug "Preferred path #{current_problem.path.collect{|onode| onode.node.node_id}.join(',')}" if log.debug?
-        #raise CircuitousPathDetected if reference_trail.include?(onode_to_add)
-        reference_trail.push onode_to_add
-
-        if current_problem.path.length == 1
-          current_problem = nil
-        else
-          current_problem = @known_problems[current_problem.path[-2].to_settable].max do |problem1, problem2|
-            comparator.call problem1, problem2
-          end
-        end
-      end
-
-      node_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
-      node_trail.trail = reference_trail.reverse
-      node_trail = node_trail.reverse if @is_reverse
-
-      return node_trail
+      return reference_trail
     end
 
     # Does this (coverged) bubble contain any circuits?
     def circuitous?
       raise unless converged?
-      each_path(0) {|| break if @circuitous}
       @circuitous == true
     end
 
@@ -788,7 +803,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
   end
 
   class DynamicProgrammingProblem
-    attr_accessor :path, :ubiquitous_oriented_nodes, :distance, :circular_path_detected
+    attr_accessor :path, :ubiquitous_oriented_nodes, :visited_oriented_nodes, :distance, :circular_path_detected
 
     def initialize
       @path = []
@@ -812,6 +827,10 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       end
       "#{@path.to_shorthand}/#{ubiquitous_nodes.join(',') }/#{distance}"
     end
+  end
+
+  class ComparableArray < Array
+    include Comparable
   end
 
   class CircuitousPathDetected < Exception; end
