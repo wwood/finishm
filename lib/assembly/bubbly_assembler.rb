@@ -62,6 +62,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       visited_oriented_node_settables.include? oneigh.to_settable
     end
 
+    # set up basic dynamic programming problem
     baseProblem = lambda do |oneigh|
       new_problem = DynamicProgrammingProblem.new
       new_problem.distance = 0
@@ -75,6 +76,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       new_problem
     end
 
+    # extend dynamic programming problem
     extendedProblem = lambda do |problem, oneigh|
       new_problem = DynamicProgrammingProblem.new
       new_problem.distance = problem.distance + problem.path[-1].node.length_alone
@@ -85,6 +87,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       new_problem.ubiquitous_oriented_nodes << oneigh.to_settable
       new_problem.visited_oriented_nodes = Set.new problem.visited_oriented_nodes
       new_problem.visited_oriented_nodes << oneigh.to_settable
+      new_problem.circular_path_detected = true if problem.visited_oriented_nodes.include? oneigh.to_settable
       new_problem
     end
 
@@ -122,7 +125,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
           if oriented_neighbours.length == 1
             legit_neighbours = oriented_neighbours
           else
-            legit_neighbours = oriented_neighbours.reject &filterTips
+            legit_neighbours = oriented_neighbours.reject &filterTips # '&' to pass lambda as block
           end
 
           if legit_neighbours.empty?
@@ -136,7 +139,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
             neighbour = legit_neighbours[0]
 
             # Stop if a circuit is detected
-            # Tim - Always stop on a circuit in linear mode. Presumably means there is no way out.
+            # Tim - Always stop on a circuit in linear mode. "We cannot get out." - Book of Mazarbul.
             if visited_oriented_node_settables.include?(neighbour.to_settable)
               log.debug "Detected circuit in linear mode by running into #{neighbour.to_settable}" if log.debug?
               metapath.fate = MetaPath::CIRCUIT_FATE
@@ -222,7 +225,6 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
 
               oneigh = neighbours[0]
               new_problem = extendedProblem.call problem, oneigh
-              new_problem.circular_path_detected = true if problem.visited_oriented_nodes.include? oneigh.to_settable
               current_bubble.enqueue new_problem
               log.debug "Enqueued #{new_problem.to_shorthand}, total nodes now #{current_bubble.num_known_problems} and num forks #{current_bubble.num_legit_forks}" if log.debug?
 
@@ -250,7 +252,6 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
 
                 legit_neighbours.each do |oneigh|
                   new_problem = extendedProblem.call problem, oneigh
-                  new_problem.circular_path_detected = true if problem.visited_oriented_nodes.include? oneigh.to_settable
                   current_bubble.enqueue new_problem
                   log.debug "Enqueued #{new_problem.to_shorthand}, total nodes now #{current_bubble.num_known_problems} and num forks #{current_bubble.num_legit_forks}" if log.debug?
 
@@ -477,7 +478,25 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
   end
 
 
-
+  # Tim - use 'waiting train' algorithm (made up by me).
+  # Problems collect the nodes they visit, adding them to hashes of 'ubiquitous' and 'visited' nodes
+  # (metaphor: 'train' (problem) visiting 'stations' (nodes)).
+  # Each time a problem is dequeued, new problems are enqueued for all neighbours to the problem node
+  # (metaphor: 'trains' (problems) magically duplicate for each path to a new 'station' (node) (methaphor
+  # breaks a bit here)).
+  # At each step the algorithm dequeues a problem, prioritising problems by shortest distance of any path
+  # to the problem node, meaning if a a problem is enqueued for a node that is already known, then that
+  # problem is prioritised (metaphor: when a train leaves a station (problem is deqeued) other 'trains' will
+  # wait in case it catches up, or otherwise reaches a more distant station).
+  # If a new problem is enqueued for a problem node that is currently in enqueued, the new problem is added
+  # to known problems removed from queue, and when a problem is dequeued, its ubiquitous and visited nodes
+  # are set to the ubiquitous and visited nodes of all known problems for the node (metaphor: the carriages
+  # of all trains at a station are merged into one train).
+  # Cycles occur when a problem reaches a node that is in its visited nodes hash (metaphor: a station that
+  # one of the train carriages has previously visited).
+  # Queued cyclic problems are added to known problems and then dropped.
+  # Bubble is converged when all current problems have a ubiquitous node in common (metaphor: all carriages
+  # of all current trains have visited a station).
   class Bubble
     include Bio::FinishM::Logging
 
@@ -500,21 +519,23 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
     # removing it from the bubble
     def shift
       prob = @queue.shift
-      prob.ubiquitous_oriented_nodes = ubiquitous_oriented_nodes(prob)
-      prob.visited_oriented_nodes = visited_oriented_nodes(prob)
-      @current_problems.delete prob.to_settable unless prob.nil?
+      unless prob.nil?
+        prob.ubiquitous_oriented_nodes = ubiquitous_oriented_nodes(prob)
+        prob.visited_oriented_nodes = visited_oriented_nodes(prob)
+        @current_problems.delete prob.to_settable
+      end
       return prob
     end
 
     def visited_oriented_nodes(prob)
-      #merge all visited nodes for relevant problems
+      #all visited nodes for relevant problems
       @known_problems[prob.to_settable].reduce(prob.ubiquitous_oriented_nodes) do |memo, problem|
         memo + problem.ubiquitous_oriented_nodes
       end
     end
 
     def ubiquitous_oriented_nodes(prob)
-      #merge ubiquitous nodes for relevant problems
+      #only ubiquitous nodes from relevant problems
       @known_problems[prob.to_settable].reduce(prob.ubiquitous_oriented_nodes) do |memo, problem|
         memo & problem.ubiquitous_oriented_nodes
       end
@@ -602,6 +623,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
     def each_path(options = {})
       raise unless converged?
       max_cycles = options[:max_cycles] || @max_cycles
+
       # Metric used to prioritise each_path
       comparator = lambda do |problem1, problem2|
         onode1 = nil
