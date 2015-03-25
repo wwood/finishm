@@ -357,13 +357,18 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     return to_return
   end
 
+  # Count occurrences of cycles in paths through an assembly graph. Works by building a hash of paths and
+  # the frequency of the modal cycle in that path (up to the cut-off max_cycles). For an unknown path, looks
+  # for a subset of the path in hash by removing nodes from start (or end if :forward option is set), and
+  # then extends the subset by iteratively re-adding a single node and adding to the hash of paths the larger
+  # of the subset count or the frequency for the modal cycle beginning with the re-added node.
   class CycleCounter
     include Bio::FinishM::Logging
 
     def initialize(max_cycles, options = {})
       @max_cycles = max_cycles
       @path_cache = Hash.new # Cache max_cycles for previously seen paths
-      @forward = options[:forward] || false # By default builds hash moving backwards from end of path. This flag will reverse path direction and build hash moving forwards.
+      @forward = options[:forward] || false # By default builds hash assuming backtracking from end of path. This flag will reverse path direction and build hash assuming moving forwards.
     end
 
 
@@ -376,7 +381,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       count = nil
       reached_max_cycles = false
 
-      secondpath = second_part.reverse if @forward
+      second_part = second_part.reverse if @forward
 
       # Iterate along path and look for the remaining path in cache. Remember the iterated
       # path and the remaining path. Stop if a cache count is found, else use zero.
@@ -433,7 +438,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       return count
     end
 
-    # For an initial node, find and count unique 'simple'cycles in a path that begin at the initial
+    # For an initial node, find and count unique 'simple' cycles in a path that begin at the initial
     # node, up to a max_cycles. Return count for the maximally repeated cycle if less than max_cycles,
     # or max_cycles.
     def path_cycle_count_for_node(node, path, max_cycles=1)
