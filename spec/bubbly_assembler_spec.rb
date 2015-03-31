@@ -11,17 +11,13 @@ class GraphTesting
         rev = node_or_arr.is_reverse
         node_or_arr.each_path do |path|
           path_in_bubble = rev ? path[1..-1] : path[0...-1]
-          if path_in_bubble.length == 1
-            paths.push path_in_bubble[0].node_id
-          else
-            paths.push path_in_bubble.collect{|onode| onode.node_id}
-          end
+          paths.push path_in_bubble.collect{|onode| onode.node_id}
         end
         if rev
           to_return.push node_or_arr.converging_oriented_node_settable[0]
-          to_return.push paths.sort
+          to_return.push paths.sort.collect{|path| path.length == 1 ? path[0] : path }
         else
-          to_return.push paths.sort
+          to_return.push paths.sort.collect{|path| path.length == 1 ? path[0] : path }
           to_return.push node_or_arr.converging_oriented_node_settable[0]
         end
       elsif node_or_arr.kind_of?(Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode)
@@ -49,7 +45,7 @@ describe "BubblyAssembler" do
         [2,3],
         ], 1, 3)
       cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
-      metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+      metapath, visited_nodes = cartographer.assemble_from(initial_path)
       GraphTesting.metapath_to_array(metapath).should == [1,2,3]
       visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1..3).to_a
     end
@@ -63,7 +59,7 @@ describe "BubblyAssembler" do
         ], 1, 4)
       cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
       cartographer.assembly_options[:max_tip_length] = -1
-      metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+      metapath, visited_nodes = cartographer.assemble_from(initial_path)
       GraphTesting.metapath_to_array(metapath).should == [1,[2,3],4]
       visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1..4).to_a
     end
@@ -78,7 +74,7 @@ describe "BubblyAssembler" do
         ], 1, 5)
       cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
       cartographer.assembly_options[:max_tip_length] = -1
-      metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+      metapath, visited_nodes = cartographer.assemble_from(initial_path)
       GraphTesting.metapath_to_array(metapath).should == [1,[2,4],3,5]
       visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1..5).to_a
     end
@@ -97,7 +93,7 @@ describe "BubblyAssembler" do
         ], 1, 8)
       cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
       cartographer.assembly_options[:max_tip_length] = -1
-      metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+      metapath, visited_nodes = cartographer.assemble_from(initial_path)
       GraphTesting.metapath_to_array(metapath).should == [1,2,[[3,4],[5,4],[5,6]],7,8]
       visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1..8).to_a
     end
@@ -113,7 +109,7 @@ describe "BubblyAssembler" do
         ], 1, 5)
       cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
       cartographer.assembly_options[:max_tip_length] = 11
-      metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+      metapath, visited_nodes = cartographer.assemble_from(initial_path)
       GraphTesting.metapath_to_array(metapath).should == [1,[2,4],3,5]
       visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1..5).to_a+[99]
     end
@@ -122,14 +118,14 @@ describe "BubblyAssembler" do
       graph, initial_path, terminal = GraphTesting.emit_ss([
         [1,2],
         [2,3],
-        [2,99],
+        [1,99],
         [1,4],
         [4,3],
         [3,5],
         ], 1, 5)
       cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
       cartographer.assembly_options[:max_tip_length] = 11
-      metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+      metapath, visited_nodes = cartographer.assemble_from(initial_path)
       GraphTesting.metapath_to_array(metapath).should == [1,[2,4],3,5]
       visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1..5).to_a+[99]
     end
@@ -146,7 +142,7 @@ describe "BubblyAssembler" do
         ], 1, 6)
       cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
       cartographer.assembly_options[:max_tip_length] = 11
-      metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+      metapath, visited_nodes = cartographer.assemble_from(initial_path)
       GraphTesting.metapath_to_array(metapath).should == [1,[2,4],3,5,6]
       visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1..6).to_a+[99]
     end
@@ -174,7 +170,7 @@ describe "BubblyAssembler" do
         ], 1, 6)
       cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
       cartographer.assembly_options[:max_tip_length] = 11
-      metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+      metapath, visited_nodes = cartographer.assemble_from(initial_path)
       GraphTesting.metapath_to_array(metapath).should == [1,[2,4],3,5,[[6,8],[7,8],[7,10]],9,11,12]
       visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1..12).to_a + [99]
     end
@@ -192,7 +188,7 @@ describe "BubblyAssembler" do
       cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
       cartographer.assembly_options[:max_tip_length] = -1
       cartographer.assembly_options[:max_bubble_length] = 5
-      metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+      metapath, visited_nodes = cartographer.assemble_from(initial_path)
       GraphTesting.metapath_to_array(metapath).should == [1]
       visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1]
     end
@@ -209,11 +205,14 @@ describe "BubblyAssembler" do
         ], 1, 6)
       cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
       cartographer.assembly_options[:max_tip_length] = 11
-      metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+      metapath, visited_nodes = cartographer.assemble_from(initial_path)
       GraphTesting.metapath_to_array(metapath).should == [1,[2,4],3,5,6]
       visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1..6).to_a + [99]
 
-      metapath2, visited_nodes2 = cartographer.assemble_from(metapath[0..1], Set.new((1..4)))
+      metapath2, visited_nodes2 = cartographer.assemble_from(
+        metapath[0..1],
+        Set.new(visited_nodes.to_a.select{|s| s[0] <= 4 })
+        )
       GraphTesting.metapath_to_array(metapath2).should == [1,[2,4],3,5,6]
       visited_nodes2.to_a.collect{|s| s[0]}.sort.should == (1..6).to_a + [99]
     end
@@ -242,14 +241,34 @@ describe "BubblyAssembler" do
       cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
       cartographer.assembly_options[:max_tip_length] = 11
       cartographer.assembly_options[:bubble_node_count_limit] = 99
-      metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+      metapath, visited_nodes = cartographer.assemble_from(initial_path)
       GraphTesting.metapath_to_array(metapath).should == [1,[2,4],3,5,[[6,8],[7,8],[7,10]],9,11,12]
       visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1..12).to_a + [99]
 
       cartographer.assembly_options[:bubble_node_count_limit] = 4
-      metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+      metapath, visited_nodes = cartographer.assemble_from(initial_path)
       GraphTesting.metapath_to_array(metapath).should == [1,[2,4],3,5]
       visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1..5).to_a + [99] #debatable whether 99 should be included here, but eh
+    end
+
+    it 'should not close bubbles prematurely' do
+      # bubble breaker graph
+      graph, initial_path, terminal = GraphTesting.emit_ss([
+        [1,2],
+        [2,3],
+        [3,4],
+        [1,4],
+        [3,5],
+        [4,5],
+        [4,6],
+        [5,6],
+        [6,7]
+        ], 1, 6)
+      cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
+      cartographer.assembly_options[:max_tip_length] = 11
+      metapath, visited_nodes = cartographer.assemble_from(initial_path)
+      GraphTesting.metapath_to_array(metapath).should == [1,[[2,3,4],[2,3,4,5],[2,3,5],4,[4,5]],6,7]
+      visited_nodes.to_a.collect{|s| s[0]}.sort.should == (1..7).to_a
     end
 
     it 'should handle circuits in bubbles' do
@@ -264,9 +283,9 @@ describe "BubblyAssembler" do
         ], 1, 4)
       cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
       cartographer.assembly_options[:max_tip_length] = -1
-      metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
-      GraphTesting.metapath_to_array(metapath).should == [1]
-      visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1]
+      metapath, visited_nodes = cartographer.assemble_from(initial_path)
+      GraphTesting.metapath_to_array(metapath).should == [1,[2,[2,10,2],3],4]
+      visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1,2,3,4,10]
     end
 
     it 'should not die on bubbles that have circuits around the converging node' do
@@ -278,14 +297,17 @@ describe "BubblyAssembler" do
         [5,4],
         [4,3],
         [3,5],
+        [3,8],
+        [8,9],
         ], 1, 4)
       cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
       cartographer.assembly_options[:max_tip_length] = -1
       graph.nodes[20].ends_of_kmers_of_node = 'T'*100 #make this long so the circuit is discovered first
-      metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
-      metapath.reference_trail.to_shorthand.should == '1s'
-      GraphTesting.metapath_to_array(metapath).should == [1]
-      visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1]
+      graph.nodes[8].ends_of_kmers_of_node = 'T'*100 #make exit from bubble long so it is not discarded as a dead-end
+      metapath, visited_nodes = cartographer.assemble_from(initial_path)
+      GraphTesting.metapath_to_array(metapath).should == [1,[5,[20, 21]],4,3,[[],[5,4,3]],8,9]
+      metapath.reference_trail.to_shorthand.should == '1s,5s,4s,3s,5s,4s,3s,8s,9s'
+      visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1,3,4,5,8,9,20,21]
     end
   end
 
@@ -422,35 +444,13 @@ describe "BubblyAssembler" do
       cartographer.assembly_options[:min_contig_size] = -1
       metapaths = cartographer.assemble
       GraphTesting.metapaths_to_arrays(metapaths).should == [
-        [1,[2,3],4]
-        ]#incorrect test?
-      visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1]
+        [9,[10,[10,99,10],11],1,[2,3],4]
+        ]
     end
 
 
     it 'should handle reverse circuit bubbles at the end of in bubbles' do
-      graph, initial_path, terminal = GraphTesting.emit_ss([
-        [1,2],
-        [2,4],
-        [1,3],
-        [3,4],
-
-        [10,1],
-        [11,1],
-        [9,10],
-        [9,11],
-
-        [99,10],
-        [10,99],
-        ], 1, 4)
-      cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
-      cartographer.assembly_options[:max_tip_length] = -1
-      cartographer.assembly_options[:min_contig_size] = -1
-      metapaths = cartographer.assemble
-      GraphTesting.metapaths_to_arrays(metapaths).should == [
-        [1,[2,3],4]
-        ]#incorrect test?
-      visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1]
+      fail
     end
 
     it 'should be able to assemble several contigs' do
@@ -494,7 +494,7 @@ describe 'metapath' do
       :max_tip_length => -1,
       :min_contig_size => 0,
       }
-    metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+    metapath, visited_nodes = cartographer.assemble_from(initial_path)
     metapath.reference_trail.to_shorthand.should == '1s,2s,3s,5s'
   end
 
@@ -509,8 +509,8 @@ describe 'metapath' do
       :max_tip_length => -1,
       :min_contig_size => 0,
       }
-    metapath, v = cartographer.assemble_from initial_path, nil
-    metapath.to_shorthand.should == '1s,{3s|2s,3s},4s'
+    metapath, v = cartographer.assemble_from initial_path
+    metapath.to_shorthand.should == '1s,{2s,3s|3s},4s'
     metapath.reference_trail.to_shorthand.should == '1s,2s,3s,4s'
 
 
@@ -525,7 +525,7 @@ describe 'metapath' do
       :min_contig_size => 0,
       }
     graph.arcs.get_arcs_by_node_id(1,2)
-    metapath, v = cartographer.assemble_from initial_path, nil
+    metapath, v = cartographer.assemble_from initial_path
     metapath.to_shorthand.should == '1s,{2s|3s,2s},4s'
     metapath.reference_trail.to_shorthand.should == '1s,2s,4s'
   end
@@ -552,7 +552,7 @@ describe 'Bubble' do
       :max_tip_length => -1,
       :min_contig_size => 0,
       }
-    metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+    metapath, visited_nodes = cartographer.assemble_from(initial_path)
     bubble = metapath[1]
     bubble.reference_trail.should be_kind_of(Bio::Velvet::Graph::OrientedNodeTrail)
     bubble.reference_trail.to_shorthand.should == '2s,3s'
@@ -569,7 +569,7 @@ describe 'Bubble' do
       :max_tip_length => -1,
       :min_contig_size => 0,
       }
-    metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+    metapath, visited_nodes = cartographer.assemble_from(initial_path)
     bubble = metapath[1]
     graph.nodes[2].coverages = [10]
     graph.nodes[4].coverages = [20]
@@ -590,7 +590,7 @@ describe 'Bubble' do
       :max_tip_length => -1,
       :min_contig_size => 0,
       }
-    metapath, visited_nodes = cartographer.assemble_from(initial_path, nil)
+    metapath, visited_nodes = cartographer.assemble_from(initial_path)
     bubble = metapath[1]
     bubble.reference_trail.to_shorthand.should == '3s,4s,5s'
     graph.nodes[4].coverages = [10]
@@ -610,7 +610,7 @@ describe 'Bubble' do
       :max_tip_length => -1,
       :min_contig_size => 0,
       }
-    metapath, v = cartographer.assemble_from initial_path, nil
+    metapath, v = cartographer.assemble_from initial_path
     metapath.to_shorthand.should == '1s,{2s,3s|4s,3s},5s'
     metapath.reverse!
     metapath.to_shorthand.should == "5e,{3e,2e|3e,4e},1e"
@@ -627,15 +627,18 @@ describe 'Bubble' do
       [2,5],
       [5,99],
       [1,6],
-      [6,5]
+      [6,5],
+      [5,7],
+      [7,8]
       ], 1, 1)
     cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph, {
       :max_tip_length => -1,
       :min_contig_size => 0,
       }
-    metapath, v = cartographer.assemble_from initial_path, nil
-    metapath.to_shorthand.should == '1s'
-    metapath.fate.should == Bio::AssemblyGraphAlgorithms::BubblyAssembler::CIRCUIT_WITHIN_BUBBLE_FATE
+    graph.nodes[7].ends_of_kmers_of_node = 'T'*100 #make exit from bubble long so it is not discarded as a dead-end
+    metapath, v = cartographer.assemble_from initial_path
+    metapath.to_shorthand.should == '1s,{2s,3s,4s,3s,4s,5s|2s,3s,4s,5s|2s,5s|6s,5s},7s,8s' #Tim - tip bug?
+    #metapath.fate.should == Bio::AssemblyGraphAlgorithms::BubblyAssembler::CIRCUIT_WITHIN_BUBBLE_FATE
   end
 
   it 'should give a correct coverage' do
@@ -649,7 +652,30 @@ describe 'Bubble' do
       :max_tip_length => -1,
       :min_contig_size => 0,
       }
-    metapath, v = cartographer.assemble_from initial_path, nil
+    metapath, v = cartographer.assemble_from initial_path
     metapath.coverage.should == 0.5
+  end
+
+  it 'should return each path once' do
+    # low-road graph
+    graph, initial_path, terminal = GraphTesting.emit_ss([
+      [1,2],
+      [2,3],
+      [3,7],
+      [7,8], #extend path out of bubble to avoid begin dropped as a 'long tip'
+      [1,4],
+      [4,5],
+      [5,6],
+      [5,2],
+      [6,3],
+      ], 1, 1)
+    cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph, {
+      :max_tip_length => -1,
+      :min_contig_size => 0,
+      }
+    metapath, v = cartographer.assemble_from initial_path
+    GraphTesting.metapath_to_array(metapath).should == [1,[2,[4,5,2],[4,5,6]],3,7,8]
+    metapath.to_shorthand.should == '1s,{2s,3s|4s,5s,2s,3s|4s,5s,6s,3s},7s,8s'
+    metapath.reference_trail.to_shorthand.should == '1s,2s,3s,7s,8s'
   end
 end
