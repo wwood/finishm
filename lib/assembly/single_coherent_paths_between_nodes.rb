@@ -327,8 +327,8 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
             log.debug "Not finishing cyclic path with too many repeated cycles." if log.debug?
             next
           end
-        else
-          cycle_count = 0
+        #else
+          #cycle_count = 0
         end
         paths_to_last = problems[array_trail_to_settable(first_part, recoherence_kmer)].known_paths
         paths_to_last.each do |path|
@@ -357,13 +357,18 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     return to_return
   end
 
+  # Count occurrences of cycles in paths through an assembly graph. Works by building a hash of paths and
+  # the frequency of the modal cycle in that path (up to the cut-off max_cycles). For an unknown path, looks
+  # for a subset of the path in hash by removing nodes from start (or end if :forward option is set), and
+  # then extends the subset by iteratively re-adding a single node and adding to the hash of paths the larger
+  # of the subset count or the frequency for the modal cycle beginning with the re-added node.
   class CycleCounter
     include Bio::FinishM::Logging
 
-    def initialize(max_cycles = 1)
+    def initialize(max_cycles, options = {})
       @max_cycles = max_cycles
-      @path_cache = Hash.new
-      # Cache max_cycles for previously seen paths
+      @path_cache = Hash.new # Cache max_cycles for previously seen paths
+      @forward = options[:forward] || false # By default builds hash assuming backtracking from end of path. This flag will reverse path direction and build hash assuming moving forwards.
     end
 
 
@@ -376,6 +381,8 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       count = nil
       reached_max_cycles = false
 
+      second_part = second_part.reverse if @forward
+
       # Iterate along path and look for the remaining path in cache. Remember the iterated
       # path and the remaining path. Stop if a cache count is found, else use zero.
       while count.nil? and !second_part.empty?
@@ -384,7 +391,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         # Check if path value is cached
         if @path_cache.has_key? key
           count = @path_cache[key]
-          log.debug "Found cached count #{count} for path #{second_part.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
+          #log.debug "Found cached count #{count} for path #{second_part.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
           break
         else
           first_part = [first_part, second_part.first].flatten
@@ -393,7 +400,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       end
 
       if second_part.empty?
-        log.debug "Reached end of path without finding cached count." if log.debug?
+        #log.debug "Reached end of path without finding cached count." if log.debug?
         count = 0
       end
 
@@ -410,7 +417,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
 
         node = first_part.last
         if !reached_max_cycles
-          log.debug "Next node is #{node.node.node_id}." if log.debug?
+          #log.debug "Next node is #{node.node.node_id}." if log.debug?
           node_count = path_cycle_count_for_node(node, second_part, @max_cycles)
           count = [count, node_count].max
           reached_max_cycles = count > @max_cycles
@@ -421,7 +428,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
 
         key = second_part.collect{|onode| onode.to_settable}.flatten
         @path_cache[key] = count
-        log.debug "Caching cycle count #{count} for path #{second_part.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
+        #log.debug "Caching cycle count #{count} for path #{second_part.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
       end
       if reached_max_cycles and log.debug?
         log.debug "Most repeated cycle in path occured #{count} or more times."
@@ -431,27 +438,29 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       return count
     end
 
-    # For an initial node, find and count unique 'simple'cycles in a path that begin at the initial
+    # For an initial node, find and count unique 'simple' cycles in a path that begin at the initial
     # node, up to a max_cycles. Return count for the maximally repeated cycle if less than max_cycles,
     # or max_cycles.
     def path_cycle_count_for_node(node, path, max_cycles=1)
-      log.debug "Finding all simple cycles for node #{node.node_id} in path #{path.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
+      #log.debug "Finding all simple cycles for node #{node.node_id} in path #{path.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
       remaining = path
       cycles = Hash.new
+
+      remaining = remaining.reverse if @forward
 
       while remaining.include?(node)
         position = remaining.index(node)
         cycle = remaining[0..position]
         remaining = remaining[(position+1)..-1]
-        log.debug "Found cycle: #{cycle.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
+        #log.debug "Found cycle: #{cycle.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
 
         set_key = cycle.collect{|onode| onode.to_settable}.flatten
         cycles[set_key] ||= 0
         cycles[set_key] += 1
-        log.debug "Found repeat #{cycles[set_key]}." if log.debug?
+        #log.debug "Found repeat #{cycles[set_key]}." if log.debug?
 
         if cycles[set_key] > max_cycles
-          log.debug "Max cycles #{max_cycles} exceeded." if log.debug?
+          #log.debug "Max cycles #{max_cycles} exceeded." if log.debug?
           return cycles[set_key]
         end
       end
@@ -460,7 +469,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       else
         max_counts = cycles.values.max
       end
-      log.debug "Most cycles found #{max_counts}." if log.debug?
+      #log.debug "Most cycles found #{max_counts}." if log.debug?
       return max_counts
     end
   end

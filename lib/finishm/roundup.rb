@@ -302,6 +302,9 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
       if gapfilled
         num_gapfills += 1
         variants.each{|v| all_variants << v}
+        to_log = "Filled a gap on genome #{genome.filename}: scaffold #{scaffold.name}: #{scaffold.contigs[i].scaffold_position_end+1}-#{scaffold.contigs[i+1].scaffold_position_start-1}"
+        report.puts to_log
+        log.info to_log
       end
     end
     if scaffold_direction == false
@@ -331,6 +334,7 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
         )
       gapfilled = true
     end
+    scaffold_sequence.gsub!('-','') #remove gaps i.e. where the consensus is a gap
     return scaffold_sequence, variants, gapfilled
   end
 

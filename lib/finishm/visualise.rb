@@ -25,11 +25,10 @@ class Bio::FinishM::Visualiser
     optparse_object.on("--assembly-dot PATH", "Output assembly as a DOT file [default: off]") do |arg|
       options[:output_graph_dot] = arg
     end
+
+    optparse_object.separator "Input genome information"
     optparse_object.on("--genomes FASTA_1[,FASTA_2...]", Array, "Fasta files of genomes used in the assembly. Required if --scaffolds is given [default: unused]") do |arg|
       options[:assembly_files] = arg
-    end
-    optparse_object.on("--overhang NUM", Integer, "Start visualising this far from the ends of the contigs [default: #{options[:contig_end_length] }]") do |arg|
-      options[:contig_end_length] = arg.to_i
     end
 
     optparse_object.separator "\nIf an assembly is to be done, there must be some definition of reads:\n\n" #TODO improve this help
@@ -94,6 +93,9 @@ class Bio::FinishM::Visualiser
     end
     optparse_object.on("--leash-length NUM", Integer, "Don't explore too far in the graph, only this far and not much more [default: unused unless --probe-ids or --nodes is specified, otherwise #{options[:graph_search_leash_length] }]") do |arg|
       options[:graph_search_leash_length] = arg
+    end
+    optparse_object.on("--overhang NUM", Integer, "Start visualising this far from the ends of the contigs [default: #{options[:contig_end_length] }]") do |arg|
+      options[:contig_end_length] = arg.to_i
     end
     optparse_object.on("--max-nodes NUM", Integer, "Maximum number of nodes to explore out from each probe node, or 0 for no maximum [default: #{options[:max_nodes] }]") do |arg|
       if arg==0
@@ -390,6 +392,8 @@ class Bio::FinishM::Visualiser
   end
 
   def find_paired_end_linkages(finishm_graph, node_array)
+    return {} if @finder.nil?
+
     paired_end_links = {}
     node_array.each do |node|
       paired_end_links[node.node_id] = []

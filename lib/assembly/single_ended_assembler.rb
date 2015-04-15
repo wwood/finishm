@@ -68,7 +68,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
 
       # first attempt to go forward as far as possible, then reverse the path
       # and continue until cannot go farther
-      reversed_path_forward = find_beginnning_trail_from_node(start_node, seen_nodes)
+      reversed_path_forward = find_beginning_trail_from_node(start_node, seen_nodes)
       if reversed_path_forward.nil?
         log.debug "Could not find forward path from this node, giving up" if log.debug?
         next
@@ -161,7 +161,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
   # connected to this node.
   # With this path, you can explore forwards. This isn't very clear commenting, but
   # I'm just making this stuff up
-  def find_beginnning_trail_from_node(node, previously_seen_nodes)
+  def find_beginning_trail_from_node(node, previously_seen_nodes)
     onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new
     onode.node = node
     onode.first_side = Bio::Velvet::Graph::OrientedNodeTrail::END_IS_FIRST #go backwards first, because the path will later be reversed
