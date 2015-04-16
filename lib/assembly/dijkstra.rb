@@ -184,6 +184,114 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
     return all_min_distances
   end
 
+  # Generate an array of OrientedTrails
+  def alignments(graph, initial_oriented_node, options={})
+    pqueue = DS::AnyPriorityQueue.new {|a,b| a < b}
+    first = DistancedOrientedNodeTrail.new
+    first_trail = OrientedNodeTrail.new
+    first_trail.add_oriented_node(initial_oriented_node.copy)
+    first.oriented_trail = first_trail
+    first.distance = 0
+    pqueue.push first, first.distance
+
+    to_return = []
+    first_node = true
+
+    while min_distanced_trail = pqueue.shift
+
+      # Add/overwrite the current one
+      to_return.push min_distanced_trail
+
+      log.debug "Working from #{min_distanced_trail.inspect}" if log.debug?
+
+      if options[:leash_length] and min_distanced_trail.distance > options[:leash_length]
+        # we are passed leash length, and this is the nearest node. So we are finito.
+        # TIM - don't push more neighbours but finish current queue
+        log.debug "passed the leash length, cutting short our travels" if log.debug?
+        next
+      end
+
+      if options[:max_nodes] and found_nodes.length > options[:max_nodes]
+        log.debug "passed max-nodes threshold and have #{found_nodes.length} nodes" if log.debug?
+        # remove extras that may have been queued if we are over the limit
+        next
+      end
+
+      # Queue nodes after this one
+      current_distance = min_distanced_trail.distance
+
+      # Find neighbouring nodes
+      neighbours = nil
+      if options[:neighbour_finder]
+        neighbours = options[:neighbour_finder].neighbours(min_distanced_trail.last)
+      else
+        neighbours = min_distanced_trail.neighbours_of_last_node(graph)
+      end
+
+      # explore each neighbour node
+      neighbours.each do |onode|
+        found_nodes << onode.node.node_id
+        new_distance = current_distance
+        if options[:neighbour_finder]
+          # Don't use negative distances as this algorithm cannot handle it, and it is impossible
+          # anyway
+          if onode.distance > 0
+            new_distance += onode.distance
+          else
+            new_distance += 0 # TIM-???
+          end
+        end
+        unless first_node
+          new_distance += min_distanced_trail.last.node.length_alone
+        end
+
+        #Queue everything!!!
+        log.debug "Queuing trail with distance to neighbour: #{onode}: #{new_distance}" if log.debug?
+        distanced_trail = DistancedOrientedNodeTrail.new
+        distanced_trail.trail = min_distanced_trail.copy
+        distanced_trail.trail.add_oriented_node onode
+        distanced_trail.distance = new_distance
+        #to_return[onode.to_settable] = new_distance # TIM - Push to results when popped of queue
+        pqueue.push distanced_trail, new_distance
+
+        if options[:ignore_directions]
+          reverse = DistancedOrientedTrail.new
+          reverse.trail = min_distanced_trail.copy
+          reverse.trail.trail.add_oriented_node onode.reverse
+          reverse.distance = new_distance
+          #to_return[onode.to_settable] = new_distance
+          pqueue.push reverse, new_distance
+        end
+      end
+
+      first_node = false
+    end
+
+    if options[:max_nodes] and found_nodes.length > options[:max_nodes]
+      distances_direction_agnostic = {}
+      to_return.each do |dtrail|
+        last_node_id = dtrail.last.node.node_id
+        prev = distances_direction_agnostic[last_node_id]
+        if prev.nil? or prev > dtrail.distance
+          distances_direction_agnostic[last_node_id] = dtrail.distance
+        end
+      end
+      if distances_direction_agnostic.length > options[:max_nodes]
+        sorted = distances_direction_agnostic.to_a.sort{|a,b| a[1]<=>b[1]}
+        # deal with ties i.e. at the edge there can be multiple neighbours
+        last_distance = sorted[options[:max_nodes]][1]
+
+        # only keep those trails to nodes that are sufficiently short
+        to_return.select! do |dtrail|
+          dtrail.distance <= last_distance
+        end
+      end
+    end
+
+    # Return trails
+    return to_return.map{|d| d.oriented_trail}
+  end
+
   # An oriented node some distance from the origin of exploration
   class DistancedOrientedNode
     attr_accessor :node, :first_side, :distance
@@ -212,5 +320,29 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
       "DistancedOrientedNode #{object_id}: node=#{@node.node_id} first=#{@first_side} distance=#{@distance}"
     end
     alias_method :to_s, :inspect
+  end
+
+  class DistancedOrientedTrail
+    attr_accessor :oriented_trail, :distance
+
+    def last
+      @oriented_trail.last
+    end
+
+    def length
+      @oriented_trail.length
+    end
+
+    def to_settable
+      last.to_settable
+    end
+
+    def inspect
+      @oriented_trail.inspect
+    end
+
+    def neighbours_of_last_node(graph)
+      last.next_neighbours(graph)
+    end
   end
 end
