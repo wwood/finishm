@@ -186,13 +186,17 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
 
   # Generate an array of OrientedTrails
   def all_trails(graph, initial_oriented_node, options={})
-    pqueue = DS::AnyPriorityQueue.new {|a,b| a < b}
-    first = DistancedOrientedNodeTrail.new
-    first_trail = OrientedNodeTrail.new
-    first_trail.add_oriented_node(initial_oriented_node.copy)
-    first.oriented_trail = first_trail
+    counter = DistancedNodeCounter.new
+    trails = {}
+
+
+    first = DistancedOrientedNode.new
+    first.node = initial_oriented_node.node
+    first.first_side = initial_oriented_node.first_side
     first.distance = 0
-    pqueue.push first, first.distance
+    first_trail = DistancedOrientedNodeTrail.new
+    first_trail.add_oriented_node(first)
+    counter.push first
 
     to_return = []
     first_node = true
