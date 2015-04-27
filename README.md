@@ -1,3 +1,5 @@
+__WARNING__! FinishM is very alpha software and not ready for prime time. There are many unfinished parts of it, and many bugs. Please use with care, and don't judge the authors too harshly.
+
 # FinishM
 
 FinishM attempts to improve draft genomes by considering the computational problem to be about finishing, not assembly in the traditional sense.
@@ -12,6 +14,7 @@ FinishM has several modes:
 * Determine which contig ends are connected in the assembly graph. See `finishm wander`.
 * FinishM 'gapfills' (replaces N characters) using a graph-theoretic approach that appears to outperform current gapfilling programs. See `finishm gapfill`.
 * Sometimes a human is better able to interpret an assembly graph than a machine. FinishM creates human interpretable graph visualisations that let humans solve assembly problems. See `finishm visualise`.
+* Some other experimental _de-novo_ (non-finishing) metagenome assembly techniques are implemented in `finishm assemble`.
 
 ## Installation
 
