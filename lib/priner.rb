@@ -49,6 +49,7 @@ require 'assembly/paired_end_neighbour_finder'
 require 'assembly/single_ended_assembler'
 require 'assembly/bubbly_assembler'
 require 'assembly/bad_format_writer'
+require 'assembly/height_finder'
 
 require 'finishm/primers'
 require 'finishm/primers_check'
