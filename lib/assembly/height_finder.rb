@@ -5,9 +5,10 @@ class Bio::AssemblyGraphAlgorithms::HeightFinder
   include Bio::FinishM::Logging
 
   # visit nodes in range and determine heights
-  def traverse(graph, initial_nodes, options={})
+  def traverse(graph, options={})
     range = options[:range]
     reverse = options[:reverse]
+    initial_nodes = options[:initial_nodes]
     by_height = []
     traversal_nodes = {}
     cycles = {}
@@ -15,6 +16,10 @@ class Bio::AssemblyGraphAlgorithms::HeightFinder
 
     # depth-first so stack
     stack = DS::Stack.new
+    if initial_nodes.nil?
+      initial_nodes = graph.nodes.collect{|node| Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new node, true}
+    end
+
     initial_nodes.each do |onode|
       next unless range.nil? or range.any?{|other| other == onode }
       traversal_node = CyclicTraversalNode.new
