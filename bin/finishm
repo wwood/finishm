@@ -34,6 +34,7 @@ global = OptionParser.new do |opts|
   Utility modes:
 
     sequence\tGiven a defined sequence of nodes, what is the corresponding sequence?
+    path_count\tCount the number of paths through an assembly
     \n\n"
 end
 global.order!
@@ -84,6 +85,10 @@ subcommands = {
     operator = Bio::FinishM::RoundUp.new
     operator.add_options(opts, options)
   end},
+  'path_count' => lambda {OptionParser.new do |opts|
+    operator = Bio::FinishM::PathCounter.new
+    operator.add_options(opts, options)
+  end}
 }
 
 subcommand = nil

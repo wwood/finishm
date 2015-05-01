@@ -2,7 +2,7 @@ class Bio::FinishM::PathCounter
   include Bio::FinishM::Logging
 
   def add_options(optparse_object, options)
-    optparse_object.banner = "\nUsage: finishm pathcounter --assembly-??? --path PATH
+    optparse_object.banner = "\nUsage: finishm pathcounter --assembly-???
 
     Count paths through assembly graph
     \n\n"
@@ -37,25 +37,13 @@ class Bio::FinishM::PathCounter
     read_input.parse_options options
 
     # Generate the assembly graph
-    log.info "Reading in or generating the assembly graph"
-    if options[:interesting_probe_names]
-      log.info "Targeting #{options[:interesting_probe_names].length} probes through their names e.g. `#{options[:interesting_probe_names] }'"
-      options[:probe_read_names] = options[:interesting_probe_names]
-    else
-      if options[:interesting_probes].length > 5
-        log.info "Targeting #{options[:interesting_probes].length} probes #{options[:interesting_probes][0..4].join(', ') }, ..."
-      else
-        log.info "Targeting #{options[:interesting_probes].length} probes #{options[:interesting_probes].inspect}"
-      end
-      options[:probe_reads] = options[:interesting_probes]
-    end
     finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
 
-    count_paths_through_graph(finishm_graph)
+    count_paths_through_graph(finishm_graph, options)
   end
 
-  def count_paths_through_graph(finishm_graph, options)
-    height_finder = Bio::AssemblyGraphAlgorithms::Height_Finder.new
+  def count_paths_through_graph(finishm_graph, options={})
+    height_finder = Bio::AssemblyGraphAlgorithms::HeightFinder.new
     by_height, = height_finder.traverse finishm_graph.graph
     min_paths_through = height_finder.min_paths_through(by_height)
     max_paths_through = height_finder.max_paths_through(by_height)

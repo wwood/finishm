@@ -7,7 +7,6 @@ class Bio::AssemblyGraphAlgorithms::HeightFinder
   # visit nodes in range and determine heights
   def traverse(graph, options={})
     range = options[:range]
-    reverse = options[:reverse]
     initial_nodes = options[:initial_nodes]
     by_height = []
     traversal_nodes = {}
@@ -23,7 +22,7 @@ class Bio::AssemblyGraphAlgorithms::HeightFinder
     initial_nodes.each do |onode|
       next unless range.nil? or range.any?{|other| other == onode }
       traversal_node = CyclicTraversalNode.new
-      traversal_node.onode = reverse ? onode.reverse : onode
+      traversal_node.onode = options[:reverse] ? onode.reverse : onode
       traversal_node.nodes_in = []
       traversal_nodes[onode.to_settable] = traversal_node
       stack.push traversal_node
