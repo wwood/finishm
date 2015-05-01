@@ -35,7 +35,7 @@ describe "HeightFinder" do
     f = GraphTesting.finishm_graph([[1,2],[1,3],[2,3]])
     onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(f.graph.nodes[1], true) #forwards
     height_finder = Bio::AssemblyGraphAlgorithms::HeightFinder.new
-    by_height, cycles = height_finder.traverse f.graph, [onode]
+    by_height, cycles = height_finder.traverse(f.graph, :initial_nodes => [onode])
     GraphTesting.ids_from_list_of_arrays(by_height).should == [
       [3],
       [2],
@@ -64,7 +64,7 @@ describe "HeightFinder" do
       ])
     onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new f.graph.nodes[3], true # forwards
     height_finder = Bio::AssemblyGraphAlgorithms::HeightFinder.new
-    by_height, cycles = height_finder.traverse(f.graph, [onode], { :reverse=>true })
+    by_height, cycles = height_finder.traverse(f.graph,{ :initial_nodes => [onode], :reverse=>true })
     GraphTesting.ids_from_list_of_arrays(by_height).should == [
       [1],
       [2],
@@ -92,9 +92,9 @@ describe "HeightFinder" do
       [2,3],
       [3,4]
     ])
-    range = [1, 3, 4].collect{|id| Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new f.graph.nodes[id], true}
+    range = [1, 3, 4].collect{|id| f.graph.nodes[id]}
     height_finder = Bio::AssemblyGraphAlgorithms::HeightFinder.new
-    by_height, cycles = height_finder.traverse f.graph, range[0..0], { :range=>range }
+    by_height, cycles = height_finder.traverse f.graph, { :range=>range }
     GraphTesting.ids_from_list_of_arrays(by_height).should == [
       [4],
       [3],
@@ -124,7 +124,7 @@ describe "HeightFinder" do
       ]) # permute edge order to randomise start order
     onodes = [2, 7, 3, 1, 5].collect{|id| Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new f.graph.nodes[id], true}
     height_finder = Bio::AssemblyGraphAlgorithms::HeightFinder.new
-    by_height, cycles = height_finder.traverse f.graph, onodes
+    by_height, cycles = height_finder.traverse(f.graph, :initial_nodes => onodes)
     GraphTesting.ids_from_list_of_arrays(by_height).should == [
       [7],
       [6],
@@ -170,7 +170,7 @@ describe "HeightFinder" do
       ])
     onodes = [1, 2, 3].collect{|id| Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new f.graph.nodes[id], true}
     height_finder = Bio::AssemblyGraphAlgorithms::HeightFinder.new
-    by_height, cycles = height_finder.traverse f.graph, onodes
+    by_height, cycles = height_finder.traverse(f.graph, :initial_nodes => onodes)
     GraphTesting.ids_from_list_of_arrays(by_height).should == [
       [8],
       [2,6,7],
@@ -213,7 +213,7 @@ describe "HeightFinder" do
       ])
     onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(f.graph.nodes[1], true)
     height_finder = Bio::AssemblyGraphAlgorithms::HeightFinder.new
-    by_height, cycles = height_finder.traverse f.graph, [onode]
+    by_height, cycles = height_finder.traverse(f.graph, :initial_nodes => [onode])
     height_finder.max_paths_through(by_height).should == 2
     height_finder.min_paths_through(by_height).should == 1
     GraphTesting.ids_from_list_of_onode_arrays(cycles).should == [
@@ -232,7 +232,7 @@ describe "HeightFinder" do
       ])
       onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new(f.graph.nodes[1], true)
       height_finder = Bio::AssemblyGraphAlgorithms::HeightFinder.new
-      by_height, cycles = height_finder.traverse  f.graph, [onode]
+      by_height, cycles = height_finder.traverse(f.graph, :initial_nodes => [onode])
       GraphTesting.ids_from_list_of_onode_arrays(cycles).should == [
         [2,3],
         [2,3,4]
@@ -259,7 +259,7 @@ describe "HeightFinder" do
         ])
       onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new f.graph.nodes[1], true
       height_finder = Bio::AssemblyGraphAlgorithms::HeightFinder.new
-      by_height, cycles = height_finder.traverse f.graph, [onode]
+      by_height, cycles = height_finder.traverse(f.graph, :initial_nodes => [onode])
       bubbles = height_finder.find_bubbles(by_height)
       GraphTesting.ids_from_list_of_onode_arrays(bubbles).should == [
         [1,2,3,4,5,6,7,8,9,10],

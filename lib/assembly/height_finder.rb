@@ -6,7 +6,6 @@ class Bio::AssemblyGraphAlgorithms::HeightFinder
 
   # visit nodes in range and determine heights
   def traverse(graph, options={})
-    range = options[:range]
     initial_nodes = options[:initial_nodes]
     by_height = []
     traversal_nodes = {}
@@ -16,15 +15,15 @@ class Bio::AssemblyGraphAlgorithms::HeightFinder
     # depth-first so stack
     stack = DS::Stack.new
     if initial_nodes.nil?
-      initial_nodes = graph.nodes.collect{|node| Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new node, true}
+      initial_nodes = (options[:range] || graph.nodes).collect{|node| Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new node, true}
     end
 
     initial_nodes.each do |onode|
-      next unless range.nil? or range.any?{|other| other == onode }
+      next if options[:range] and options[:range].none?{|other| other == onode.node }
       traversal_node = CyclicTraversalNode.new
       traversal_node.onode = options[:reverse] ? onode.reverse : onode
       traversal_node.nodes_in = []
-      traversal_nodes[onode.to_settable] = traversal_node
+      traversal_nodes[traversal_node.onode.to_settable] = traversal_node
       stack.push traversal_node
     end
 
@@ -46,8 +45,8 @@ class Bio::AssemblyGraphAlgorithms::HeightFinder
       neighbours = traversal_node.nodes_out
       if neighbours.nil?
         neighbours = traversal_node.onode.next_neighbours(graph)
-        unless range.nil?
-          neighbours.reject!{|onode| range.none?{|other| other == onode}} #not in defined range
+        if options[:range]
+          neighbours.reject!{|onode| options[:range].none?{|other| other == onode.node}} #not in defined range
         end
 
         # Get or create traversal version of node
