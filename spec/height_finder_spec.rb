@@ -239,34 +239,4 @@ describe "HeightFinder" do
         ]
 
   end
-
-  describe 'find_bubbles' do
-    it 'should report bubbles' do
-      f = GraphTesting.finishm_graph([
-        [1,2],
-        [1,3],
-        [2,4],
-        [3,5],
-        [3,6],
-        [5,7],
-        [6,7],
-        [7,8],
-        [7,9],
-        [8,10],
-        [9,10],
-        [4,10],
-        [10,11]
-        ])
-      onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new f.graph.nodes[1], true
-      height_finder = Bio::AssemblyGraphAlgorithms::HeightFinder.new
-      by_height, cycles = height_finder.traverse(f.graph, :initial_nodes => [onode])
-      bubbles = height_finder.find_bubbles(by_height)
-      GraphTesting.ids_from_list_of_onode_arrays(bubbles).should == [
-        [1,2,3,4,5,6,7,8,9,10],
-        [3,5,6,7],
-        [7,8,9,10] # this is pretty subtle bug
-        ]
-    end
-  end
-
 end
