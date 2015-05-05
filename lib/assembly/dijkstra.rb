@@ -4,6 +4,85 @@ require 'set'
 class Bio::AssemblyGraphAlgorithms::Dijkstra
   include Bio::FinishM::Logging
 
+  def closest_first_search(graph, oriented_node, options={})
+    discovered_oriented_nodes = Set.new
+
+    first = DistancedOrientedNode.new
+    first.node = oriented_node.node
+    first.first_side = oriented_node.first_side
+    first.distance = 0
+
+    pqueue = DS::AnyPriorityQueue.new {|a,b| a < b}
+    pqueue.push first, first.distance
+
+    first_node = true
+
+    while min_distanced_node = pqueue.shift
+
+
+      log.debug "Working from #{min_distanced_node.inspect}" if log.debug?
+      if discovered_oriented_nodes.include? min_distanced_node.to_settable
+        # Already seen this node, do nothing with it
+        log.debug "Skipping #{min_distanced_node.inspect} since that has already been seen" if log.debug?
+        next
+      else
+        log.debug "That's a new node, #{min_distanced_node.inspect}" if log.debug?
+        # Found a new node for the user to play with
+        discovered_oriented_nodes << min_distanced_node.to_settable
+
+        yield min_distanced_node
+
+        #return unless continue
+
+        # Queue nodes after this one
+        current_distance = min_distanced_node.distance
+
+        # Find neighbouring nodes
+        neighbours = nil
+        if options[:neighbour_finder]
+          neighbours = options[:neighbour_finder].neighbours(min_distanced_node)
+        else
+          neighbours = min_distanced_node.next_neighbours(graph)
+        end
+
+        # explore each neighbour node
+        neighbours.each do |onode|
+          new_distance = current_distance
+          if options[:neighbour_finder]
+            # Don't use negative distances as this algorithm cannot handle it, and it is impossible
+            # anyway
+            if onode.distance > 0
+              new_distance += onode.distance
+            else
+              new_distance += 0
+            end
+          end
+          unless first_node
+            new_distance += min_distanced_node.node.length_alone
+          end
+
+          log.debug "Queuing new distance for neighbour: #{onode}: #{new_distance}" if log.debug?
+          # new shortest distance found. queue it up
+          distanced_node = DistancedOrientedNode.new
+          distanced_node.node = onode.node
+          distanced_node.first_side = onode.first_side
+          distanced_node.distance = new_distance
+          pqueue.push distanced_node, new_distance
+
+          if options[:ignore_directions]
+            reverse = DistancedOrientedNode.new
+            reverse.node = onode.node
+            reverse.first_side = onode.reverse.first_side
+            reverse.distance = new_distance
+            pqueue.push reverse, new_distance
+          end
+        end
+
+        first_node = false
+      end
+    end
+  end
+
   # Return an array of DistancedOrientedNode objects, those reachable from
   # the initial_oriented_node. options:
   # :leash_length => max distance explored,
@@ -23,23 +102,18 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
   #
   # Returns a Hash of [node_id, first_side] => distance
   def min_distances(graph, initial_oriented_node, options={})
-    pqueue = DS::AnyPriorityQueue.new {|a,b| a < b}
-    first = DistancedOrientedNode.new
-    first.node = initial_oriented_node.node
-    first.first_side = initial_oriented_node.first_side
-    first.distance = 0
-    pqueue.push first, first.distance
 
     to_return = {}
-    first_node = true
-    found_nodes = Set.new([first.node.node_id])
+    found_nodes = Set.new([initial_oriented_node.node.node_id])
+    last_distance = nil
 
-    while min_distanced_node = pqueue.shift
+    closest_first_search(graph, initial_oriented_node, options) do |min_distanced_node|
 
       # Add/overwrite the current one
       to_return[min_distanced_node.to_settable] = min_distanced_node.distance
 
-      log.debug "Working from #{min_distanced_node.inspect}" if log.debug?
+      #
+      found_nodes << min_distanced_node.node.node_id
 
       if options[:leash_length] and min_distanced_node.distance > options[:leash_length]
         # we are passed leash length, and this is the nearest node. So we are finito.
@@ -49,80 +123,35 @@ class Bio::AssemblyGraphAlgorithms::Dijkstra
 
       if options[:max_nodes] and found_nodes.length > options[:max_nodes]
         log.debug "passed max-nodes threshold and have #{found_nodes.length} nodes" if log.debug?
-        # remove extras that may have been queued if we are over the limit
-        distances_direction_agnostic = {}
-        to_return.each do |key, distance|
-          prev = distances_direction_agnostic[key[0]]
-          if prev.nil? or prev > distance
-            distances_direction_agnostic[key[0]] = distance
-          end
-        end
-        if distances_direction_agnostic.length > options[:max_nodes]
-          sorted = distances_direction_agnostic.to_a.sort{|a,b| a[1]<=>b[1]}
-          # deal with ties i.e. at the edge there can be multiple neighbours
-          last_distance = sorted[options[:max_nodes]][1]
+        last_distance = min_distanced_node.distance
+      end
 
-          # only keep those nodes that are sufficiently close
-          to_return.select! do |key, distance|
-            distance <= last_distance
-          end
-        end
+      if not last_distance.nil? and min_distanced_node.distance > last_distance
+        log.debug "found a node further than the max-node threshold" if log.debug?
         break
       end
+    end
 
-      # Queue nodes after this one
-      current_distance = min_distanced_node.distance
+    if not last_distance.nil?
+      # remove extras that may have been queued if we are over the limit
 
-      # Find neighbouring nodes
-      neighbours = nil
-      if options[:neighbour_finder]
-        neighbours = options[:neighbour_finder].neighbours(min_distanced_node)
-      else
-        neighbours = min_distanced_node.next_neighbours(graph)
-      end
-
-      # explore each neighbour node
-      neighbours.each do |onode|
-        found_nodes << onode.node.node_id
-        new_distance = current_distance
-        if options[:neighbour_finder]
-          # Don't use negative distances as this algorithm cannot handle it, and it is impossible
-          # anyway
-          if onode.distance > 0
-            new_distance += onode.distance
-          else
-            new_distance += 0
-          end
-        end
-        unless first_node
-          new_distance += min_distanced_node.node.length_alone
-        end
-
-        if to_return[onode.to_settable] and to_return[onode.to_settable] <= new_distance
-          # We already know a shorter path to this neighbour, so ignore it
-          log.debug "Already seen this node at the same or shorter distance, going no further" if log.debug?
-        else
-          log.debug "Queuing new distance for neighbour: #{onode}: #{new_distance}" if log.debug?
-          # new shortest distance found. queue it up
-          distanced_node = DistancedOrientedNode.new
-          distanced_node.node = onode.node
-          distanced_node.first_side = onode.first_side
-          distanced_node.distance = new_distance
-          to_return[onode.to_settable] = new_distance
-          pqueue.push distanced_node, new_distance
-
-          if options[:ignore_directions]
-            reverse = DistancedOrientedNode.new
-            reverse.node = onode.node
-            reverse.first_side = onode.reverse.first_side
-            reverse.distance = new_distance
-            to_return[onode.to_settable] = new_distance
-            pqueue.push reverse, new_distance
-          end
+      distances_direction_agnostic = {}
+      to_return.each do |key, distance|
+        prev = distances_direction_agnostic[key[0]]
+        if prev.nil? or prev > distance
+          distances_direction_agnostic[key[0]] = distance
         end
       end
+      if distances_direction_agnostic.length > options[:max_nodes]
+        sorted = distances_direction_agnostic.to_a.sort{|a,b| a[1]<=>b[1]}
+        # deal with ties i.e. at the edge there can be multiple neighbours
+        last_distance = sorted[options[:max_nodes]][1]
 
-      first_node = false
+        # only keep those nodes that are sufficiently close
+        to_return.select! do |key, distance|
+          distance <= last_distance
+        end
+      end
     end
 
     # if ignore directions, then fixup the return so that each direction is included
