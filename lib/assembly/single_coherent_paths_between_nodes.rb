@@ -34,25 +34,12 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     problems = ProblemSet.new
 
     # setup stack to keep track of initial nodes
-    pqueue = DS::AnyPriorityQueue.new {|a,b| a < b}
-    pqueue.enqueue initial_path.copy, 0
+    finder = ProblemTrailFinder.new(graph, initial_path)
 
-    push_next_neighbours = lambda do |current_path|
-      next_nodes = current_path.neighbours_of_last_node(graph)
-      log.debug "Pushing #{next_nodes.length} new neighbours of #{current_path.last}" if log.debug?
-      #TODO: not neccessary to copy all paths, can just continue one of them
-      next_nodes.each do |n|
-        log.debug "Pushing neighbour to stack: #{n}" if log.debug?
-        path = current_path.copy
-        path.add_oriented_node n
-        pqueue.enqueue path, path.length_in_bp
-      end
-    end
+    #current_oriented_node_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
+    #last_number_of_problems_observed_checkpoint = 0
 
-    current_oriented_node_trail = Bio::Velvet::Graph::OrientedNodeTrail.new
-    last_number_of_problems_observed_checkpoint = 0
-
-    while current_path = pqueue.dequeue
+    while current_path = finder.dequeue
       path_length = current_path.length_in_bp
       log.debug "considering #{current_path}, path length: #{path_length}" if log.debug?
 
@@ -89,7 +76,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         if path_length < prob.min_distance
           log.debug "Found a node with min_distance greater than path length.." if log.debug?
           prob.min_distance = path_length
-          push_next_neighbours.call current_path
+          finder.push_next_neighbours current_path
         end
       elsif !leash_length.nil? and path_length > leash_length
         # we are past the leash length, give up
@@ -113,9 +100,9 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         end
 
         # explore the forward neighbours
-        push_next_neighbours.call current_path
+        finder.push_next_neighbours current_path
       end
-      log.debug "Priority queue size: #{pqueue.length}" if log.debug?
+      log.debug "Priority queue size: #{finder.length}" if log.debug?
     end
 
     return problems
@@ -268,23 +255,13 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     return false #no candidate reads pass
   end
 
+
   def find_paths_from_problems(problems, recoherence_kmer, options={})
     max_num_paths = options[:max_gapfill_paths]
     max_num_paths ||= 2196
     max_cycles = options[:max_cycles] || 1
 
-    # Separate stacks for valid paths and paths which exceed the maximum allowed
-    # cycle count.
-    # Each backtrack spawns a set of new paths, which are cycle counted. If any cycle
-    # is repeated more than max_cycles, the new path is pushed to the max_cycle_stack,
-    # otherwise the path is pushed to the main stack. Main stack paths are prioritised.
-    # The parachute can kill the search once the main stack exceeds max_gapfill_paths,
-    # since all paths on it are valid.
-    # The max_cycle_stack paths must be tracked until cycle repeats in second_part exceed
-    # max_cycles, as they can spawn valid paths with backtracking.
-    stack = DS::Stack.new
-    max_cycle_stack = DS::Stack.new
-    counter = CycleCounter.new(max_cycles)
+    solver = CyclicProblemSolver.new(problems, recoherence_kmer, max_cycles)
     to_return = Bio::AssemblyGraphAlgorithms::TrailSet.new
 
     # if there is no solutions to the overall problem then there is no solution at all
@@ -297,14 +274,11 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     problems.terminal_node_keys.each do |key|
       overall_solution = problems[key]
       first_part = overall_solution.known_paths[0].to_a
-      stack.push [
-        first_part,
-        [],
-        ]
+      solver.push first_part
     end
 
     all_paths_hash = {}
-    while path_parts = stack.pop || max_cycle_stack.pop
+    while path_parts = solver.pop_parts
       log.debug path_parts.collect{|half| half.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') if log.debug?
       first_part = path_parts[0]
       second_part = path_parts[1]
@@ -319,42 +293,80 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         key = second_part.hash
         all_paths_hash[key] ||= second_part.flatten
       else
-        last = first_part.last
-        if second_part.include?(last)
-          log.debug "Cycle at node #{last.node_id} detected in previous path #{second_part.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
-          to_return.circular_paths_detected = true unless to_return.circular_paths_detected
-          if max_cycles == 0  or max_cycles < counter.path_cycle_count([last, second_part].flatten)
-            log.debug "Not finishing cyclic path with too many repeated cycles." if log.debug?
-            next
-          end
-        #else
-          #cycle_count = 0
-        end
-        paths_to_last = problems[array_trail_to_settable(first_part, recoherence_kmer)].known_paths
-        paths_to_last.each do |path|
-          to_push = [path[0...(path.length-1)],[last,second_part].flatten]
-          if max_cycles < counter.path_cycle_count(to_push.flatten)
-            log.debug "Pushing #{to_push.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') } to secondary stack" if log.debug?
-            max_cycle_stack.push to_push
-          else
-            log.debug "Pushing #{to_push.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') } to main stack" if log.debug?
-            stack.push to_push
-          end
-        end
+        solver.push_parts first_part, second_part
       end
 
       # max_num_paths parachute
-      if !max_num_paths.nil? and (stack.size + all_paths_hash.length) > max_num_paths
+      # The parachute can kill the search once the main stack exceeds max_gapfill_paths,
+      # since all paths on it are valid.
+      if !max_num_paths.nil? and (solver.stack_size + all_paths_hash.length) > max_num_paths
         log.info "Exceeded the maximum number of allowable paths in this gapfill" if log.info?
         to_return.max_path_limit_exceeded = true
         all_paths_hash = {}
         break
       end
-
     end
 
     to_return.trails = all_paths_hash.values
     return to_return
+  end
+
+  # Separate stacks for valid paths and paths which exceed the maximum allowed
+  # cycle count.
+  # Each backtrack spawns a set of new paths, which are cycle counted. If any cycle
+  # is repeated more than max_cycles, the new path is pushed to the max_cycle_stack,
+  # otherwise the path is pushed to the main stack. Main stack paths are prioritised.
+  # The max_cycle_stack paths must be tracked until cycle repeats in second_part exceed
+  # max_cycles, as they can spawn valid paths with backtracking.
+  class CyclicProblemSolver
+    include Bio::FinishM::Logging
+
+    def initialize(problems, recoherence_kmer=nil, max_cycles=0)
+      @stack = DS::Stack.new
+      @problems = problems
+      @recoherence_kmer = recoherence_kmer
+      @max_cycle_stack = DS::Stack.new
+      @max_cycles = max_cycles
+      if max_cycles > 0
+        @counter = CycleCounter.new(max_cycles)
+      end
+    end
+
+    def push(first_part)
+      @stack.push [first_part, []]
+    end
+
+    def push_next_parts(first_part, second_part)
+      last = first_part.last
+
+      if second_part.include? last
+        log.debug "Cycle at node #{last.node_id} detected in previous path #{second_part.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
+        if @max_cycles == 0 or @max_cycles < @counter.path_cycle_count([last, second_part].flatten)
+          log.debug "Not finishing cyclic path with too many repeated cycles." if log.debug?
+          return
+        end
+      end
+
+      paths_to_last = @problems[array_trail_to_settable(first_part, recoherence_kmer)].known_paths
+      paths_to_last.each do |path|
+        to_push = [path[0...(path.length-1)],[last,second_part].flatten]
+        if @max_cycles < @counter.path_cycle_count(to_push.flatten)
+          log.debug "Pushing #{to_push.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') } to secondary stack" if log.debug?
+          @max_cycle_stack.push to_push
+        else
+          log.debug "Pushing #{to_push.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') } to main stack" if log.debug?
+          @stack.push to_push
+        end
+      end
+    end
+
+    def pop_parts
+      @stack.pop || @max_cycle_stack.pop
+    end
+
+    def stack_size
+      @stack.size
+    end
   end
 
   # Count occurrences of cycles in paths through an assembly graph. Works by building a hash of paths and
@@ -487,6 +499,40 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
   class ProblemSet < Hash
     # Array of keys to this hash that end in the terminal onode
     attr_accessor :terminal_node_keys
+  end
+
+  class ProblemTrailFinder
+    include Bio::FinishM::Logging
+
+    def initialize(graph, initial_path)
+      @pqueue = DS::AnyPriorityQueue.new {|a,b| a < b}
+      @pqueue.enqueue initial_path.copy, 0
+      @graph = graph
+    end
+
+    def dequeue
+      @pqueue.dequeue
+    end
+
+    def length
+      @pqueue.length
+    end
+
+    def end?(current_path)
+      return current_path.neighbours_of_last_node(@graph).empty?
+    end
+
+    def push_next_neighbours(current_path)
+      next_nodes = current_path.neighbours_of_last_node(@graph)
+      log.debug "Pushing #{next_nodes.length} new neighbours of #{current_path.last}" if log.debug?
+      #TODO: not neccessary to copy all paths, can just continue one of them
+      next_nodes.each do |n|
+        log.debug "Pushing neighbour to stack: #{n}" if log.debug?
+        path = current_path.copy
+        path.add_oriented_node n
+        @pqueue.enqueue path, path.length_in_bp
+      end
+    end
   end
 end
 
