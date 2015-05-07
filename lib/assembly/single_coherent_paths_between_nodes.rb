@@ -261,7 +261,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     max_num_paths ||= 2196
     max_cycles = options[:max_cycles] || 1
 
-    solver = CyclicProblemSolver.new(problems, recoherence_kmer, max_cycles)
+    solver = CyclicProblemSolver.new(max_cycles)
     to_return = Bio::AssemblyGraphAlgorithms::TrailSet.new
 
     # if there is no solutions to the overall problem then there is no solution at all
@@ -274,7 +274,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     problems.terminal_node_keys.each do |key|
       overall_solution = problems[key]
       first_part = overall_solution.known_paths[0].to_a
-      solver.push first_part
+      solver.push_parts first_part, []
     end
 
     all_paths_hash = {}
@@ -293,7 +293,20 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         key = second_part.hash
         all_paths_hash[key] ||= second_part.flatten
       else
-        solver.push_parts first_part, second_part
+        last = first_part.last
+
+        if second_part.include? last
+          log.debug "Cycle at node #{last.node_id} detected in previous path #{second_part.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
+          if @max_cycles == 0 or @max_cycles < @counter.path_cycle_count([last, second_part].flatten)
+            log.debug "Not finishing cyclic path with too many repeated cycles." if log.debug?
+            next
+          end
+        end
+
+        paths_to_last = @problems[array_trail_to_settable(first_part, recoherence_kmer)].known_paths
+        paths_to_last.each do |path|
+          solver.push_parts(path[0...(path.length-1)], [last,second_part].flatten)
+        end
       end
 
       # max_num_paths parachute
@@ -321,10 +334,8 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
   class CyclicProblemSolver
     include Bio::FinishM::Logging
 
-    def initialize(problems, recoherence_kmer=nil, max_cycles=0)
+    def initialize(max_cycles=0)
       @stack = DS::Stack.new
-      @problems = problems
-      @recoherence_kmer = recoherence_kmer
       @max_cycle_stack = DS::Stack.new
       @max_cycles = max_cycles
       if max_cycles > 0
@@ -332,31 +343,14 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       end
     end
 
-    def push(first_part)
-      @stack.push [first_part, []]
-    end
-
-    def push_next_parts(first_part, second_part)
-      last = first_part.last
-
-      if second_part.include? last
-        log.debug "Cycle at node #{last.node_id} detected in previous path #{second_part.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
-        if @max_cycles == 0 or @max_cycles < @counter.path_cycle_count([last, second_part].flatten)
-          log.debug "Not finishing cyclic path with too many repeated cycles." if log.debug?
-          return
-        end
-      end
-
-      paths_to_last = @problems[array_trail_to_settable(first_part, recoherence_kmer)].known_paths
-      paths_to_last.each do |path|
-        to_push = [path[0...(path.length-1)],[last,second_part].flatten]
-        if @max_cycles < @counter.path_cycle_count(to_push.flatten)
-          log.debug "Pushing #{to_push.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') } to secondary stack" if log.debug?
-          @max_cycle_stack.push to_push
-        else
-          log.debug "Pushing #{to_push.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') } to main stack" if log.debug?
-          @stack.push to_push
-        end
+    def push_parts(first_part, second_part)
+      to_push  = [first_part, second_part]
+      if @max_cycles < @counter.path_cycle_count(to_push.flatten)
+        log.debug "Pushing #{to_push.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') } to secondary stack" if log.debug?
+        @max_cycle_stack.push to_push
+      else
+        log.debug "Pushing #{to_push.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') } to main stack" if log.debug?
+        @stack.push to_push
       end
     end
 
@@ -518,7 +512,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
       @pqueue.length
     end
 
-    def end?(current_path)
+    def last_is_terminal?(current_path)
       return current_path.neighbours_of_last_node(@graph).empty?
     end
 
