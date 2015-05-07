@@ -13,13 +13,19 @@ module Bio
       # Search for open reading frames in a graph, in all the paths between
       # an initial and a terminal node
       def find_foward_orfs_in_connection(graph, initial_path, terminal_node,
-        minimum_orf_length=100, leash_length=nil)
+        minimum_orf_length=100, leash_length=nil, max_gapfill_paths=nil, max_cycles=nil, max_explore_nodes=nil)
 
         problems = find_all_problems(graph, initial_path, {
           :terminal_nodes => terminal_nodes,
           :leash_length => leash_length
           })
 
+        orf_trails = find_orfs_from_problems(problems, {
+          :minimum_orf_length => minimum_orf_length,
+          :max_gapfill_paths => max_gapfill_paths,
+          :max_cycles => max_cycles,
+          :max_explore_nodes => max_explore_nodes,
+          })
       end
 
 
@@ -123,23 +129,31 @@ module Bio
 
           # If an unclosed stop has been previously found, check for positions of stops
           if not second_part.nil?
-            current_fwd_orfs = second_part.fwd_orf_results
-            fwd_starts, twin_stops = search_for_words(second_part, true)
+            fwd_starts, twin_stops = search_for_codons(second_part, false) # search from first
+
+            # forward direction
+            current_fwd_orfs = second_part.fwd_orfs_result
             if current_fwd_orfs and not fwd_starts.empty?
               fwd_result = orfs_from_start_and_stop_indices(fwd_starts, current_fwd_orfs.final_stop_positions, min_orf_length)
 
               # collect previous start-stop pairs
               fwd_result.start_stop_pairs.concat current_fwd_orfs.start_stop_pairs
-              second_part.fwd_orf_results = fwd_result
+              second_part.fwd_orfs_result = fwd_result
             end
 
-            current_twin_orfs = second_part.twin_orf_results
+            # reverse direction
+            current_twin_orfs = second_part.twin_orfs_result
             if current_twin_orfs and not twin_stops.empty?
-              twin_result = orfs_from_start_and_stop_indices(twin_stops, current_twin_orfs.final_stop_positions, min_orf_length)
+              # twin stop positons are relative to start of first path twin node
+              # add length of rest of path to get position relative to start of last path twin node
+              length_of_rest_of_path = second_part.otrail.length_in_bos_within_path - second_part.otrail[0].node.length_alone
+              twin_stops = twin_stops.collect{|pos| pos+length_of_rest_of_path}
+
+              twin_result = orfs_from_start_and_stop_indices(current_twin_orfs.final_stop_positions, twin_stops, min_orf_length)
 
               # collect previous start-stop pairs
               twin_result.start_stop_pairs.concat current_twin_orfs.start_stop_pairs
-              second_part.twin_orf_results = twin_result
+              second_part.twin_orfs_result = twin_result
             end
 
             # All orfs in this sequence are closed. Mark as self-contained area
@@ -151,36 +165,45 @@ module Bio
           end
 
           if first_part.length == 0
-            # If we've tracked all the way to the beginning,
-            # then there's no need to track further
+            # If we've tracked all the way to the beginning, then there's no need to track further
+            if not second_part.nil?
+              key = second_part.otrail.trail.hash
+              all_paths_hash[key] ||= second_part
+            end
             next
           end
 
           paths_to_last = @problems[path_to_settable(first_part.otrail)].known_paths
           paths_to_last.each do |path|
             # Look for stops at the end of path
-            fwd_stops, twin_starts = search_for_words(path, false)
+            fwd_stops, twin_starts = search_for_codons(path, true) # search from last
 
+            if second_part
+              new_second_part = CodonTracer.new
+              new_second_part.otrail = second_part.otrail.copy
+              new_second_part.otrail.trail.unshift last
+              if new_second_part.fwd_orfs_result
+                new_second_part.fwd_orfs_result.offset last.node.length_alone
+              end
+            else
+              new_second_part =  nil
+            end
 
             if not fwd_stops.empty? or not twin_starts.empty?
               # Found a stop
-              new_second_part = CodonTracer.new
-              if second_part
-                new_second_part.otrail = second_part.otrail.copy
-                new_second_part.add_to_front last
-              else
+              if new_second_part.nil?
+                new_second_part = CodonTracer.new
                 new_second_part.otrail = Bio::Velvet::Graph::OrientedNodeTrail.new
                 new_second_part.otrail.add_oriented_node last
               end
               unless fwd_stops.empty?
-                new_second_part.fwd_orf_result.final_stop_positions.concat fwd_stops
+                new_second_part.fwd_orfs_result.final_stop_positions.concat fwd_stops
               end
               unless twin_starts.empty?
-                new_second_part.twin_orf_result.final_stop_positions.concat twin_starts
+                # positions relative to start of end twin node
+                twin_starts = twin_starts.collect{|pos| pos+new_second_part.otrail.length_in_bp-last.node.length_in_bp}
+                new_second_part.twin_orfs_result.final_stop_positions.concat twin_starts
               end
-            elsif not second_part.otrail.nil?
-              new_second_part.otrail = second_part.otrail.copy
-              new_second_part.otrail.trail.unshift last
             end
 
             new_first_part = path.copy
@@ -194,46 +217,113 @@ module Bio
           # since all paths on it are valid.
           if !max_num_paths.nil? and (solver.stack_size + all_paths_hash.length) > max_num_paths
             log.info "Exceeded the maximum number of allowable paths in this gapfill" if log.info?
-            to_return.max_path_limit_exceeded = true
             all_paths_hash = {}
             break
           end
         end
+
+        to_return = all_paths_hash.values
+        return to_return
       end
 
-      def search_for_words(otrail, from_first=false)
-        onode = from_first ? otrail[0] : otrail.last
+      # Returns:
+      # in 'forward' mode (from_end=false)
+      #   array of positions relative to start of first node of ends of start codons
+      #   array of positions relative to start of first node twin of end of stop codons
+      # in 'backward' mode (from_end=true)
+      #   array of positions relative to start of last node of ends of stop codons
+      #   array of positions relative to start of last node twin of ends of start codons
+      def search_for_codons(otrail, from_end=false)
+        onode = from_end ? otrail.last : otrail[0]
 
         # search within first / last node
         fwd_nodes_sequence, twin_nodes_sequence = get_sequences onode
-        if from_first
-          fwd_starts_within_first = word_search(fwd_nodes_sequence, START_CODONS, CODON_LENGTH)
-          twin_starts_within_first = word_search(twin_nodes_sequence, STOP_CODONS, CODON_LENGTH)
-        else
+        if from_end
+          #log.debug "Looking for stops in #{fwd_nodes_sequence}" if log.debug?
           fwd_stops_within_last = word_search(fwd_nodes_sequence, STOP_CODONS, CODON_LENGTH)
-          twin_starts_within_last = word_search(twin_nodes_sequence.reverse, START_CODONS, CODON_LENGTH)
+          #log.debug "Found stops #{fwd_stops_within_last.keys.join(',')} at positions #{fwd_stops_within_last.values.flatten.join(',')}" if log.debug?
+
+          #log.debug "Looking for starts in #{twin_nodes_sequence}" if log.debug?
+          twin_starts_within_last = word_search(twin_nodes_sequence, START_CODONS, CODON_LENGTH)
+          #log.debug "Found starts #{twin_starts_within_last.keys.join(',')} at positinos #{twin_starts_within_last.values.flatten.join(',')}" if log.debug?
+        else
+          fwd_starts_within_first = word_search(fwd_nodes_sequence, START_CODONS, CODON_LENGTH)
+          twin_stops_within_first = word_search(twin_nodes_sequence, STOP_CODONS, CODON_LENGTH)
         end
 
         # extend search along trail
-        fwd_overlap_sequence, twin_overlap_sequence = get_overlap_sequences(otrail, CODON_LENGTH, from_first)
-        if from_first
+        fwd_overlap_sequence, twin_overlap_sequence = get_overlap_sequences(otrail, CODON_LENGTH, from_end)
+        if from_end
+          #log.debug "Looking for stops in #{fwd_overlap_sequence}" if log.debug?
+          fwd_stops_in_overlap = word_search(fwd_overlap_sequence, STOP_CODONS, CODON_LENGTH)
+          #log.debug "Found stops #{fwd_stops_in_overlap.keys.join(',')} at positions #{fwd_stops_in_overlap.values.flatten.join(',')}" if log.debug?
+
+          #log.debug "Looking for starts in #{twin_overlap_sequence}" if log.debug?
+          twin_starts_in_overlap = word_search(twin_overlap_sequence, START_CODONS, CODON_LENGTH)
+          #log.debug "Found starts #{twin_starts_in_overlap.keys.join(',')} at positions #{twin_starts_in_overlap.values.flatten.join(',')}" if log.debug?
+        else
           fwd_starts_in_overlap = word_search(fwd_overlap_sequence, START_CODONS, CODON_LENGTH)
           twin_stops_in_overlap = word_search(twin_overlap_sequence, STOP_CODONS, CODON_LENGTH)
-        else
-          fwd_stops_in_overlap = word_search(fwd_overlap_sequence, STOP_CODONS, CODON_LENGTH)
-          twin_starts_in_overlap = word_search(twin_overlap_sequence, START_CODONS, CODON_LENGTH)
         end
 
         # combine
-        if from_first
-          # positions in overlap
-          fwd_starts = [fwd_starts_within_first,fwd_starts_in_overlap.collect{|pos| pos+onode.length_alone}].flatten
-          twin_stops = [twin_stops_within_first,twin_stops_in_overlap.collect{|pos| pos+onode.length_alone}].flatten
-          return fwd_starts, twin_stops
-        else
-          fwd_stops = [fwd_stops_in_overlap,fwd_stops_within_last].flatten
-          twin_starts = [twin_starts_in_overlap,twin_starts_within_last].flatten
+        if from_end
+          fwd_stops = [fwd_stops_in_overlap.values,fwd_stops_within_last.values].flatten
+          twin_starts = [twin_starts_in_overlap.values,twin_starts_within_last.values].flatten
           return fwd_stops, twin_starts
+        else
+          # offset positions in overlap to be relative to start of node / twin node
+          fwd_starts = [fwd_starts_within_first.values,fwd_starts_in_overlap.values.collect{|pos| pos+onode.length_alone}].flatten
+          twin_stops = [twin_stops_within_first.values,twin_stops_in_overlap.values.collect{|pos| pos+onode.length_alone}].flatten
+          # move positions to front of words
+          #fwd_starts = fwd_starts.collect{|pos| pos-CODON_LENGTH}
+          #twin_stops = twin_stops.collect{|pos| pos-CODON_LENGTH}
+          return fwd_starts, twin_stops
+        end
+      end
+
+      def get_overlap_sequences(otrail, size, from_end=false)
+        return '' if otrail.trail.empty?
+        trail = otrail.trail
+        if from_end # reverse as new sequence is taken from front of trail
+          trail = trail.reverse
+        end
+        twin_nodes_sequence = ''
+        fwd_nodes_sequence = ''
+
+        index = 0
+        onode = trail[index]
+
+        start_length = onode.node.length_alone
+        extension_length = -start_length
+
+        while extension_length < (size - 1) and index < trail.length
+          #log.debug "Extended #{extension_length} / #{size} bps and #{index+1} / #{otrail.length} nodes" if log.debug?
+          extend_fwd_nodes_sequence, extend_twin_nodes_sequence = get_sequences(onode)
+          if from_end
+            twin_nodes_sequence += extend_twin_nodes_sequence
+            fwd_nodes_sequence = extend_fwd_nodes_sequence + fwd_nodes_sequence
+          else
+            twin_nodes_sequence = extend_twin_nodes_sequence + twin_nodes_sequence
+            fwd_nodes_sequence += extend_fwd_nodes_sequence
+          end
+
+          extension_length += onode.node.length_alone
+          index += 1
+          onode = trail[index]
+        end
+
+        #log.debug "Found forward and twin sequences #{fwd_nodes_sequence} and #{twin_nodes_sequence} before trimming" if log.debug?
+
+        trim_start = start_length - (size - 1)
+        trim_start = 0 if trim_start < 0
+        trim_end = extension_length - (size - 1)
+        trim_end = 0 if trim_end < 0
+        #log.debug "Trimming first #{trim_start} and last #{trim_end} positions for output" if log.debug?
+        if from_end
+          return fwd_nodes_sequence[trim_end..-(trim_start+1)], twin_nodes_sequence[trim_start..-(trim_end+1)]
+        else
+          return fwd_nodes_sequence[trim_start..-(trim_end+1)], twin_nodes_sequence[trim_end..-(trim_start+1)]
         end
       end
 
@@ -248,44 +338,12 @@ module Bio
         return fwd_nodes_sequence, twin_nodes_sequence
       end
 
-      def get_overlap_sequences(otrail, size, from_end=false)
-        return '' if otrail.trail.empty?
-        if from_end
-          otrail = otrail.reverse
-        end
-        twin_nodes_sequence = ''
-        fwd_nodes_sequence = ''
-
-        index = 0
-        onode = otrail[index]
-
-        start_length = onode.node.length_alone
-        extension_length = - start_length
-
-        while extension_length < size - 1 and index < otrail.length - 1
-          extend_fwd_nodes_sequence, extend_twin_nodes_sequence = get_sequences onode
-          twin_nodes_sequence = extend_twin_nodes_sequence + twin_nodes_sequence
-          fwd_nodes_sequence += extend_fwd_nodes_sequence
-          total_length += onode.node.length_alone
-
-          index += 1
-          onode = otrail[index]
-        end
-
-        trim_start = start_length - (size - 1)
-        trim_start = 0 if trim_start < 0
-        trim_end = extension_length - (size - 1)
-        trim_end = 0 if trim_end < 0
-
-        return fwd_nodes_sequence[trim_start..-(trim_end+1)], twin_nodes_sequence[trim_end..-(trim_start+1)]
-      end
-
       def word_search(sequence, words, size)
         position = size
         inds = {}
 
-        while position < sequence.length
-          word = padded_sequence[position-size..position]
+        while position <= sequence.length
+          word = sequence[position-size...position]
           if words.include? word
             inds[word] ||=[]
             inds[word].push position
@@ -322,13 +380,13 @@ module Bio
           stops = frame_stops[frame].sort{|a,b| b<=>a}
 
           current_start = starts.pop
-          current_stop = stop.pop
+          current_stop = stops.pop
           stop_before_first_start = true
 
           while true
             # No more stops, done
             break if current_stop.nil?
-            if stop_before_first_start and (current.start.nil? or current_stop <= current_start)
+            if stop_before_first_start and (current_start.nil? or current_stop <= current_start)
               # Found stop codon before the first start codon
               to_return.final_stop_positions.push current_stop
               stop_before_first_start = false
@@ -339,7 +397,7 @@ module Bio
             if current_start.nil?
               break
             elsif current_stop <= current_start
-              current_stop = stop.pop
+              current_stop = stops.pop
               next
             else
               # This stop codon stops the current reading frame.
@@ -349,7 +407,9 @@ module Bio
               end
 
               # Whether or not last ORF was long enough, search for the next start codon
-              current_start = starts.pop
+              while current_start and current_start < current_stop
+                current_start = starts.pop
+              end
             end
           end
         end
@@ -360,24 +420,10 @@ module Bio
       class CodonTracer
         include Enumerable
 
-        attr_accessor :otrail, :fwd_orf_result, :twin_orf_result
+        attr_accessor :otrail, :fwd_orfs_result, :twin_orfs_result
 
         def each(&block)
           (@otrail || []).each(&block)
-        end
-
-        def add_to_front(onode)
-          if @otrail
-            @otrail.trail.unshift onode
-          end
-          if @fwd_orf_result
-            len = onode.node.length_alone
-            @fwd_orf_result.offset len
-          end
-          if @twin_orf_result
-            len ||= onode.node.length_alone
-            @twin_orf_result.offset len
-          end
         end
       end
 
