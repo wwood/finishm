@@ -256,12 +256,30 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
   end
 
 
+  # Separate stacks for valid paths and paths which exceed the maximum allowed
+  # cycle count.
+  # Each backtrack spawns a set of new paths, which are cycle counted. If any cycle
+  # is repeated more than max_cycles, the new path is pushed to the max_cycle_stack,
+  # otherwise the path is pushed to the main stack. Main stack paths are prioritised.
+  # The max_cycle_stack paths must be tracked until cycle repeats in second_part exceed
+  # max_cycles, as they can spawn valid paths with backtracking.
   def find_paths_from_problems(problems, recoherence_kmer, options={})
     max_num_paths = options[:max_gapfill_paths]
     max_num_paths ||= 2196
     max_cycles = options[:max_cycles] || 1
 
-    solver = CyclicProblemSolver.new(max_cycles)
+    counter = CycleCounter.new(max_cycles)
+    decide_stack = lambda do |to_push|
+      if max_cycles < counter.path_cycle_count(to_push.flatten)
+        log.debug "Pushing #{to_push.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') } to secondary stack" if log.debug?
+        return true
+      else
+        log.debug "Pushing #{to_push.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') } to main stack" if log.debug?
+        return false
+      end
+    end
+
+    stack = DualStack.new &decide_stack
     to_return = Bio::AssemblyGraphAlgorithms::TrailSet.new
 
     # if there is no solutions to the overall problem then there is no solution at all
@@ -274,11 +292,11 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     problems.terminal_node_keys.each do |key|
       overall_solution = problems[key]
       first_part = overall_solution.known_paths[0].to_a
-      solver.push_parts first_part, []
+      stack.push [first_part, []]
     end
 
     all_paths_hash = {}
-    while path_parts = solver.pop_parts
+    while path_parts = stack.pop
       log.debug path_parts.collect{|half| half.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') if log.debug?
       first_part = path_parts[0]
       second_part = path_parts[1]
@@ -291,28 +309,29 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
         # I've had some trouble getting the Ruby Set to work here, but this is effectively the same thing.
         log.debug "Found solution: #{second_part.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
         key = second_part.hash
-        all_paths_hash[key] ||= second_part.flatten
+        all_paths_hash[key] ||= second_part
       else
         last = first_part.last
 
         if second_part.include? last
           log.debug "Cycle at node #{last.node_id} detected in previous path #{second_part.collect{|onode| onode.node.node_id}.join(',')}." if log.debug?
-          if @max_cycles == 0 or @max_cycles < @counter.path_cycle_count([last, second_part].flatten)
+          to_return.circular_paths_detected = true
+          if max_cycles == 0 or max_cycles < counter.path_cycle_count([last, second_part].flatten)
             log.debug "Not finishing cyclic path with too many repeated cycles." if log.debug?
             next
           end
         end
 
-        paths_to_last = @problems[array_trail_to_settable(first_part, recoherence_kmer)].known_paths
+        paths_to_last = problems[array_trail_to_settable(first_part, recoherence_kmer)].known_paths
         paths_to_last.each do |path|
-          solver.push_parts(path[0...(path.length-1)], [last,second_part].flatten)
+          stack.push [path[0...(path.length-1)], [last,second_part].flatten]
         end
       end
 
       # max_num_paths parachute
       # The parachute can kill the search once the main stack exceeds max_gapfill_paths,
       # since all paths on it are valid.
-      if !max_num_paths.nil? and (solver.stack_size + all_paths_hash.length) > max_num_paths
+      if !max_num_paths.nil? and (stack.sizes[0] + all_paths_hash.length) > max_num_paths
         log.info "Exceeded the maximum number of allowable paths in this gapfill" if log.info?
         to_return.max_path_limit_exceeded = true
         all_paths_hash = {}
@@ -324,42 +343,27 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     return to_return
   end
 
-  # Separate stacks for valid paths and paths which exceed the maximum allowed
-  # cycle count.
-  # Each backtrack spawns a set of new paths, which are cycle counted. If any cycle
-  # is repeated more than max_cycles, the new path is pushed to the max_cycle_stack,
-  # otherwise the path is pushed to the main stack. Main stack paths are prioritised.
-  # The max_cycle_stack paths must be tracked until cycle repeats in second_part exceed
-  # max_cycles, as they can spawn valid paths with backtracking.
-  class CyclicProblemSolver
-    include Bio::FinishM::Logging
-
-    def initialize(max_cycles=0)
+  class DualStack
+    def initialize(&block)
+      @checker = block
       @stack = DS::Stack.new
-      @max_cycle_stack = DS::Stack.new
-      @max_cycles = max_cycles
-      if max_cycles > 0
-        @counter = CycleCounter.new(max_cycles)
-      end
+      @dual_stack = DS::Stack.new
     end
 
-    def push_parts(first_part, second_part)
-      to_push  = [first_part, second_part]
-      if @max_cycles < @counter.path_cycle_count(to_push.flatten)
-        log.debug "Pushing #{to_push.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') } to secondary stack" if log.debug?
-        @max_cycle_stack.push to_push
+    def push to_push
+      if @checker.call to_push
+        @dual_stack.push to_push
       else
-        log.debug "Pushing #{to_push.collect{|part| part.collect{|onode| onode.node.node_id}.join(',')}.join(' and ') } to main stack" if log.debug?
         @stack.push to_push
       end
     end
 
-    def pop_parts
-      @stack.pop || @max_cycle_stack.pop
+    def pop
+      @stack.pop || @dual_stack.pop
     end
 
-    def stack_size
-      @stack.size
+    def sizes
+      return @stack.size, @dual_stack.size
     end
   end
 

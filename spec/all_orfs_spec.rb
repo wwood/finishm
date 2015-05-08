@@ -3,21 +3,40 @@ require 'tempfile'
 
 #Bio::Log::CLI.logger('stderr'); Bio::Log::CLI.trace('debug'); log = Bio::Log::LoggerPlus.new('finishm'); Bio::Log::CLI.configure('finishm'); Bio::Log::CLI.configure('bio-velvet')
 
+class GraphTesting
+  def self.orfs_from_trail
+
+  end
+end
 
 describe "AllOrfs" do
 
-  describe 'should find a hello world trail' do
+  it 'should find a hello world ORF' do
     graph, paths = GraphTesting.emit_otrails([
       [1,2,3]
       ])
+    graph.nodes[1].ends_of_kmers_of_node = 'AAATGAAAAA' #start codon 'ATG'
+    graph.nodes[3].ends_of_kmers_of_node = 'AAAAAATAAA' # end codon 'TAA'
     initial_path = GraphTesting.make_onodes(graph, %w(1s))
+
+
     orfer = Bio::AssemblyGraphAlgorithms::AllOrfsFinder.new
     problems = orfer.find_all_problems(graph, initial_path)
+    pp problems
 
-    p problems
-    orfs = orfer.find_orfs_from_problems(problems)
-
+    paths = orfer.find_orfs_from_problems(problems)
+    pp paths
+    GraphTesting.sorted_paths(paths.trails).should == [
+      [1,2,3]
+      ]
+    res = paths.trails[0].fwd_orfs_result
+    res.start_stop_pairs.should == [
+      [6,29]
+      ]
+    res.final_stop_positions.should == []
   end
+
+
 
   describe 'search_for_codons' do
     it 'should look for forward start codons and twin stop codons ending in first node of trail' do
