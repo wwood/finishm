@@ -30,6 +30,7 @@ describe "AllOrfs" do
       [1,2,3]
       ]
     res = paths.trails[0].fwd_orfs_result
+    pp res
     res.start_stop_pairs.should == [
       [6,29]
       ]
@@ -39,26 +40,30 @@ describe "AllOrfs" do
 
 
   describe 'search_for_codons' do
-    it 'should look for forward start codons and twin stop codons ending in first node of trail' do
+    it 'should report end positions for codons starting in first node of trail' do
       orfer = Bio::AssemblyGraphAlgorithms::AllOrfsFinder.new
       graph, otrails = GraphTesting.emit_otrails([[1,2]])
-      graph.nodes[1].ends_of_kmers_of_node = 'AAATGAAAAA' # start codon 'ATG'
+      graph.nodes[1].ends_of_kmers_of_node = 'AAATGAAAAA' # start codon 'ATG', stop codon 'TGA'
       graph.nodes[1].ends_of_kmers_of_twin_node = 'TTTTTAACTT' # stop codon 'TAA'
-      orfer.search_for_codons(otrails[0], false).should == [
-        [5],
-        [7]
-        ]
+      fwd_res, twin_res = orfer.search_for_codons(otrails[0])
+      fwd_res.start_positions.should == [5]
+      fwd_res.stop_positions.should == [6]
+      twin_res.start_positions.should == []
+      twin_res.stop_positions.should == [7]
     end
 
-    it 'should look for forward stop codons and twin start codons ending in last node of trail' do
+    it 'should work on single-node trail' do
       orfer = Bio::AssemblyGraphAlgorithms::AllOrfsFinder.new
-      graph, otrails = GraphTesting.emit_otrails([[1,2]])
-      graph.nodes[2].ends_of_kmers_of_node = 'AAATAATAAA' # stop codon 'TAA'
-      graph.nodes[2].ends_of_kmers_of_twin_node = 'TTGATGTTTT' # start codon 'ATG', stop codon 'TGA'
-      orfer.search_for_codons(otrails[0], true).should == [
-        [6,9],
-        [6]
-        ]
+      graph, otrails = GraphTesting.emit([[1,2]])
+      graph.nodes[1].ends_of_kmers_of_node = 'AAATAATAAA' # stop codon 'TAA'
+      graph.nodes[1].ends_of_kmers_of_twin_node = 'TTGATGTTTT' # start codon 'ATG', stop codon 'TGA'
+      otrail = Bio::Velvet::Graph::OrientedNodeTrail.new
+      otrail.add_node graph.nodes[1], Bio::Velvet::Graph::OrientedNodeTrail::START_IS_FIRST
+      fwd_res, twin_res = orfer.search_for_codons(otrail)
+      fwd_res.start_positions.should == []
+      fwd_res.stop_positions.should == [6,9]
+      twin_res.start_positions.should == [6]
+      twin_res.stop_positions.should == [4]
     end
   end
 

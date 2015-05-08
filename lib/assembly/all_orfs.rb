@@ -7,8 +7,8 @@ module Bio
       include Bio::FinishM::Logging
 
       CODON_LENGTH = 3
-      START_CODONS = Set.new ['ATG']
-      STOP_CODONS = Set.new ['TAG', 'TAA', 'TGA']
+      START_CODONS = ['ATG']
+      STOP_CODONS = ['TAG', 'TAA', 'TGA']
 
       # Search for open reading frames in a graph, in all the paths between
       # an initial and a terminal node
@@ -140,41 +140,50 @@ module Bio
           second_part = path_parts[1]
           log.debug "#{first_part.to_shorthand} and #{second_part.otrail.to_shorthand}" if log.debug?
 
-          # If an unclosed stop has been previously found, check for positions of stops
-          current_fwd_orfs = second_part.fwd_orfs_result
-          current_twin_orfs = second_part.twin_orfs_result
-          if (current_fwd_orfs and not current_fwd_orfs.final_stop_positions.empty?) or (current_twin_orfs and not current_twin_orfs.final_stop_positions.empty?)
-            log.debug "Searching first node of second part for codons" if log.debug
-            fwd_starts, twin_stops = search_for_codons(second_part.otrail, false) # search from first
+          # Look for codons
+          log.debug "Searching first node of second part for codons" if log.debug
+          fwd_result, twin_result = search_for_codons(second_part.otrail, false) # search from first
 
-            # forward direction
-            if current_fwd_orfs and not current_fwd_orfs.final_stop_positions.empty? and not fwd_starts.empty?
-              log.debug "Attempt to pair start codons in forward direction at #{fwd_starts.join(',')}" if log.debug?
-              fwd_result = orfs_from_start_stop_indices(fwd_starts, current_fwd_orfs.final_stop_positions, min_orf_length)
-              log.debug "Found pairs #{fwd_result.start_stop_pairs.collect{|pair| pair.join(',')}.join('],[')}" if log.debug?
-
-              # collect previous start-stop pairs
-              fwd_result.start_stop_pairs.concat current_fwd_orfs.start_stop_pairs
-              second_part.fwd_orfs_result = fwd_result
-              log.debug "Remaining forward stops: #{second_part.fwd_orfs_result.final_stop_positions}" if log.debug?
+          # Forward direction
+          if not fwd_result.stop_positions.empty? or not fwd_result.start_positions.empty?
+            current_fwd_stops = []
+            if second_part.fwd_orfs_result
+              current_fwd_stops.concat second_part.fwd_orfs_result.final_positions
             end
+            current_fwd_stops.concat fwd_result.stop_positions
+            log.debug "Attempt to pair start codons at #{fwd_result.start_positions.join(',')}" if log.debug?
+            fwd_orfs_result = orfs_from_start_stop_indices(fwd_result.start_positions, current_fwd_stops, min_orf_length)
+            log.debug "Found pairs #{fwd_orfs_result.start_stop_pairs.collect{|pair| pair.join(',')}.join('],[')}" if log.debug?
 
-            # reverse direction
-            if current_twin_orfs and not current_twin_orfs.final_stop_positions.empty? and not twin_stops.empty?
-              log.debug "Attempt to pair stop codons in reverse direction at #{twin_stops.join(',')}" if log.debug?
-              # twin stop positons are relative to start of first path twin node
-              # add length of rest of path to get position relative to start of last path twin node
-              length_of_rest_of_path = second_part.otrail.length_in_bos_within_path - second_part.otrail[0].node.length_alone
-              twin_stops = twin_stops.collect{|pos| pos+length_of_rest_of_path}
-
-              twin_result = orfs_from_start_stop_indices(current_twin_orfs.final_stop_positions, twin_stops, min_orf_length)
-              log.debug "Found pairs #{twin_result.start_stop_pairs.collect{|pair| pair.join(',')}.join('],[')}" if log.debug?
-
-              # collect previous start-stop pairs
-              twin_result.start_stop_pairs.concat current_twin_orfs.start_stop_pairs
-              second_part.twin_orfs_result = twin_result
-              log.debug "Remaining twin starts: #{second_part.twin_orfs_result.final_stop_positions}" if log.debug?
+            # collect previous start-stop pairs
+            if second_part.fwd_orfs_result
+              fwd_orfs_result.start_stop_pairs.concat second_part.fwd_orfs_result.start_stop_pairs
             end
+            second_part.fwd_orfs_result = fwd_orfs_result
+            log.debug "Remaining forward stops: #{second_part.fwd_orfs_result.final_positions}" if log.debug?
+          end
+
+          if not twin_result.stop_positions.empty? or not twin_result.start_positions.empty?
+            current_twin_starts = []
+            if second_part.twin_orfs_result
+              current_twin_starts.concat second_part.twin_orfs_result.final_positions
+            end
+            current_twin_starts.concat twin_result.start_positions
+            log.debug "Attempt to pair stop codons in reverse direction at #{twin_stops.join(',')}" if log.debug?
+            # twin stop positons are relative to start of first path twin node
+            # add length of rest of path to get position relative to start of last path twin node
+            length_of_rest_of_path = second_part.otrail.length_in_bos_within_path - second_part.otrail[0].node.length_alone
+            current_twin_stops = twin_result.stop_positions.collect{|pos| pos+length_of_rest_of_path}
+
+            twin_orfs_result = orfs_from_start_stop_indices(current_twin_starts, current_twin_stops, min_orf_length)
+            log.debug "Found pairs #{twin_orfs_result.start_stop_pairs.collect{|pair| pair.join(',')}.join('],[')}" if log.debug?
+
+            # collect previous start-stop pairs
+            if second_part.twin_orfs_result
+              twin_orfs_result.start_stop_pairs.concat second_part.twin_orfs_result.start_stop_pairs
+            end
+            second_part.twin_orfs_result = twin_orfs_result
+            log.debug "Remaining twin starts: #{second_part.twin_orfs_result.final_positions}" if log.debug?
           end
 
           if first_part.length == 0
@@ -200,7 +209,12 @@ module Bio
             new_second_part.otrail = second_part.otrail.copy
             new_second_part.otrail.trail.unshift last
 
-            if new_second_part.fwd_orfs_result
+            if second_part.fwd_orfs_result
+              # offset positions in forward direction
+              offset = last.node.length_alone
+              new_fwd_orfs_result = ORFsResult.new
+              new_fwd_ords_result.start_stop_pairs = second_part.fwd_orfs_result.start_stop_pairs.collect{|pairs| pairs.collect{|pos| pos + offset}}
+              new_fwd_ords_result.final_positions
               new_second_part.fwd_orfs_result.offset last.node.length_alone
             end
 
@@ -226,69 +240,95 @@ module Bio
       end
 
       # Returns:
-      # in 'forward' mode (from_end=false)
-      #   array of positions relative to start of first node of ends of start codons
-      #   array of positions relative to start of first node twin of end of stop codons
-      # in 'backward' mode (from_end=true)
-      #   array of positions relative to start of last node of ends of stop codons
-      #   array of positions relative to start of last node twin of ends of start codons
-      def search_for_codons(otrail, from_end=false)
-        onode = from_end ? otrail.last : otrail[0]
+      # array of positions relative to start of first node of ends of start codons
+      # array of positions relative to start of first node twin of end of stop codons
+      def search_for_codons(otrail)
+        onode = otrail[0]
 
         # search within first / last node
         fwd_nodes_sequence, twin_nodes_sequence = get_sequences onode
-        if from_end
-          log.debug "Looking for stops in #{fwd_nodes_sequence}" if log.debug?
-          fwd_stops_within_last = word_search(fwd_nodes_sequence, STOP_CODONS, CODON_LENGTH)
-          log.debug "Found stops #{fwd_stops_within_last.keys.join(',')} at positions #{fwd_stops_within_last.values.flatten.join(',')}" if log.debug?
+        words = Set.new(START_CODONS).merge(STOP_CODONS)
+        #log.debug "Looking for codons #{words.to_a}" if log.debug?
 
-          log.debug "Looking for starts in #{twin_nodes_sequence}" if log.debug?
-          twin_starts_within_last = word_search(twin_nodes_sequence, START_CODONS, CODON_LENGTH)
-          log.debug "Found starts #{twin_starts_within_last.keys.join(',')} at positinos #{twin_starts_within_last.values.flatten.join(',')}" if log.debug?
-        else
-          log.debug "Looking for starts in #{fwd_nodes_sequence}" if log.debug?
-          fwd_starts_within_first = word_search(fwd_nodes_sequence, START_CODONS, CODON_LENGTH)
-          log.debug "Found starts #{fwd_starts_within_last.keys.join(',')} at positions #{fwd_starts_within_last.values.flatten.join(',')}" if log.debug?
+        # forward
+        #log.debug "Looking in #{fwd_nodes_sequence}" if log.debug?
+        fwd_within_first = word_search(fwd_nodes_sequence, words, CODON_LENGTH)
+        #log.debug "Found codons #{fwd_within_first.keys.join(',')} at positions #{fwd_within_first.values.join(',')} in #{fwd_nodes_sequence}" if log.debug?
 
-          log.debug "Looking for stops in #{twin_nodes_sequence}" if log.debug?
-          twin_stops_within_first = word_search(twin_nodes_sequence, STOP_CODONS, CODON_LENGTH)
-          log.debug "Found stops #{twin_stops_within_last.keys.join(',')} at positinos #{twin_stops_within_last.values.flatten.join(',')}" if log.debug?
-        end
+        # reverse
+        #log.debug "Looking in #{twin_nodes_sequence}" if log.debug?
+        twin_within_first = word_search(twin_nodes_sequence, words, CODON_LENGTH)
+        #log.debug "Found codons #{twin_within_first.keys.join(',')} in twin node at positions #{twin_within_first.values.join(',')} in #{fwd_nodes_sequence}" if log.debug?
+
 
         # extend search along trail
-        fwd_overlap_sequence, twin_overlap_sequence = get_overlap_sequences(otrail, CODON_LENGTH, from_end)
-        if from_end
-          log.debug "Looking for stops in #{fwd_overlap_sequence}" if log.debug?
-          fwd_stops_in_overlap = word_search(fwd_overlap_sequence, STOP_CODONS, CODON_LENGTH)
-          log.debug "Found stops #{fwd_stops_in_overlap.keys.join(',')} at positions #{fwd_stops_in_overlap.values.flatten.join(',')}" if log.debug?
+        fwd_overlap_sequence, twin_overlap_sequence = get_overlap_sequences(otrail, CODON_LENGTH)
 
-          log.debug "Looking for starts in #{twin_overlap_sequence}" if log.debug?
-          twin_starts_in_overlap = word_search(twin_overlap_sequence, START_CODONS, CODON_LENGTH)
-          log.debug "Found starts #{twin_starts_in_overlap.keys.join(',')} at positions #{twin_starts_in_overlap.values.flatten.join(',')}" if log.debug?
-        else
-          log.debug "Looking for starts in #{fwd_overlap_sequence}" if log.debug?
-          fwd_starts_in_overlap = word_search(fwd_overlap_sequence, START_CODONS, CODON_LENGTH)
-          log.debug "Found starts #{fwd_starts_in_overlap.keys.join(',')} at positions #{fwd_starts_in_overlap.values.flatten.join(',')}" if log.debug?
+        # forward
+        #log.debug "Looking in #{fwd_overlap_sequence}" if log.debug?
+        fwd_in_overlap = word_search(fwd_overlap_sequence, words, CODON_LENGTH)
+        #log.debug "Found codons #{fwd_in_overlap.keys.join(',')} in twin node at positions #{fwd_in_overlap.values.join(',')} in #{fwd_overlap_sequence}" if log.debug?
 
-          log.debug "Looking for stops in #{twin_overlap_sequence}" if log.debug?
-          twin_stops_in_overlap = word_search(twin_overlap_sequence, STOP_CODONS, CODON_LENGTH)
-          log.debug "Found stops #{twin_stops_in_overlap.keys.join(',')} at positions #{twin_stops_in_overlap.values.flatten.join(',')}" if log.debug?
+
+        # reverse
+        #log.debug "Looking for stops in #{twin_overlap_sequence}" if log.debug?
+        twin_in_overlap = word_search(twin_overlap_sequence, words, CODON_LENGTH)
+        #log.debug "Found codons #{twin_in_overlap.keys.join(',')} in twin node at positions #{twin_in_overlap.values.join(',')} in #{twin_overlap_sequence}" if log.debug?
+
+        # offset positions in overlap to be relative to start of node / twin node
+        offset = onode.node.length_alone
+        fwd_in_overlap.each{|word, inds| fwd_in_overlap[word] = inds.collect{|pos| pos + offset}}
+        twin_in_overlap.each{|word, inds| twin_in_overlap[word] = inds.collect{|pos| pos + 1 - CODON_LENGTH}}
+        #log.debug "Codons in overlap positions relative to start of first node #{fwd_in_overlap.values.join(',')}" if log.debug?
+        #log.debug "Codons in overlap positions relative to start of first twin node #{twin_in_overlap.values.join(',')}" if log.debug?
+
+        # assemble result
+        fwd_result = SearchResult.new
+        twin_result = SearchResult.new
+        START_CODONS.each do |word|
+          # fwd starts
+          if fwd_within_first.has_key? word
+            fwd_result.start_positions.push fwd_within_first[word]
+          end
+          if fwd_in_overlap.has_key? word
+            fwd_result.start_positions.push fwd_in_overlap[word]
+          end
+          # twin starts
+          if twin_within_first.has_key? word
+            twin_result.start_positions.push twin_within_first[word]
+          end
+          if twin_in_overlap.has_key? word
+            twin_result.start_positions.push twin_in_overlap[word]
+          end
+          end
+        fwd_result.start_positions.flatten!
+        twin_result.start_positions.flatten!
+        #log.debug "Positions of start codons #{fwd_result.start_positions.join(',')}" if log.debug?
+        #log.debug "Positions of start codons in twin node #{twin_result.start_positions.join(',')}" if log.debug?
+
+        STOP_CODONS.each do |word|
+          #fwd stops
+          if fwd_within_first.has_key? word
+            fwd_result.stop_positions.push fwd_within_first[word]
+          end
+          if fwd_in_overlap.has_key? word
+            fwd_result.stop_positions.push fwd_in_overlap[word]
+          end
+          # twin stops
+          if twin_within_first.has_key? word
+            twin_result.stop_positions.push twin_within_first[word]
+          end
+          if twin_in_overlap.has_key? word
+            twin_result.stop_positions.push twin_in_overlap[word]
+          end
         end
+        fwd_result.stop_positions.flatten!
+        twin_result.stop_positions.flatten!
+        #log.debug "Positions of stop codons #{fwd_result.stop_positions.join(',')}" if log.debug?
+        #log.debug "Positions of stop codons in twin node #{twin_result.stop_positions.join(',')}" if log.debug?
 
-        # combine
-        if from_end
-          fwd_stops = [fwd_stops_in_overlap.values,fwd_stops_within_last.values].flatten
-          twin_starts = [twin_starts_in_overlap.values,twin_starts_within_last.values].flatten
-          return fwd_stops, twin_starts
-        else
-          # offset positions in overlap to be relative to start of node / twin node
-          fwd_starts = [fwd_starts_within_first.values,fwd_starts_in_overlap.values.collect{|pos| pos+onode.length_alone}].flatten
-          twin_stops = [twin_stops_within_first.values,twin_stops_in_overlap.values.collect{|pos| pos+onode.length_alone}].flatten
-          # move positions to front of words
-          #fwd_starts = fwd_starts.collect{|pos| pos-CODON_LENGTH}
-          #twin_stops = twin_stops.collect{|pos| pos-CODON_LENGTH}
-          return fwd_starts, twin_stops
-        end
+
+        return fwd_result, twin_result
       end
 
       def get_overlap_sequences(otrail, size, from_end=false)
@@ -390,40 +430,63 @@ module Bio
 
           current_start = starts.pop
           current_stop = stops.pop
-          stop_before_first_start = true
+          before_first_start = true
+          last_start_after_stop = nil
 
           while true
-            # No more stops, done
-            break if current_stop.nil?
-            if stop_before_first_start and (current_start.nil? or current_stop <= current_start)
-              # Found stop codon before the first start codon
-              to_return.final_stop_positions.push current_stop
-              stop_before_first_start = false
-            end
-            stop_before_first_start = false
+            if current.stop
+              if current_start.nil? or current_stop <= current_start
+                if before_first_start
+                  # Found stop codon before the first start codon
+                  to_return.initial_stop_positions.push current_stop
+                  before_first_start = false
+                end
 
-            # If there are no more start codons, we have to do no more
-            if current_start.nil?
+                # If there are no more start codons, we have to do no more
+                if current_start.nil?
+                  break
+                else
+                  while current_stop and current_stop <= current_start
+                    current_stop = stops.pop
+                  end
+                  next
+                end
+              else
+                # This stop codon stops the current reading frame.
+                if current_stop-current_start >= minimum_orf_length
+                  # Found a legit ORF
+                  to_return.start_stop_pairs.push [current_start, current_stop]
+                end
+
+                # Whether or not last ORF was long enough, search for the next start codon
+                while current_start and current_start < current_stop
+                  current_start = starts.pop
+                end
+                next
+              end
+            elsif current_start
+              # Found start codons after last stop codon
+              last_start_after_stop = current_start
+              while current_start = starts.pop
+                last_start_after_stop = current_start
+              end
+              to_return.final_start_positions.push last_start_after_stop
               break
-            elsif current_stop <= current_start
-              current_stop = stops.pop
-              next
-            else
-              # This stop codon stops the current reading frame.
-              if current_stop-current_start >= minimum_orf_length
-                # Found a legit ORF
-                to_return.start_stop_pairs.push [current_start, current_stop]
-              end
-
-              # Whether or not last ORF was long enough, search for the next start codon
-              while current_start and current_start < current_stop
-                current_start = starts.pop
-              end
             end
+            break
           end
         end
 
         return to_return
+      end
+
+      class SearchResult
+        attr_accessor :start_positions, :stop_positions
+
+        def initialize
+          @start_positions = []
+          @stop_positions = []
+        end
       end
 
       class ORFsTracingTrail
@@ -438,16 +501,12 @@ module Bio
       end
 
       class ORFsResult
-        attr_accessor :start_stop_pairs, :final_stop_positions
+        attr_accessor :start_stop_pairs, :final_positions
 
         def initialize
           @start_stop_pairs = []
-          @final_stop_positions = []
-        end
-
-        def offset(len)
-          @start_stop_pairs.map!{|pair| pair.collect{|pos| pos+len}}
-          @final_stop_positions.map!{|pos| pos+len}
+          @final_start_positions = []
+          @initial_stop_positions = []
         end
       end
     end
