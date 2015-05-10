@@ -161,6 +161,18 @@ describe "SingleEndedAssembler" do
       observed, visits = assembler.assemble_from(initial_path)
       observed.to_shorthand.should == '1s,2s'
     end
+
+    it 'should take the longest path at the end of the contig' do
+      graph, initial_path, terminal = GraphTesting.emit_ss([
+        [1,2],
+        [1,3],
+        ], 1, 4)
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new graph
+      graph.nodes[3].ends_of_kmers_of_node = 'T'*100 #make this long so it is chosen
+      assembler.assembly_options[:max_tip_length] = 200
+      observed, visits = assembler.assemble_from(initial_path)
+      observed.to_shorthand.should == '1s,3s'
+    end
   end
 
 

@@ -309,6 +309,18 @@ describe "BubblyAssembler" do
       metapath.reference_trail.to_shorthand.should == '1s,5s,4s,3s,5s,4s,3s,8s,9s'
       visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1,3,4,5,8,9,20,21]
     end
+
+    it 'should take the longest path at the end of the contig' do
+      graph, initial_path, terminal = GraphTesting.emit_ss([
+        [1,2],
+        [1,3],
+        ], 1, 4)
+      cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
+      graph.nodes[3].ends_of_kmers_of_node = 'T'*100 #make this long so it is chosen
+      cartographer.assembly_options[:max_tip_length] = 200
+      metapath, visited_nodes = cartographer.assemble_from(initial_path)
+      GraphTesting.metapath_to_array(metapath).should == [1,3]
+    end
   end
 
   describe 'assemble' do
