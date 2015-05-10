@@ -367,4 +367,32 @@ describe "SingleEndedAssembler" do
       fail
     end
   end
+
+  describe 'remove_tips' do
+    it 'should remove one of two short tips' do
+      graph, initial_path = GraphTesting.emit_ss([
+        [1,2],
+        [3,1],
+        [3,4],
+        ], 3, 2)
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new graph
+      non_tips, visiteds = assembler.remove_tips(initial_path.neighbours_of_last_node(graph), 15)
+      non_tips.collect{|n| n.to_shorthand}.should == ['1s']
+      visiteds.sort.should == [[4, :start_is_first]]
+    end
+
+    it 'should work on bubbles (possibly it shouldn\'t though)' do
+      graph, initial_path = GraphTesting.emit_ss([
+        [1,2],
+        [1,3],
+        [2,4],
+        [3,4],
+        ], 1, 2)
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new graph
+      graph.nodes[3].ends_of_kmers_of_node = 'T'*11 #make this long so it is chosen
+      non_tips, visiteds = assembler.remove_tips(initial_path.neighbours_of_last_node(graph), 25)
+      non_tips.collect{|n| n.to_shorthand}.should == ['3s']
+      visiteds.sort.should == [[2, :start_is_first], [4, :start_is_first]]
+    end
+  end
 end

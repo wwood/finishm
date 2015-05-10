@@ -286,14 +286,9 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
         # Reached a fork (or 3 or 4-fork), which way to go?
 
         # Remove neighbours that are short tips
-        oneighbours.reject! do |oneigh|
-          is_tip, visiteds = is_short_tip?(oneigh)
-          if is_tip
-            visiteds.each do |onode_settable|
-              visited_onodes << onode_settable
-            end
-          end
-          is_tip
+        oneighbours, visiteds = remove_tips(oneighbours, @assembly_options[:max_tip_length])
+        visiteds.each do |onode_settable|
+          visited_onodes << onode_settable
         end
 
         if oneighbours.length == 0
@@ -357,6 +352,44 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
     return path, visited_onodes
   end
 
+  # Given a list of possibilities for neighbours of a node, return the
+  # neighbour(s) that are not short tips, or the longest of the short tips
+  # if all are tips. Also return an enumerable of nodes visited from the cut off
+  # short tips
+  def remove_tips(oriented_neighbours, tip_distance)
+    return [], [] if oriented_neighbours.empty?
+
+    neighbours_and_triples = oriented_neighbours.collect do |oneigh|
+      [
+        oneigh,
+        find_tip_distance(oneigh, tip_distance)
+        ]
+    end
+    non_tips, tips = neighbours_and_triples.partition{|nt| nt[1][0] == false}
+
+    visiteds = Set.new
+    process_tip = lambda do |tip|
+      visiteds << tip[0].to_settable
+      tip[1][2].each {|v| visiteds << v}
+    end
+
+    if non_tips.length > 0
+      tips.each do |tip|
+        process_tip.call tip
+      end
+      return non_tips.collect{|t| t[0]}, visiteds
+    else
+      # no long distances here. Just go with the longest path
+      best_tip = tips.max{|nt| nt[1][1]}
+      tips.each do |tip|
+        unless tip == best_tip
+          process_tip.call tip
+        end
+      end
+      return [best_tip[0]], visiteds
+    end
+  end
+
   # Returns false iff there is a path longer than max_tip_length
   # starting at the given oriented_node. Currently works as a depth
   # first search, which may or may not be optimal
@@ -398,7 +431,7 @@ class Bio::AssemblyGraphAlgorithms::SingleEndedAssembler
       end
     end
 
-    log.debug "Found insufficient max tip length #{max_dist}" if log.debug?
+    log.debug "Found insufficient max tip length #{max_dist} for #{oriented_node}" if log.debug?
     return true, max_dist, cache.collect{|donode| donode[0]}
   end
 
