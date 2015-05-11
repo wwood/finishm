@@ -141,14 +141,14 @@ module Bio
           log.debug "#{first_part.to_shorthand} and #{second_part.otrail.to_shorthand}" if log.debug?
 
           # Look for codons
-          log.debug "Searching first node of second part for codons" if log.debug
-          fwd_result, twin_result = search_for_codons(second_part.otrail, false) # search from first
+          log.debug "Searching first node of second part for codons" if log.debug?
+          fwd_result, twin_result = search_for_codons(second_part.otrail) # search from start of second part
 
           # Forward direction
           if not fwd_result.stop_positions.empty? or not fwd_result.start_positions.empty?
             current_fwd_stops = []
             if second_part.fwd_orfs_result
-              current_fwd_stops.concat second_part.fwd_orfs_result.final_positions
+              current_fwd_stops.concat second_part.fwd_orfs_result.initial_stop_positions
             end
             current_fwd_stops.concat fwd_result.stop_positions
             log.debug "Attempt to pair start codons at #{fwd_result.start_positions.join(',')}" if log.debug?
@@ -160,13 +160,13 @@ module Bio
               fwd_orfs_result.start_stop_pairs.concat second_part.fwd_orfs_result.start_stop_pairs
             end
             second_part.fwd_orfs_result = fwd_orfs_result
-            log.debug "Remaining forward stops: #{second_part.fwd_orfs_result.final_positions}" if log.debug?
+            log.debug "Remaining forward stops: #{second_part.fwd_orfs_result.initial_stop_positions}" if log.debug?
           end
 
           if not twin_result.stop_positions.empty? or not twin_result.start_positions.empty?
             current_twin_starts = []
             if second_part.twin_orfs_result
-              current_twin_starts.concat second_part.twin_orfs_result.final_positions
+              current_twin_starts.concat second_part.twin_orfs_result.final_start_positions
             end
             current_twin_starts.concat twin_result.start_positions
             log.debug "Attempt to pair stop codons in reverse direction at #{twin_stops.join(',')}" if log.debug?
@@ -183,7 +183,7 @@ module Bio
               twin_orfs_result.start_stop_pairs.concat second_part.twin_orfs_result.start_stop_pairs
             end
             second_part.twin_orfs_result = twin_orfs_result
-            log.debug "Remaining twin starts: #{second_part.twin_orfs_result.final_positions}" if log.debug?
+            log.debug "Remaining twin starts: #{second_part.twin_orfs_result.final_start_positions}" if log.debug?
           end
 
           if first_part.length == 0
@@ -213,9 +213,19 @@ module Bio
               # offset positions in forward direction
               offset = last.node.length_alone
               new_fwd_orfs_result = ORFsResult.new
-              new_fwd_ords_result.start_stop_pairs = second_part.fwd_orfs_result.start_stop_pairs.collect{|pairs| pairs.collect{|pos| pos + offset}}
-              new_fwd_ords_result.final_positions
-              new_second_part.fwd_orfs_result.offset last.node.length_alone
+              new_fwd_orfs_result.start_stop_pairs = second_part.fwd_orfs_result.start_stop_pairs.collect{|pairs| pairs.collect{|pos| pos + offset}}
+              new_fwd_orfs_result.initial_stop_positions = second_part.fwd_orfs_result.initial_stop_positions.collect{|pos| pos + offset}
+              new_fwd_orfs_result.final_start_positions = second_part.fwd_orfs_result.final_start_positions.collect.to_a
+              new_second_part.fwd_orfs_result = new_fwd_orfs_result
+            end
+
+            if second_part.twin_orfs_result
+              offset ||= last.node.length_alone
+              new_twin_orfs_result = ORFsResult.new
+              new_twin_orfs_result.start_stop_pairs = second_part.twin_orfs_result.start_stop_pairs.collect{|pairs| pairs.collect{|pos| pos}}
+              new_twin_orfs_result.initial_stop_positions = second_part.twin_orfs_result.initial_stop_positions.collect.to_a
+              new_twin_orfs_result.final_start_positions = second_part.twin_orfs_result.final_start_positions.collect{|pos| pos + offset}
+              new_second_part.twin_orfs_result = new_twin_orfs_result
             end
 
             new_first_part = path.copy
@@ -240,9 +250,10 @@ module Bio
       end
 
       # Returns:
-      # array of positions relative to start of first node of ends of start codons
-      # array of positions relative to start of first node twin of end of stop codons
+      # SearchResult relative to start of first node
+      # SearchResult relative to start of first twin node
       def search_for_codons(otrail)
+        return SearchResult.new, SearchResult.new if otrail.trail.empty?
         onode = otrail[0]
 
         # search within first / last node
@@ -431,10 +442,9 @@ module Bio
           current_start = starts.pop
           current_stop = stops.pop
           before_first_start = true
-          last_start_after_stop = nil
 
           while true
-            if current.stop
+            if current_stop
               if current_start.nil? or current_stop <= current_start
                 if before_first_start
                   # Found stop codon before the first start codon
@@ -452,6 +462,7 @@ module Bio
                   next
                 end
               else
+                before_first_start = false
                 # This stop codon stops the current reading frame.
                 if current_stop-current_start >= minimum_orf_length
                   # Found a legit ORF
@@ -465,12 +476,8 @@ module Bio
                 next
               end
             elsif current_start
-              # Found start codons after last stop codon
-              last_start_after_stop = current_start
-              while current_start = starts.pop
-                last_start_after_stop = current_start
-              end
-              to_return.final_start_positions.push last_start_after_stop
+              # Found a start codon after last stop codon
+              to_return.final_start_positions.push current_start
               break
             end
             break
@@ -480,6 +487,9 @@ module Bio
         return to_return
       end
 
+      # SearchResult with fields:
+      # array of positions of last base of start codons
+      # array of positions of last base of stop codons
       class SearchResult
         attr_accessor :start_positions, :stop_positions
 
@@ -501,7 +511,7 @@ module Bio
       end
 
       class ORFsResult
-        attr_accessor :start_stop_pairs, :final_positions
+        attr_accessor :start_stop_pairs, :final_start_positions, :initial_stop_positions
 
         def initialize
           @start_stop_pairs = []
