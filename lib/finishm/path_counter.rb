@@ -1,22 +1,11 @@
-class Bio::FinishM::Visualise
+class Bio::FinishM::PathCounter
   include Bio::FinishM::Logging
 
   def add_options(optparse_object, options)
-    optparse_object.banner = "\nUsage: finishm visualise --assembly-??? <output_visualisation_file>
+    optparse_object.banner = "\nUsage: finishm pathcounter --assembly-???
 
-    Visualise an assembly graph
+    Count paths through assembly graph
     \n\n"
-
-    optparse_object.separator "Output visualisation formats (one or more of these must be used)"
-    optparse_object.on("--assembly-svg PATH", "Output assembly as a SVG file [default: off]") do |arg|
-      options[:output_graph_svg] = arg
-    end
-    optparse_object.on("--assembly-png PATH", "Output assembly as a PNG file [default: off]") do |arg|
-      options[:output_graph_png] = arg
-    end
-    optparse_object.on("--assembly-dot PATH", "Output assembly as a DOT file [default: off]") do |arg|
-      options[:output_graph_dot] = arg
-    end
 
     optparse_object.separator "Input genome information"
     optparse_object.separator "\nIf an assembly is to be done, there must be some definition of reads:\n\n" #TODO improve this help
@@ -26,7 +15,7 @@ class Bio::FinishM::Visualise
     Bio::FinishM::ProbeExplorer.new.add_options(optparse_object, options)
 
     optparse_object.separator "\nOptional graph-related arguments:\n\n"
-    Bio::FinishM::GraphGenerator.new.add_options optparse_object, options
+    Bio::FinishM::GraphGenerator.new.add_options(optparse_object, options)
   end
 
   def validate_options(options, argv)
@@ -35,9 +24,6 @@ class Bio::FinishM::Visualise
     if argv.length != 0
       return "Dangling argument(s) found e.g. #{argv[0] }"
     else
-      if options[:output_graph_png].nil? and options[:output_graph_svg].nil? and options[:output_graph_dot].nil?
-        return "No visualisation output format/file given, don't know how to visualise"
-      end
 
       validate_explorer = Bio::FinishM::ProbeExplorer.new.validate_options(options, argv)
       return validate_explorer if validate_explorer
@@ -56,12 +42,12 @@ class Bio::FinishM::Visualise
     read_input.parse_options options
 
     explorer = Bio::FinishM::ProbeExplorer.new
-    viser = Bio::Assembly::ABVisualiser.new
-    gv = nil
 
     # Generate the assembly graph
     log.info "Reading in or generating the assembly graph"
 
+    finishm_graph = nil
+    interesting_node_ids = nil
     if options[:interesting_probes] or options[:interesting_probe_names]
       # Looking based on probes
       if options[:interesting_probe_names]
@@ -82,25 +68,7 @@ class Bio::FinishM::Visualise
       if options[:probe_to_node_map]
         explorer.write_probe_to_node_map(options[:probe_to_node_map], finishm_graph, options[:interesting_probes])
       end
-
-      # Create graphviz object
       interesting_node_ids = finishm_graph.probe_nodes.reject{|n| n.nil?}.collect{|node| node.node_id}
-
-      nodes_within_leash, node_ids_at_leash = explorer.get_nodes_within_leash(finishm_graph, interesting_node_ids, options)
-      log.info "Found #{node_ids_at_leash.length} nodes at the end of the #{options[:leash_length] }bp leash" if options[:leash_length]
-
-      # Determine paired-end connections
-      log.info "Determining paired-end node connections.."
-      paired_end_links = explorer.find_paired_end_linkages(finishm_graph, nodes_within_leash)
-
-      log.info "Converting assembly to a graphviz"
-      gv = viser.graphviz(finishm_graph.graph, {
-        :start_node_ids => interesting_node_ids,
-        :nodes => nodes_within_leash,
-        :end_node_ids => node_ids_at_leash,
-        :paired_nodes_hash => paired_end_links,
-        })
-
 
     elsif options[:interesting_nodes]
       # Looking based on nodes
@@ -110,22 +78,7 @@ class Bio::FinishM::Visualise
         log.info "Targeting #{options[:interesting_nodes].length} node(s) #{options[:interesting_nodes].inspect}"
       end
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
-
-      log.info "Finding nodes within the leash length of #{options[:graph_search_leash_length] }.."
-      nodes_within_leash, node_ids_at_leash = explorer.get_nodes_within_leash(finishm_graph, options[:interesting_nodes], options)
-      log.info "Found #{node_ids_at_leash.length} nodes at the end of the #{options[:leash_length] }bp leash" if options[:leash_length]
-
-      # Determine paired-end connections
-      log.info "Determining paired-end node connections.."
-      paired_end_links = explorer.find_paired_end_linkages(finishm_graph, nodes_within_leash)
-
-      log.info "Converting assembly to a graphviz"
-      gv = viser.graphviz(finishm_graph.graph, {
-        :start_node_ids => options[:interesting_nodes],
-        :nodes => nodes_within_leash,
-        :end_node_ids => node_ids_at_leash,
-        :paired_nodes_hash => paired_end_links,
-        })
+      interesting_node_ids = options[:intereting_nodes]
 
     elsif options[:assembly_files]
       # Parse the genome fasta file in
@@ -188,61 +141,28 @@ class Bio::FinishM::Visualise
         finishm_graph.probe_nodes[pid].node_id
       end.uniq
 
-      # get a list of the nodes to be visualised given the leash length
-      nodes_within_leash, node_ids_at_leash = explorer.get_nodes_within_leash(finishm_graph, interesting_node_ids, options)
-      log.info "Found #{node_ids_at_leash.length} nodes at the end of the #{options[:leash_length] }bp leash" if options[:leash_length]
-
-      # create a nickname hash, id of node to name. Include all nodes even if they weren't specified directly (they only get visualised if they are within leash length of another)
-      node_id_to_nickname = {}
-      contig_name_to_probe.each do |name, probe|
-        key = finishm_graph.probe_nodes[probe].node_id
-        if node_id_to_nickname.key?(key)
-          node_id_to_nickname[key] += " "+name
-        else
-          node_id_to_nickname[key] = name
-        end
-      end
-
-      # Determine paired-end connections
-      log.info "Determining paired-end node connections.."
-      paired_end_links = explorer.find_paired_end_linkages(finishm_graph, nodes_within_leash)
-
-      # create gv object
-      log.info "Converting assembly to a graphviz"
-      gv = viser.graphviz(finishm_graph.graph, {
-        :start_node_ids => interesting_node_ids,
-        :nodes => nodes_within_leash,
-        :end_node_ids => node_ids_at_leash,
-        :node_id_to_nickname => node_id_to_nickname,
-        :paired_nodes_hash => paired_end_links,
-        })
     else
       # Visualising the entire graph
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
-
-      # Determine paired-end connections
-      log.info "Determining paired-end node connections.."
-      # TIM - This will return {} unless get_nodes_within_leash is run first
-      paired_end_links = explorer.find_paired_end_linkages(finishm_graph, finishm_graph.graph.nodes)
-
-      log.info "Converting assembly to a graphviz.."
-      gv = viser.graphviz(finishm_graph.graph,
-        :nodes => finishm_graph.graph.nodes,
-        :paired_nodes_hash => paired_end_links)
     end
 
-    # Convert gv object to something actually pictorial
-    if options[:output_graph_png]
-      log.info "Writing PNG #{options[:output_graph_png] }"
-      gv.output :png => options[:output_graph_png], :use => :neato
+    nodes_within_leash = nil
+    if interesting_node_ids
+      # get a list of the nodes to be visualised given the leash length
+      log.info "Finding nodes within the leash length of #{options[:graph_search_leash_length] }.."
+      nodes_within_leash, node_ids_at_leash = explorer.get_nodes_within_leash(finishm_graph, interesting_node_ids, options)
+      log.info "Found #{node_ids_at_leash.length} nodes at the end of the #{options[:leash_length] }bp leash" if options[:leash_length]
     end
-    if options[:output_graph_svg]
-      log.info "Writing SVG #{options[:output_graph_svg] }"
-      gv.output :svg => options[:output_graph_svg], :use => :neato
-    end
-    if options[:output_graph_dot]
-      log.info "Writing DOT #{options[:output_graph_dot] }"
-      gv.output :dot => options[:output_graph_dot], :use => :neato
-    end
+
+    count_paths_through_graph(finishm_graph,{ :range => nodes_within_leash })
+  end
+
+  def count_paths_through_graph(finishm_graph, options={})
+    height_finder = Bio::AssemblyGraphAlgorithms::HeightFinder.new
+    by_height, = height_finder.traverse finishm_graph.graph, options
+    min_paths_through = height_finder.min_paths_through(by_height)
+    max_paths_through = height_finder.max_paths_through(by_height)
+    puts "Minimum number of distinct sequences to explain graph, assuming no errors: #{min_paths_through}."
+    puts "Maximum number of distinct sequences allowed by graph: #{max_paths_through}."
   end
 end
