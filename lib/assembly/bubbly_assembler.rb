@@ -46,16 +46,13 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
       log.info "Assembling from: #{starting_path.to_shorthand}"
     end
 
-    filterTips = lambda do |oneigh|
-      is_tip, visiteds = is_short_tip?(oneigh)
-      if is_tip
-        visited_oriented_node_settables << oneigh.to_settable
-        visiteds.each do |v|
-          visited_oriented_node_settables << v
-        end
+    filter_neighbours = lambda do |neighbours|
+      legit_neighbours, visiteds = remove_tips(neighbours, @assembly_options[:max_tip_length])
+      visiteds.each do |onode|
+        log.debug "Adding #{onode} to list of visited nodes" if log.debug?
+        visited_oriented_node_settables << onode
       end
-      log.debug "neighbour #{oneigh.to_shorthand} is_tip? #{is_tip}" if log.debug?
-      is_tip
+      legit_neighbours
     end
 
     filterVisited = lambda do |oneigh|
@@ -125,7 +122,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
           if oriented_neighbours.length == 1
             legit_neighbours = oriented_neighbours
           else
-            legit_neighbours = oriented_neighbours.reject &filterTips # '&' to pass lambda as block
+            legit_neighbours = filter_neighbours.call(oriented_neighbours)
           end
 
           if legit_neighbours.empty?
@@ -236,8 +233,7 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
                 break
               end
             else
-
-              legit_neighbours = neighbours.reject &filterTips
+              legit_neighbours = filter_neighbours.call(neighbours)
 
               if legit_neighbours.length == 0
                 # this is a kind of 'long' tip, possibly unlikely to happen much.
@@ -322,15 +318,6 @@ class Bio::AssemblyGraphAlgorithms::BubblyAssembler < Bio::AssemblyGraphAlgorith
 
     return path
   end
-
-  def is_short_tip?(element)
-    if element.kind_of?(Bubble)
-      return false
-    else
-      super
-    end
-  end
-
 
 
   class MetaPath

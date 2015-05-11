@@ -161,6 +161,18 @@ describe "SingleEndedAssembler" do
       observed, visits = assembler.assemble_from(initial_path)
       observed.to_shorthand.should == '1s,2s'
     end
+
+    it 'should take the longest path at the end of the contig' do
+      graph, initial_path, terminal = GraphTesting.emit_ss([
+        [1,2],
+        [1,3],
+        ], 1, 4)
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new graph
+      graph.nodes[3].ends_of_kmers_of_node = 'T'*100 #make this long so it is chosen
+      assembler.assembly_options[:max_tip_length] = 200
+      observed, visits = assembler.assemble_from(initial_path)
+      observed.to_shorthand.should == '1s,3s'
+    end
   end
 
 
@@ -353,6 +365,34 @@ describe "SingleEndedAssembler" do
 
     it 'should be able to deal with recoherence when getting out of a short tip' do
       fail
+    end
+  end
+
+  describe 'remove_tips' do
+    it 'should remove one of two short tips' do
+      graph, initial_path = GraphTesting.emit_ss([
+        [1,2],
+        [3,1],
+        [3,4],
+        ], 3, 2)
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new graph
+      non_tips, visiteds = assembler.remove_tips(initial_path.neighbours_of_last_node(graph), 15)
+      non_tips.collect{|n| n.to_shorthand}.should == ['1s']
+      visiteds.sort.should == [[4, :start_is_first]]
+    end
+
+    it 'should work on bubbles (possibly it shouldn\'t though)' do
+      graph, initial_path = GraphTesting.emit_ss([
+        [1,2],
+        [1,3],
+        [2,4],
+        [3,4],
+        ], 1, 2)
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new graph
+      graph.nodes[3].ends_of_kmers_of_node = 'T'*11 #make this long so it is chosen
+      non_tips, visiteds = assembler.remove_tips(initial_path.neighbours_of_last_node(graph), 25)
+      non_tips.collect{|n| n.to_shorthand}.should == ['3s']
+      visiteds.sort.should == [[2, :start_is_first], [4, :start_is_first]]
     end
   end
 end

@@ -309,6 +309,32 @@ describe "BubblyAssembler" do
       metapath.reference_trail.to_shorthand.should == '1s,5s,4s,3s,5s,4s,3s,8s,9s'
       visited_nodes.to_a.collect{|s| s[0]}.sort.should == [1,3,4,5,8,9,20,21]
     end
+
+    it 'should take the longest path at the end of the contig' do
+      graph, initial_path, terminal = GraphTesting.emit_ss([
+        [1,2],
+        [1,3],
+        ], 1, 4)
+      cartographer = Bio::AssemblyGraphAlgorithms::BubblyAssembler.new graph
+      graph.nodes[3].ends_of_kmers_of_node = 'T'*100 #make this long so it is chosen
+      cartographer.assembly_options[:max_tip_length] = 200
+      metapath, visited_nodes = cartographer.assemble_from(initial_path)
+      GraphTesting.metapath_to_array(metapath).should == [1,3]
+    end
+
+    it 'should work on bubbles at the ends of contigs within tip length' do
+      graph, initial_path = GraphTesting.emit_ss([
+        [1,2],
+        [1,3],
+        [2,4],
+        [3,4],
+        ], 1, 2)
+      assembler = Bio::AssemblyGraphAlgorithms::SingleEndedAssembler.new graph
+      graph.nodes[3].ends_of_kmers_of_node = 'T'*11 #make this long so it is chosen
+      assembler.assembly_options[:max_tip_length] = 200
+      metapath, visited_nodes = assembler.assemble_from(initial_path)
+      GraphTesting.metapath_to_array(metapath).should == [1,[2,3],4] #known bug. Currently it chooses a single path because one side is chosen as the longest short tip
+    end
   end
 
   describe 'assemble' do

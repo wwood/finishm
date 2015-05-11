@@ -226,7 +226,9 @@ class Bio::FinishM::Visualise
       paired_end_links = explorer.find_paired_end_linkages(finishm_graph, finishm_graph.graph.nodes)
 
       log.info "Converting assembly to a graphviz.."
-      gv = viser.graphviz(finishm_graph.graph, :paired_nodes_hash => paired_end_links)
+      gv = viser.graphviz(finishm_graph.graph,
+        :nodes => finishm_graph.graph.nodes,
+        :paired_nodes_hash => paired_end_links)
     end
 
     # Convert gv object to something actually pictorial
