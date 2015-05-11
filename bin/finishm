@@ -85,8 +85,12 @@ subcommands = {
     operator = Bio::FinishM::RoundUp.new
     operator.add_options(opts, options)
   end},
-  'path_count' => lambda {OptionParser.new do |opts|
+  'count_paths' => lambda {OptionParser.new do |opts|
     operator = Bio::FinishM::PathCounter.new
+    operator.add_options(opts, options)
+  end},
+  'find_orfs' => lambda {OptionParser.new do |opts|
+    operator = Bio::FinishM::ORFsFinder.new
     operator.add_options(opts, options)
   end}
 }

@@ -12,15 +12,16 @@ module Bio
 
       # Search for open reading frames in a graph, in all the paths between
       # an initial and a terminal node
-      def find_foward_orfs_in_connection(graph, initial_path, terminal_node,
-        minimum_orf_length=100, leash_length=nil, max_gapfill_paths=nil, max_cycles=nil, max_explore_nodes=nil)
+      def find_orfs_in_connection(graph, initial_path, terminal_nodes=nil,
+          minimum_orf_length=nil, leash_length=nil, max_gapfill_paths=nil,
+          max_cycles=nil, max_explore_nodes=nil)
 
         problems = find_all_problems(graph, initial_path, {
           :terminal_nodes => terminal_nodes,
           :leash_length => leash_length
           })
 
-        orf_trails = find_orfs_from_problems(problems, {
+        find_orfs_from_problems(problems, {
           :minimum_orf_length => minimum_orf_length,
           :max_gapfill_paths => max_gapfill_paths,
           :max_cycles => max_cycles,
@@ -188,6 +189,7 @@ module Bio
 
           if first_part.length == 0
             # If we've tracked all the way to the beginning, then there's no need to track further
+
             key = second_part.otrail.trail.hash
             all_paths_hash[key] ||= second_part
             next

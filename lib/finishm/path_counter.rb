@@ -2,7 +2,7 @@ class Bio::FinishM::PathCounter
   include Bio::FinishM::Logging
 
   def add_options(optparse_object, options)
-    optparse_object.banner = "\nUsage: finishm pathcounter --assembly-???
+    optparse_object.banner = "\nUsage: finishm count_paths --assembly-???
 
     Count paths through assembly graph
     \n\n"
