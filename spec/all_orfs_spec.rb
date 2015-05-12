@@ -14,7 +14,7 @@ end
 describe "AllOrfs" do
 
   it 'should find a hello world ORF' do
-    graph, paths = GraphTesting.emit_otrails([
+    graph, = GraphTesting.emit_otrails([
       [1,2,3]
       ])
     graph.nodes[1].ends_of_kmers_of_node = 'AAATGGAAAA' #start codon 'ATG'
@@ -23,7 +23,7 @@ describe "AllOrfs" do
 
 
     orfer = Bio::AssemblyGraphAlgorithms::AllOrfsFinder.new
-    problems = orfer.find_all_problems(graph, initial_path)
+    problems = orfer.find_all_problems(graph, [initial_path])
     #pp problems
 
     paths = orfer.find_orfs_from_problems(problems)
@@ -40,19 +40,20 @@ describe "AllOrfs" do
   end
 
   it 'should find ORFs over a bubble' do
-    graph, initial_path, = GraphTesting.emit_ss([
+    graph = GraphTesting.emit([
       [1,2],
       [1,3],
       [2,4],
       [3,4]
-      ], 1, 4)
+      ])
     graph.nodes[1].ends_of_kmers_of_node = 'AAATGGAAAA' # start 'ATG'
     graph.nodes[2].ends_of_kmers_of_node = 'C'
     graph.nodes[3].ends_of_kmers_of_node = 'A'
     graph.nodes[4].ends_of_kmers_of_node = 'AATTAAAAAA' # stop 'TAA'
+    initial_path = GraphTesting.make_onodes(graph, %w(1s))
 
     orfer = Bio::AssemblyGraphAlgorithms::AllOrfsFinder.new
-    problems = orfer.find_all_problems(graph, initial_path)
+    problems = orfer.find_all_problems(graph, [initial_path])
     #pp problems
     paths = orfer.find_orfs_from_problems(problems)
     #pp paths
@@ -70,19 +71,20 @@ describe "AllOrfs" do
   end
 
   it 'should respect phase along each trail' do
-    graph, initial_path, = GraphTesting.emit_ss([
+    graph = GraphTesting.emit([
       [1,2],
       [1,3],
       [2,4],
       [3,4]
-      ], 1, 4)
+      ])
     graph.nodes[1].ends_of_kmers_of_node = 'AAATGGAAAA' # start 'ATG'
     graph.nodes[2].ends_of_kmers_of_node = 'C'
     graph.nodes[3].ends_of_kmers_of_node = 'AAA'
     graph.nodes[4].ends_of_kmers_of_node = 'AATTAAAAAA' # stop 'TAA'
+    initial_path = GraphTesting.make_onodes(graph, %w(1s))
 
     orfer = Bio::AssemblyGraphAlgorithms::AllOrfsFinder.new
-    problems = orfer.find_all_problems(graph, initial_path)
+    problems = orfer.find_all_problems(graph, [initial_path])
     #pp problems
     paths = orfer.find_orfs_from_problems(problems)
     #pp paths
@@ -105,29 +107,6 @@ describe "AllOrfs" do
       ]
   end
 
-  it 'should respect leash length' do
-    graph, initial_path, = GraphTesting.emit_ss([
-      [1,2],
-      [2,3]
-      ], 1, 3)
-    graph.nodes[1].ends_of_kmers_of_node = 'AAATGGAAAA' # start 'ATG'
-    graph.nodes[3].ends_of_kmers_of_node = 'AAAAAATAGA' # stop 'TAG'
-
-    orfer = Bio::AssemblyGraphAlgorithms::AllOrfsFinder.new
-    problems = orfer.find_all_problems(graph, initial_path, :leash_length => 20)
-    paths = orfer.find_orfs_from_problems(problems)
-    GraphTesting.sorted_paths(paths.trails).should == []
-
-    problems = orfer.find_all_problems(graph, initial_path, :leash_length => 40)
-    paths = orfer.find_orfs_from_problems(problems)
-    GraphTesting.sorted_paths(paths.trails).should == [
-      [1,2,3]
-      ]
-    res = paths.trails[0].fwd_orfs_result
-    res.start_stop_pairs.should == [[5,29]]
-    res.initial_stop_positions.should == []
-    res.final_start_positions.should == []
-  end
 
   it 'should respect terminal nodes' do
     fail '#todo'
@@ -142,10 +121,6 @@ describe "AllOrfs" do
   end
 
   it 'should respect max cycles' do
-    fail '#todo'
-  end
-
-  it 'should respect max explore nodes' do
     fail '#todo'
   end
 

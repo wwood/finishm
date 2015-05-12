@@ -503,9 +503,9 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
     include Bio::FinishM::Logging
 
     def initialize(graph, initial_path)
+      @graph = graph
       @pqueue = DS::AnyPriorityQueue.new {|a,b| a < b}
       @pqueue.enqueue initial_path.copy, 0
-      @graph = graph
     end
 
     def dequeue
@@ -514,10 +514,6 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentPathsBetweenNodesFinder
 
     def length
       @pqueue.length
-    end
-
-    def last_is_terminal?(current_path)
-      return current_path.neighbours_of_last_node(@graph).empty?
     end
 
     def push_next_neighbours(current_path)

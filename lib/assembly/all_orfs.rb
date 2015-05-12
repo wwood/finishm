@@ -12,66 +12,45 @@ module Bio
 
       # Search for open reading frames in a graph, in all the paths between
       # an initial and a terminal node
-      def find_orfs_in_connection(graph, initial_path, terminal_nodes=nil,
-          minimum_orf_length=nil, leash_length=nil, max_gapfill_paths=nil,
-          max_cycles=nil, max_explore_nodes=nil)
+      def find_orfs_in_graph(graph, minimum_orf_length=nil, initial_paths=nil,
+          terminal_nodes=nil, max_gapfill_paths=nil, max_cycles=nil)
 
-        problems = find_all_problems(graph, initial_path, {
-          :terminal_nodes => terminal_nodes,
-          :leash_length => leash_length
-          })
+        problems = find_all_problems(graph,
+          initial_paths,
+          :terminal_nodes => terminal_nodes
+          )
 
         find_orfs_from_problems(problems, {
-          :minimum_orf_length => minimum_orf_length,
+          :min_orf_length => minimum_orf_length,
           :max_gapfill_paths => max_gapfill_paths,
           :max_cycles => max_cycles,
-          :max_explore_nodes => max_explore_nodes,
           })
       end
 
 
-      def find_all_problems(graph, initial_path, options={})
+      def find_all_problems(graph, initial_paths, options={})
         problems = SingleCoherentPathsBetweenNodesFinder::ProblemSet.new
-        prob_finder = SingleCoherentPathsBetweenNodesFinder::ProblemTrailFinder.new(graph, initial_path)
+        prob_finder = AllProblemTrailsFinder.new(graph, initial_paths)
 
-        while current_path = prob_finder.dequeue
-          path_length = current_path.length_in_bp
-          log.debug "considering #{current_path}, path length: #{path_length}" if log.debug?
-
-
-          terminal = prob_finder.last_is_terminal?(current_path) || (options[:terminal_nodes] && options[:terminal_nodes].include?(current_path.last))
-
-          unless terminal
-            if !options[:leash_length].nil? and path_length > options[:leash_length]
-              # we are past the leash length, give up
-              log.debug "Past leash length, giving up" if log.debug?
-              next
-            elsif options[:max_explore_nodes] and num_done > options[:max_explore_nodes]
-              log.debug "Explored enough nodes (#{num_done}), giving up" if log.debug?
-              next
-            end
-          end
-
+        while current_path = prob_finder.pop
+          log.debug "considering #{current_path}" if log.debug?
           set_key = path_to_settable(current_path)
-
 
           if problems.has_key? set_key
             log.debug "Already seen this problem" if log.debug?
             prob = problems[set_key]
             prob.known_paths.push current_path
-
-            # I don't think this should happen?
-            raise "programming error" if path_length < prob.min_distance
             next
           end
 
           log.debug "New dynamic problem being solved" if log.debug?
           # new problem being solved here
           problem = SingleCoherentPathsBetweenNodesFinder::DynamicProgrammingProblem.new
-          problem.min_distance = path_length
           problem.known_paths.push current_path.copy
           problems[set_key] = problem
 
+
+          terminal = current_path.neighbours_of_last_node(graph).empty? || (options[:terminal_nodes] && options[:terminal_nodes].include?(current_path.last.node))
           if terminal
             log.debug "last is terminal" if log.debug?
 
@@ -80,15 +59,9 @@ module Bio
             next
           end
 
-
-          num_done = problems.length
-          if num_done > 0 and num_done % 512 == 0
-            log.info "So far worked with #{num_done} head node sets, up to distance #{path_length}" if log.info?
-          end
-
           # explore the forward neighbours
           prob_finder.push_next_neighbours current_path
-          log.debug "Priority queue size: #{prob_finder.length}" if log.debug?
+          log.debug "Priority queue size: #{prob_finder.size}" if log.debug?
         end
 
         return problems
@@ -103,7 +76,7 @@ module Bio
         max_num_paths = options[:max_gapfill_paths]
         max_num_paths ||= 2196
         max_cycles = options[:max_cycles] || 1
-        min_orf_length = options[:min_orf_length] || 0
+        min_orf_length = options[:minimum_orf_length] || 0
 
         counter = SingleCoherentPathsBetweenNodesFinder::CycleCounter.new(max_cycles)
         decide_stack = lambda do |to_push|
@@ -519,6 +492,38 @@ module Bio
           @start_stop_pairs = []
           @final_start_positions = []
           @initial_stop_positions = []
+        end
+      end
+
+      class AllProblemTrailsFinder
+        include Bio::FinishM::Logging
+
+        def initialize(graph, initial_paths)
+          @stack = DS::Stack.new
+          initial_paths.each do |path|
+            @stack.push path
+          end
+          @graph = graph
+        end
+
+        def pop
+          @stack.pop
+        end
+
+        def size
+          @stack.size
+        end
+
+        def push_next_neighbours(current_path)
+          next_nodes = current_path.neighbours_of_last_node(@graph)
+          log.debug "Pushing #{next_nodes.length} new neighbours of #{current_path.last}" if log.debug?
+          #TODO: not neccessary to copy all paths, can just continue one of them
+          next_nodes.each do |n|
+            log.debug "Pushing neighbour to stack: #{n}" if log.debug?
+            path = current_path.copy
+            path.add_oriented_node n
+            @stack.push path
+          end
         end
       end
     end

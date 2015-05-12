@@ -50,7 +50,6 @@ require 'assembly/single_ended_assembler'
 require 'assembly/bubbly_assembler'
 require 'assembly/bad_format_writer'
 require 'assembly/height_finder'
-require 'assembly/probe_explorer'
 
 require 'finishm/primers'
 require 'finishm/primers_check'
