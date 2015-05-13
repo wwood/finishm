@@ -182,38 +182,45 @@ class Bio::FinishM::Visualise
       interesting_node_ids = options[:interesting_nodes]
     elsif options[:assembly_files]
       finishm_graph, interesting_node_ids, node_id_to_nickname = generate_graph_from_assembly(read_input, options)
+      options[:node_id_to_nickname] = node_id_to_nickname
     else
       # Visualising the entire graph
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
     end
 
+
     if options[:graph_search_leash_length]
-      log.info "Finding nodes within the leash length of #{options[:graph_search_leash_length] }.."
+      #log.info "Finding nodes within the leash length of #{options[:graph_search_leash_length] }.."
       nodes_within_leash, node_ids_at_leash = get_nodes_within_leash(finishm_graph, interesting_node_ids, options)
       log.info "Found #{node_ids_at_leash.length} nodes at the end of the #{options[:graph_search_leash_length] }bp leash" if options[:graph_search_leash_length]
+
+      options.merge!({
+        :start_node_ids => interesting_node_ids,
+        :nodes => nodes_within_leash,
+        :end_node_ids => node_ids_at_leash,
+
+      })
     else
-      nodes_within_leash = finishm_graph.graph.nodes
+      options[:nodes] = finishm_graph.graph.nodes
     end
 
     # Determine paired-end connections
     log.info "Determining paired-end node connections.."
-    paired_end_links = find_paired_end_linkages(finishm_graph, nodes_within_leash)
+    paired_end_links = find_paired_end_linkages(finishm_graph, options[:nodes])
+    options[:paired_nodes_hash] = paired_end_links
 
-    create_graphviz_output(finishm_graph, {
-      :start_node_ids => interesting_node_ids,
-      :nodes => nodes_within_leash,
-      :end_node_ids => node_ids_at_leash,
-      :paired_nodes_hash => paired_end_links,
-      :node_id_to_nickname => node_id_to_nickname,
-      :output_graph_png => options[:output_graph_png],
-      :output_graph_svg => options[:output_graph_svg],
-      :output_graph_dot => options[:output_graph_dot]
-      })
+    create_graphviz_output(finishm_graph, options)
   end
 
   def create_graphviz_output(finishm_graph, options)
     log.info "Converting assembly to a graphviz.."
-    gv = Bio::Assembly::ABVisualiser.new.graphviz(finishm_graph.graph, options)
+    gv = Bio::Assembly::ABVisualiser.new.graphviz(finishm_graph.graph, {
+      :start_node_ids => options[:start_node_ids],
+      :nodes => options[:nodes],
+      :end_node_ids => options[:end_node_ids],
+      :paired_nodes_hash => options[:paired_nodes_hash],
+      :node_id_to_nickname => options[:node_id_to_nickname]
+      })
 
     # Convert gv object to something actually pictorial
     if options[:output_graph_png]
