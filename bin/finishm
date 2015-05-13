@@ -74,7 +74,7 @@ subcommands = {
     operator.add_options(opts, options)
   end},
   'visualise' => lambda {OptionParser.new do |opts|
-    operator = Bio::FinishM::Visualiser.new
+    operator = Bio::FinishM::Visualise.new
     operator.add_options(opts, options)
   end},
   'sequence' => lambda {OptionParser.new do |opts|
