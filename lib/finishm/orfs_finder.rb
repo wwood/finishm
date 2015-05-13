@@ -51,58 +51,24 @@ class Bio::FinishM::ORFsFinder
       options[:terminal_nodes] = options[:end_nodes].collect{|id| finishm_graph.nodes[id]}
     end
 
-    log.info "Finding nodes from which to begin search.."
-    nodes_within_leash, node_ids_at_leash = visualise.get_nodes_within_leash(finishm_graph, interesting_node_ids, options)
-    log.info "Found #{start_node_ids.length} nodes"
+    nodes_within_leash, = visualise.get_nodes_within_leash(finishm_graph, interesting_node_ids, options)
+    initial_onodes = Bio::FinishM::PathCounter.new.get_leash_start_nodes(finishm_graph, nodes_within_leash)
+    options[:range] = nodes_within_leash
 
-
-
-    find_orfs_in_graph(finishm_graph, initial_path, options)
+    find_orfs_in_graph(finishm_graph, initial_onodes, options)
   end
 
-  def get_start_and_end_nodes_within_leash(finishm_graph, node_ids, options)
-    log.info "Finding nodes within the leash length of #{options[:graph_search_leash_length] } with maximum node count #{options[:max_nodes] }.."
-    dijkstra = Bio::AssemblyGraphAlgorithms::Dijkstra.new
-
-    @finder = Bio::FinishM::PairedEndNeighbourFinder.new(finishm_graph, 500) #TODO: this hard-coded 100 isn't great here
-    @finder.min_adjoining_reads = options[:min_adjoining_reads]
-    @finder.max_adjoining_node_coverage = options[:max_adjoining_node_coverage]
-
-    nodes_within_leash_hash = dijkstra.min_distances_from_many_nodes_in_both_directions(
-      finishm_graph.graph, node_ids.collect{|n| finishm_graph.graph.nodes[n]}, {
-        :ignore_directions => true,
-        :leash_length => options[:graph_search_leash_length],
-        :max_nodes => options[:max_nodes],
-        :neighbour_finder => @finder
-        })
-    nodes_within_leash = nodes_within_leash_hash.keys.collect{|k| finishm_graph.graph.nodes[k[0]]}
-    log.info "Found #{nodes_within_leash.collect{|o| o.node_id}.uniq.length} node(s) within the leash length"
-
-    # These nodes are at the end of the leash - a node is in here iff
-    # it has a neighbour that is not in the nodes_within_leash
-    start_node_ids = Set.new
-    end_node_ids = Set.new
-    nodes_within_leash_hash.keys.each do |node_and_direction|
-      # Add it to the set if 1 or more nieghbours are not in the original set
-      node = finishm_graph.graph.nodes[node_and_direction[0]]
-      onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new node, node_and_direction[1]
-      onode.next_neighbours(finishm_graph.graph).each do |oneigh|
-        if !nodes_within_leash_hash.key?(oneigh.to_settable)
-          node_ids_at_leash << node_and_direction
-          break #it only takes one to be listed
-        end
-      end
+  def find_orfs_in_graph(finishm_graph, initial_onodes, options={})
+    initial_paths = initial_onodes.collect do |onode|
+      path = Bio::Velvet::Graph::OrientedNodeTrail.new
+      path.add_oriented_node onode
+      path
     end
 
-
-    return nodes_within_leash.uniq, start_node_ids, end_node_ids
-  end
-
-  def find_orfs_in_graph(finishm_graph, initial_path, options={})
     orfer = Bio::AssemblyGraphAlgorithms::AllOrfsFinder.new
-    orf_trails = orfer.find_orfs_in_connection(finishm_graph.graph, initial_path, options[:terminal_nodes],
-        options[:min_orf_length], options[:leash_length], options[:max_gapfill_paths], options[:max_cycles],
-        options[:max_explore_nodes])
+    orf_trails = orfer.find_orfs_in_connection(finishm_graph.graph, initial_paths,
+        options[:min_orf_length], options[:range], options[:max_gapfill_paths],
+        options[:max_cycles])
 
     found_orfs = {}
     orf_trails.each do |path|

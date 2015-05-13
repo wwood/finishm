@@ -58,13 +58,30 @@ class Bio::FinishM::PathCounter
       nodes_within_leash = finishm_graph.nodes
     end
 
+    initial_onodes = get_leash_start_nodes(finishm_graph, nodes_within_leash)
+
     log.info "Counting paths through assembly graph.."
-    count_paths_through_graph(finishm_graph,{ :range => nodes_within_leash })
+    count_paths_through_graph(finishm_graph, initial_onodes,  :range => nodes_within_leash )
   end
 
-  def count_paths_through_graph(finishm_graph, options={})
+  def get_leash_start_nodes(finishm_graph, nodes_within_leash)
+    log.info "Finding nodes from which to begin search.."
+    start_onodes, = height_finder.find_oriented_edge_of_range(finishm_graph.graph, nodes_within_leash)
+    if start_onodes.empty?
+      #possible with a completely cyclic graph, choose any node to begin
+      onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode finishm_graph.graph.nodes[1], true
+      start_onodes = [onode]
+      log.info "Graph appears to be a self-contained loop, so chose an arbitrary  node"
+    else
+      log.info "Found #{start_node_ids.length} nodes"
+    end
+    return start_onodes
+  end
+
+  def count_paths_through_graph(finishm_graph, initial_onodes, options={})
     height_finder = Bio::AssemblyGraphAlgorithms::HeightFinder.new
-    by_height, = height_finder.traverse finishm_graph.graph, options
+
+    by_height, = height_finder.traverse(finishm_graph.graph, initial_onodes, options)
     min_paths_through = height_finder.min_paths_through(by_height)
     max_paths_through = height_finder.max_paths_through(by_height)
     puts "Minimum number of distinct sequences to explain graph, assuming no errors: #{min_paths_through}."

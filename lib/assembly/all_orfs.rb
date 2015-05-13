@@ -10,14 +10,14 @@ module Bio
       START_CODONS = ['ATG']
       STOP_CODONS = ['TAG', 'TAA', 'TGA']
 
-      # Search for open reading frames in a graph, in all the paths between
-      # an initial and a terminal node
-      def find_orfs_in_graph(graph, minimum_orf_length=nil, initial_paths=nil,
-          terminal_nodes=nil, max_gapfill_paths=nil, max_cycles=nil)
+      # Search for open reading frames in a graph, in all the paths begining at a set of
+      # nodes through a graph (or a subset defined by range)
+      def find_orfs_in_graph(graph, initial_paths, minimum_orf_length=nil,
+          range=nil, max_gapfill_paths=nil, max_cycles=nil)
 
         problems = find_all_problems(graph,
           initial_paths,
-          :terminal_nodes => terminal_nodes
+          :range => range
           )
 
         find_orfs_from_problems(problems, {
@@ -49,9 +49,11 @@ module Bio
           problem.known_paths.push current_path.copy
           problems[set_key] = problem
 
-
-          terminal = current_path.neighbours_of_last_node(graph).empty? || (options[:terminal_nodes] && options[:terminal_nodes].include?(current_path.last.node))
-          if terminal
+          neighbours = current_path.neighbours_of_last_node(graph)
+          if options[:range]
+            neighbours.select!{|onode| options[:range].include? onode.node_id}
+          end
+          if neighbours.empty?
             log.debug "last is terminal" if log.debug?
 
             problems.terminal_node_keys ||= Set.new

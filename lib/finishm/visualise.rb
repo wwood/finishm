@@ -187,10 +187,10 @@ class Bio::FinishM::Visualise
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
     end
 
-    if options[:leash_length]
+    if options[:graph_search_leash_length]
       log.info "Finding nodes within the leash length of #{options[:graph_search_leash_length] }.."
       nodes_within_leash, node_ids_at_leash = get_nodes_within_leash(finishm_graph, interesting_node_ids, options)
-      log.info "Found #{node_ids_at_leash.length} nodes at the end of the #{options[:leash_length] }bp leash" if options[:leash_length]
+      log.info "Found #{node_ids_at_leash.length} nodes at the end of the #{options[:graph_search_leash_length] }bp leash" if options[:graph_search_leash_length]
     else
       nodes_within_leash = finishm_graph.graph.nodes
     end
@@ -203,14 +203,17 @@ class Bio::FinishM::Visualise
       :start_node_ids => interesting_node_ids,
       :nodes => nodes_within_leash,
       :end_node_ids => node_ids_at_leash,
+      :paired_nodes_hash => paired_end_links,
       :node_id_to_nickname => node_id_to_nickname,
-      :paired_nodes_hash => paired_end_links
+      :output_graph_png => options[:output_graph_png],
+      :output_graph_svg => options[:output_graph_svg],
+      :output_graph_dot => options[:output_graph_dot]
       })
   end
 
   def create_graphviz_output(finishm_graph, options)
     log.info "Converting assembly to a graphviz.."
-    gv = Bio::Assembly::ABVisualiser.new.graphviz(finishm_graph, options)
+    gv = Bio::Assembly::ABVisualiser.new.graphviz(finishm_graph.graph, options)
 
     # Convert gv object to something actually pictorial
     if options[:output_graph_png]

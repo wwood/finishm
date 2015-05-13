@@ -5,8 +5,7 @@ class Bio::AssemblyGraphAlgorithms::HeightFinder
   include Bio::FinishM::Logging
 
   # visit nodes in range and determine heights
-  def traverse(graph, options={})
-    initial_nodes = options[:initial_nodes]
+  def traverse(graph, initial_nodes, options={})
     by_height = []
     traversal_nodes = {}
     cycles = {}
@@ -14,10 +13,6 @@ class Bio::AssemblyGraphAlgorithms::HeightFinder
 
     # depth-first so stack
     stack = DS::Stack.new
-    if initial_nodes.nil?
-      initial_nodes = (options[:range] || graph.nodes).collect{|node| Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new node, true}
-    end
-
     initial_nodes.each do |onode|
       next if options[:range] and options[:range].none?{|other| other == onode.node }
       traversal_node = CyclicTraversalNode.new
@@ -170,6 +165,10 @@ class Bio::AssemblyGraphAlgorithms::HeightFinder
     def describe
       @onode.to_shorthand
     end
+
+    def node_id
+      @onode.node_id
+    end
   end
 
   class CyclicTraversalNode < TraversalNode
@@ -285,5 +284,72 @@ class Bio::AssemblyGraphAlgorithms::HeightFinder
       end
     end
     return max_alive_counter
+  end
+
+  def find_oriented_edge_of_range(graph, nodes=nil)
+    nodes ||= graph.nodes
+    log.debug "Looking for oriented start and end points from #{nodes.collect{|n| n.node_id}.join(',')}" if log.debug?
+    nodes_all_directions = nodes.collect{|node| [[node, true], [node, false]]}.flatten(1)
+
+
+    # Find nodes and directions which are not reachable from other nodes within range
+    unreached_nodes = {}
+    nodes_all_directions.each do |node_and_direction|
+      onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode.new node_and_direction[0], node_and_direction[1]
+      unless unreached_nodes.has_key? onode.to_settable
+        unreached_nodes[onode.to_settable] = onode
+      end
+      onode.next_neighbours(graph).each do |oneigh|
+        unreached_nodes[oneigh.to_settable] = nil
+      end
+    end
+
+    entry_points = unreached_nodes.values.reject{|n| n.nil?}
+    log.debug "Found the following nodes for a particular orientation have no paths connecting to other nodes in range: #{entry_points.collect{|n| n.to_shorthand}.join(',')}" if log.debug?
+
+    # Start from an unreachable node, and trace all paths until the reverse end of other unreachable nodes
+    # are reached, which are then defined as 'end' nodes. When finished, choose a remaining non-end unreachable
+    # node and repeat, stopping paths if an already seen node is encountered.
+    seen_nodes = Set.new
+    start_onodes = []
+    end_onodes = []
+    stack = DS::Stack.new
+    entry_points.reverse.each do |onode|
+      stack.push onode
+    end
+
+    while current_node = stack.pop
+      log.debug "At node #{current_node.to_shorthand}" if log.debug?
+
+      node_id = current_node.node_id
+      if seen_nodes.include? node_id or not nodes.include? current_node.node
+        log.debug "Node has been seen or is out of range. Skipping..." if log.debug?
+        next
+      end
+      seen_nodes << node_id
+
+      current_unreached = unreached_nodes[current_node.to_settable]
+      log.debug "Is current unreached? #{current_unreached}" if log.debug?
+      if current_unreached
+        log.debug "Defining starting node #{current_unreached.to_shorthand}" if log.debug?
+        # Found start node
+        start_onodes.push current_unreached
+      else
+        reverse_unreached = unreached_nodes[current_node.reverse.to_settable]
+        log.debug "Is reverse unreached? #{reverse_unreached}" if log.debug?
+        if reverse_unreached
+          log.debug "Found ending node #{reverse_unreached.to_shorthand}" if log.debug?
+          # Found end node
+          end_onodes.push reverse_unreached
+        end
+      end
+
+      current_node.next_neighbours(graph).each do |onode|
+        log.debug "Adding neighbour #{onode.to_shorthand} to stack" if log.debug?
+        stack.push onode
+      end
+    end
+
+    return start_onodes, end_onodes
   end
 end
