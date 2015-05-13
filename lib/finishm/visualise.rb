@@ -11,7 +11,6 @@ class Bio::FinishM::Visualise
     }
 
   def add_options(optparse_object, options)
-
     options.merge! DEFAULT_OPTIONS
     optparse_object.banner = "\nUsage: finishm visualise --assembly-??? <output_visualisation_file>
 

@@ -148,7 +148,7 @@ module Bio
             log.debug "Attempt to pair stop codons in reverse direction at #{twin_stops.join(',')}" if log.debug?
             # twin stop positons are relative to start of first path twin node
             # add length of rest of path to get position relative to start of last path twin node
-            length_of_rest_of_path = second_part.otrail.length_in_bos_within_path - second_part.otrail[0].node.length_alone
+            length_of_rest_of_path = second_part.otrail.length_in_bp_within_path - second_part.otrail[0].node.length_alone
             current_twin_stops = twin_result.stop_positions.collect{|pos| pos+length_of_rest_of_path}
 
             twin_orfs_result = orfs_from_start_stop_indices(current_twin_starts, current_twin_stops, min_orf_length)

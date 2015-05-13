@@ -2,6 +2,7 @@ class Bio::FinishM::PathCounter
   include Bio::FinishM::Logging
 
   def add_options(optparse_object, options)
+    options.merge! Bio::FinishM::Visualise::DEFAULT_OPTIONS
     optparse_object.banner = "\nUsage: finishm count_paths --assembly-???
 
     Count paths through assembly graph
@@ -49,13 +50,12 @@ class Bio::FinishM::PathCounter
     end
 
 
-    if options[:leash_length]
+    if options[:graph_search_leash_length]
       # get a list of the nodes to be visualised given the leash length
-      log.info "Finding nodes within the leash length of #{options[:graph_search_leash_length] }.."
-      nodes_within_leash, = visualise.get_nodes_within_leash(finishm_graph, interesting_node_ids, options)
-      log.info "Found #{node_ids_at_leash.length} nodes at the end of the #{options[:leash_length] }bp leash" if options[:leash_length]
+      nodes_within_leash, node_ids_at_leash = visualise.get_nodes_within_leash(finishm_graph, interesting_node_ids, options)
+      log.info "Found #{node_ids_at_leash.length} nodes at the end of the #{options[:graph_search_leash_length] }bp leash"
     else
-      nodes_within_leash = finishm_graph.nodes
+      nodes_within_leash = finishm_graph.graph.nodes
     end
 
     initial_onodes = get_leash_start_nodes(finishm_graph, nodes_within_leash)
@@ -66,14 +66,14 @@ class Bio::FinishM::PathCounter
 
   def get_leash_start_nodes(finishm_graph, nodes_within_leash)
     log.info "Finding nodes from which to begin search.."
-    start_onodes, = height_finder.find_oriented_edge_of_range(finishm_graph.graph, nodes_within_leash)
+    start_onodes, = Bio::AssemblyGraphAlgorithms::HeightFinder.new.find_oriented_edge_of_range(finishm_graph.graph, nodes_within_leash)
     if start_onodes.empty?
       #possible with a completely cyclic graph, choose any node to begin
       onode = Bio::Velvet::Graph::OrientedNodeTrail::OrientedNode finishm_graph.graph.nodes[1], true
       start_onodes = [onode]
       log.info "Graph appears to be a self-contained loop, so chose an arbitrary  node"
     else
-      log.info "Found #{start_node_ids.length} nodes"
+      log.info "Found #{start_onodes.length} nodes"
     end
     return start_onodes
   end

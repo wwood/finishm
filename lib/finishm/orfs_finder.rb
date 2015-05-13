@@ -6,6 +6,7 @@ class Bio::FinishM::ORFsFinder
     }
 
   def add_options(optparse_object, options)
+    options.merge! Bio::FinishM::Visualise::DEFAULT_OPTIONS
     options.merge! DEFAULT_OPTIONS
     optparse_object.banner = "\nUsage: finishm find_orfs --assembly-???
 
@@ -34,27 +35,30 @@ class Bio::FinishM::ORFsFinder
     read_input = Bio::FinishM::ReadInput.new
     read_input.parse_options options
 
+    visualise = Bio::FinishM::Visualise.new
+
     if options[:interesting_probes] or options[:interesting_probe_names]
-      finishm_graph, interesting_node_ids = generate_graph_from_probes(read_input, options)
+      finishm_graph, interesting_node_ids = visualise.generate_graph_from_probes(read_input, options)
     elsif options[:interesting_nodes]
-      finishm_graph = generate_graph_from_nodes(read_input, options)
+      finishm_graph = visualise.generate_graph_from_nodes(read_input, options)
       interesting_node_ids = options[:interesting_nodes]
     elsif options[:assembly_files]
-      finishm_graph, interesting_node_ids, = generate_graph_from_assembly(read_input, options)
+      finishm_graph, interesting_node_ids, = visualise.generate_graph_from_assembly(read_input, options)
     else
       finishm_graph = Bio::FinishM::GraphGenerator.new.generate_graph([], read_input, options)
     end
 
-    initial_path = Bio::Velvet::Graph::OrientedNodeTrail.create_from_shorthand options[:start_node], finishm_graph
+    if options[:graph_search_leash_length]
+      #log.info "Finding nodes within the leash length of #{options[:graph_search_leash_length] }.."
+      nodes_within_leash, node_ids_at_leash = visualise.get_nodes_within_leash(finishm_graph, interesting_node_ids, options)
+      log.info "Found #{node_ids_at_leash.length} nodes at the end of the #{options[:graph_search_leash_length] }bp leash" if options[:graph_search_leash_length]
 
-    if options[:end_nodes]
-      options[:terminal_nodes] = options[:end_nodes].collect{|id| finishm_graph.nodes[id]}
+      options[:range] = nodes_within_leash
+    else
+      options[:range] = finishm_graph.graph.nodes
     end
 
-    nodes_within_leash, = visualise.get_nodes_within_leash(finishm_graph, interesting_node_ids, options)
-    initial_onodes = Bio::FinishM::PathCounter.new.get_leash_start_nodes(finishm_graph, nodes_within_leash)
-    options[:range] = nodes_within_leash
-
+    initial_onodes = Bio::FinishM::PathCounter.new.get_leash_start_nodes(finishm_graph, options[:range])
     find_orfs_in_graph(finishm_graph, initial_onodes, options)
   end
 
@@ -66,9 +70,8 @@ class Bio::FinishM::ORFsFinder
     end
 
     orfer = Bio::AssemblyGraphAlgorithms::AllOrfsFinder.new
-    orf_trails = orfer.find_orfs_in_connection(finishm_graph.graph, initial_paths,
-        options[:min_orf_length], options[:range], options[:max_gapfill_paths],
-        options[:max_cycles])
+    orf_trails = orfer.find_orfs_in_graph(finishm_graph.graph, initial_paths,
+        options[:min_orf_length], options[:range])
 
     found_orfs = {}
     orf_trails.each do |path|
