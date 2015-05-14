@@ -73,31 +73,7 @@ class Bio::FinishM::ORFsFinder
     orf_trails = orfer.find_orfs_in_graph(finishm_graph.graph, initial_paths,
         options[:min_orf_length], options[:range])
 
-    found_orfs = {}
-    orf_trails.each do |path|
-      sequences, sequences = path.otrail.sequence_within_path
-      (0..1).each do |dir|
-        if dir == 0
-          result = path.fwd_orfs_result
-          trail = path.otrail.trail
-          sequence = fwd_trail
-        else
-          result = path.twin_orfs_result
-          trail = path.otrail.reverse.trail
-        end
-
-        result.start_stop_pairs.each do |pair|
-          start_index, length_to_start, end_index, length_to_end = orf_end_nodes(trail, pair[0], pair[1])
-          start_position_in_trail = pair[0] - length_to_start
-          end_position_in_trail = pair[1] - length_to_start
-          orf_trail = trail[start_index..end_index]
-          orf_name = "#{orf_trail.collect{|onode| ondoe.to_shorthand}.join(',')}[#{start_position_in_trail}:#{end_position_in_trail}]"
-          next if found_orfs.has_key? orf_name
-          orf_sequence = sequences[dir][pair[0]-2, pair[1]]
-          found_orfs[orf_name] = orf_sequence
-        end
-      end
-    end
+    found_orfs = orfer.orf_sequences_from_trails(orf_trails)
 
     found_orfs.each_pair do |name, sequence|
       puts ">#{name}"
@@ -106,26 +82,6 @@ class Bio::FinishM::ORFsFinder
     end
   end
 
-  def orf_end_nodes(path, start_position, stop_position)
-    start_of_current_index = 0
-    index = 0
-
-    indices = [first, last].collect do |position|
-      while current_node = path[index]
-        start_of_next_index = start_of_current_index + current_node.node.length_alone
-        if position_of_next < position
-          index += 1
-          start_of_current_index = start_of_next_index
-          next
-        end
-
-        return [index, start_of_current_index]
-      end
-      raise "Position #{position} not in path" if current_node.nil?
-    end
-
-    return indices.flatten
-  end
 
   def orf_to_settable(path, start_index, start_offset, end_index, end_offset)
     [path[start_index..end_index].collect{|onode| onode.to_settable},[start_offset, end_offset]]
