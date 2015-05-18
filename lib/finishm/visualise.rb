@@ -116,7 +116,7 @@ class Bio::FinishM::Visualise
       File.foreach(arg) do |line|
         line.strip!
         next if line == '' or line.nil?
-        options[:interesting_probe_names].push line
+        options[:interesting_probe_names].push line.split(/\s/)[0]
       end
       log.info "Read #{options[:interesting_probe_names].length} probes names in"
     end
@@ -239,7 +239,11 @@ class Bio::FinishM::Visualise
   def generate_graph_from_probes(read_input, options)
       # Looking based on probes
     if options[:interesting_probe_names]
-      log.info "Targeting #{options[:interesting_probe_names].length} probes through their names e.g. `#{options[:interesting_probe_names] }'"
+      if options[:interesting_probe_names].length > 5
+        log.info "Targeting #{options[:interesting_probe_names].length} probes #{options[:interesting_probe_names][0..4].join(', ') }, ..."
+      else
+        log.info "Targeting #{options[:interesting_probe_names].length} probes #{options[:interesting_probe_names].inspect}"
+      end
       options[:probe_read_names] = options[:interesting_probe_names]
     else
       if options[:interesting_probes].length > 5
