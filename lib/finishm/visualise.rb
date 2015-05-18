@@ -58,7 +58,7 @@ class Bio::FinishM::Visualiser
       options[:interesting_probes] = []
       log.info "Reading probe IDs from file: `#{arg}'"
       File.foreach(arg) do |line|
-        line.strip!.split(/\s/)[0]
+        line.strip!
         next if line == '' or line.nil?
         read_id = line.to_i
         if read_id.to_s != line or read_id < 1 or read_id.nil?
@@ -75,7 +75,7 @@ class Bio::FinishM::Visualiser
       File.foreach(arg) do |line|
         line.strip!
         next if line == '' or line.nil?
-        options[:interesting_probe_names].push line
+        options[:interesting_probe_names].push line.split(/\s/)[0]
       end
       log.info "Read #{options[:interesting_probe_names].length} probes names in"
     end
