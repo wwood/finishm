@@ -188,7 +188,7 @@ class Bio::FinishM::Visualise
     end
 
 
-    if options[:graph_search_leash_length]
+    if options[:graph_search_leash_length] and interesting_node_ids
       #log.info "Finding nodes within the leash length of #{options[:graph_search_leash_length] }.."
       nodes_within_leash, node_ids_at_leash = get_nodes_within_leash(finishm_graph, interesting_node_ids, options)
       log.info "Found #{node_ids_at_leash.length} nodes at the end of the #{options[:graph_search_leash_length] }bp leash" if options[:graph_search_leash_length]

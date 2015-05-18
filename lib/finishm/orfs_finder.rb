@@ -78,7 +78,6 @@ class Bio::FinishM::ORFsFinder
     found_orfs.each_pair do |name, sequence|
       puts ">#{name}"
       puts sequence
-      puts
     end
   end
 
