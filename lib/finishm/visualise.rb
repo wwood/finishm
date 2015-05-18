@@ -58,7 +58,7 @@ class Bio::FinishM::Visualiser
       options[:interesting_probes] = []
       log.info "Reading probe IDs from file: `#{arg}'"
       File.foreach(arg) do |line|
-        line.strip!
+        line.strip!.split(/\s/)[0]
         next if line == '' or line.nil?
         read_id = line.to_i
         if read_id.to_s != line or read_id < 1 or read_id.nil?
@@ -151,7 +151,11 @@ class Bio::FinishM::Visualiser
     if options[:interesting_probes] or options[:interesting_probe_names]
       # Looking based on probes
       if options[:interesting_probe_names]
-        log.info "Targeting #{options[:interesting_probe_names].length} probes through their names e.g. `#{options[:interesting_probe_names] }'"
+        if options[:interesting_probe_names].length > 5
+          log.info "Targeting #{options[:interesting_probe_names].length} probes #{options[:interesting_probe_names][0..4].join(', ') }, ..."
+        else
+          log.info "Targeting #{options[:interesting_probe_names].length} probes #{options[:interesting_probe_names].inspect}"
+        end
         options[:probe_read_names] = options[:interesting_probe_names]
       else
         if options[:interesting_probes].length > 5

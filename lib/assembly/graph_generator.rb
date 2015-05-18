@@ -170,20 +170,21 @@ class Bio::FinishM::GraphGenerator
           if entries[name].empty?
             raise "Unable to find probe `#{name}' in the probe reads file - was it included in the assembly?"
           elsif entries[name].length > 2
-            raise "Found >1 sequence named #{name} in the assembly, being conservative and not continuing"
+            raise "Found >2 sequences named #{name} in the assembly, being conservative and not continuing"
           else
+            entries[name].each do |res|
+              anchor_sequence_ids.push res.read_id
+            end
             if entries[name].length == 2
-              # Possibly just each side of a pair? Assume the first read is the one we want.
               double_counts += 1
               log.debug "Found 2 sequences for #{name}" if log.debug?
             end
-            anchor_sequence_ids.push entries[name][0].read_id
           end
         end
         if double_counts > 0
-          log.info "#{double_counts} reads were found twice (likely as pairs), using the first provided one of each pair"
+          log.info "#{double_counts} reads were found twice (likely as pairs), including both as probes"
         end
-        log.info "Correctly recovered all #{anchor_sequence_ids.length} sequences using their names"
+        log.info "Correctly recovered #{anchor_sequence_ids.length} sequences using their names" if log.info?
       end
 
 
