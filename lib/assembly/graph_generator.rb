@@ -39,7 +39,7 @@ class Bio::FinishM::GraphGenerator
   #
   # options:
   # :probe_reads: a list of sequence numbers (numbering as per velvet Sequence file)
-  # :probe_read_names: a list of sequence names (not IDs) that are probes (convert the names to IDs using the CnyUnifiedSeqNames file)
+  # :probe_read_names: a list of sequence names (not IDs) that are probes (convert the names to IDs using the CnyUnifiedSeqNames file). There may not be a one to one correspondence of these read names and the probe reads returned in the ProbedGraph since reads can map to multiple sequence IDs.
   # :velvet_kmer_size: kmer
   # :assembly_coverage_cutoff: coverage cutoff for nodes
   # :post_assembly_coverage_cutoff: apply this coverage cutoff to nodes after parsing assembly
@@ -133,7 +133,8 @@ class Bio::FinishM::GraphGenerator
 
     log.info "Parsing the graph output from velvet"
     opts = {
-      :dont_parse_noded_reads => true #Ignore parsing reads that are not probes, as we don't care and this just takes up extra computational resources
+      # noded reads are parsed in via C, if they are wanted at all
+      :dont_parse_noded_reads => true
     }
     bio_velvet_graph = Bio::Velvet::Graph.parse_from_file(
       File.join(velvet_result.result_directory, 'LastGraph'),
@@ -184,7 +185,7 @@ class Bio::FinishM::GraphGenerator
         if double_counts > 0
           log.info "#{double_counts} reads were found twice (likely as pairs), including both as probes"
         end
-        log.info "Correctly recovered #{anchor_sequence_ids.length} sequences using their names" if log.info?
+        log.info "Recovered #{anchor_sequence_ids.length} sequences using their names" if log.info?
       end
 
 
