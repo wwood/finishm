@@ -112,7 +112,7 @@ class Bio::AssemblyGraphAlgorithms::SingleCoherentWanderer
 
       if maxed_out
         log.debug "Maxed out, exiting loop early" if log.debug?
-        break
+        next
       end
 
       # Now have a hash of minimum distances. Now need to go through those and determine
