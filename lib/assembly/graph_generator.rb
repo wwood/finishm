@@ -1,6 +1,5 @@
 require 'bio-velvet'
 require 'bio'
-require 'pry'
 
 class Bio::FinishM::GraphGenerator
   include Bio::FinishM::Logging
