@@ -195,6 +195,127 @@ describe "AllOrfs" do
     res.collect{|result| result.initial_start_markers}.should == [[],[]]
   end
 
+  it 'should find two same-phase orfs along a trail' do
+    graph, = GraphTesting.emit_otrails([
+      [1,2,3]
+      ])
+    graph.nodes[1].ends_of_kmers_of_node = 'TAAATGGAAA' #stop codon 'TAA', start codon 'ATG'
+    graph.nodes[2].ends_of_kmers_of_node = 'AATAAATGGA' #stop codon 'TAA', start codon 'ATG'
+    graph.nodes[3].ends_of_kmers_of_node = 'AAAAAAATAA' #stop codon 'TAA'
+    initial_path = GraphTesting.make_onodes(graph, %w(1s))
+
+    orfer = Bio::AssemblyGraphAlgorithms::AllOrfsFinder.new
+    problems = orfer.find_all_problems(graph, [initial_path])
+    #pp problems
+
+    paths = orfer.find_orfs_from_problems(problems)
+    #pp paths
+    GraphTesting.sorted_paths(paths.trails).should == [
+      [1,2,3]
+      ]
+    res = paths.trails[0].fwd_orfs_result
+    GraphTesting.sorted_marker_pair_positions(res.start_stop_pairs).should == [
+      [6,15],
+      [18,30]
+      ]
+    GraphTesting.sorted_marker_pair_node_positions(res.start_stop_pairs).should == [
+      [[1,6],[2,5]],
+      [[2,8], [3,10]]
+      ]
+    res.initial_start_markers.should == []
+    GraphTesting.marker_positions(res.initial_stop_markers).should == [3]
+    GraphTesting.marker_node_positions(res.initial_stop_markers).should == [[1,3]]
+    res.final_start_markers.should == []
+  end
+
+  it 'should end orfs at first stop codon in forward direction' do
+    graph, = GraphTesting.emit_otrails([
+      [1,2,3]
+      ])
+    graph.nodes[1].ends_of_kmers_of_node = 'TAAATGGAAA' #stop codon 'TAA', start codon 'ATG'
+    graph.nodes[2].ends_of_kmers_of_node = 'AATAAAAAGA' #stop codon 'TAA'
+    graph.nodes[3].ends_of_kmers_of_node = 'AAAAAAATAA' #stop codon 'TAA'
+    initial_path = GraphTesting.make_onodes(graph, %w(1s))
+
+    orfer = Bio::AssemblyGraphAlgorithms::AllOrfsFinder.new
+    problems = orfer.find_all_problems(graph, [initial_path])
+    #pp problems
+
+    paths = orfer.find_orfs_from_problems(problems)
+    #pp paths
+    GraphTesting.sorted_paths(paths.trails).should == [
+      [1,2,3]
+      ]
+    res = paths.trails[0].fwd_orfs_result
+    GraphTesting.sorted_marker_pair_positions(res.start_stop_pairs).should == [
+      [6,15]
+      ]
+    GraphTesting.sorted_marker_pair_node_positions(res.start_stop_pairs).should == [
+      [[1,6],[2,5]]
+      ]
+    res.initial_start_markers.should == []
+    GraphTesting.marker_positions(res.initial_stop_markers).should == [3]
+    GraphTesting.marker_node_positions(res.initial_stop_markers).should == [[1,3]]
+    res.final_start_markers.should == []
+  end
+
+  it 'should end orfs at first stop codon in twin direction' do
+    graph = GraphTesting.emit([
+      [1,2],
+      [2,3]
+      ])
+    graph.nodes[1].ends_of_kmers_of_twin_node = 'TTAGTTTTTT' # stop codon 'TAG'
+    graph.nodes[2].ends_of_kmers_of_twin_node = 'TTTAGTTTTT' # stop codon 'TAG'
+    graph.nodes[3].ends_of_kmers_of_twin_node = 'TAAATGTTTT' # stop codon 'TAA', start codon 'ATG'
+    initial_path = GraphTesting.make_onodes(graph, %w(1s))
+
+    orfer = Bio::AssemblyGraphAlgorithms::AllOrfsFinder.new
+    problems = orfer.find_all_problems(graph, [initial_path])
+    #pp problems
+
+    paths = orfer.find_orfs_from_problems(problems)
+    #pp paths
+    GraphTesting.sorted_paths(paths.trails).should == [
+      [1,2,3]
+      ]
+    res = paths.trails[0].twin_orfs_result
+    GraphTesting.sorted_marker_pair_positions(res.start_stop_pairs).should == [
+      [6,15]
+      ]
+    GraphTesting.sorted_marker_pair_node_positions(res.start_stop_pairs).should == [
+      [[3,6],[2,5]]
+      ]
+    res.initial_start_markers.should == []
+    GraphTesting.marker_positions(res.initial_stop_markers).should == [3]
+    GraphTesting.marker_node_positions(res.initial_stop_markers).should == [[3,3]]
+    res.final_start_markers.should == []
+  end
+
+  it 'should return the first initial stop codon in forward direction' do
+    graph = GraphTesting.emit([
+      [1,2],
+      [2,3]
+      ])
+    graph.nodes[1].ends_of_kmers_of_node = 'AAATAGAAAA' # stop codon 'TAG'
+    graph.nodes[2].ends_of_kmers_of_node = 'AATAGAAAAA' # stop codon 'TAG'
+    initial_path = GraphTesting.make_onodes(graph, %w(1s))
+
+    orfer = Bio::AssemblyGraphAlgorithms::AllOrfsFinder.new
+    problems = orfer.find_all_problems(graph, [initial_path])
+    #pp problems
+
+    paths = orfer.find_orfs_from_problems(problems)
+    #pp paths
+    GraphTesting.sorted_paths(paths.trails).should == [
+      [1,2,3]
+      ]
+    res = paths.trails[0].fwd_orfs_result
+    res.start_stop_pairs.should == []
+    res.initial_start_markers.should == []
+    GraphTesting.marker_positions(res.initial_stop_markers).should == [6]
+    GraphTesting.marker_node_positions(res.initial_stop_markers).should == [[1,6]]
+    res.final_start_markers.should == []
+  end
 
   it 'should respect terminal nodes' do
     fail '#todo'
@@ -433,11 +554,79 @@ describe "AllOrfs" do
 
       paths = orfer.find_orfs_from_problems(problems)
       #pp paths
-      orfer.orf_sequences_from_trails(paths.trails).should == {
-        '(1s:6),2s,(3s:10)' => 'ATGGAAAAAAAAAAAAAAAAAAAATAA',
-        '1s,2s,3s' => 'T'*30,
-        ',(1s:3)' => 'TAA'
-        }
+      orfer.orf_sequences_from_trails(paths.trails).should == [
+        ['(1s:6),2s,(3s:10)', 'ATGGAAAAAAAAAAAAAAAAAAAATAA'],
+        [',(1s:3)', 'TAA'],
+        ['1s,2s,3s', 'T'*30],
+        ['1s,2s,3s', 'T'*27],
+        ['1s,2s,3s', 'T'*27]
+        ]
+    end
+
+    it 'should respect minimum orf length' do
+      graph = GraphTesting.emit([
+        [1,2],
+        [2,3]
+        ])
+      graph.nodes[1].ends_of_kmers_of_node = 'TAAATGGAAA' #stop codon 'TAA', start codon 'ATG'
+      graph.nodes[3].ends_of_kmers_of_node = 'AAAAAAATAA' #stop codon 'TAA'
+      initial_path = GraphTesting.make_onodes(graph, %w(1s))
+
+      orfer = Bio::AssemblyGraphAlgorithms::AllOrfsFinder.new
+      problems = orfer.find_all_problems(graph, [initial_path])
+
+      paths  =  orfer.find_orfs_from_problems(problems, :min_orf_length => 30)
+      orfer.orf_sequences_from_trails(paths.trails, 30).should == [
+        ['1s,2s,3s', 'T'*30]
+        ]
+
+      paths  =  orfer.find_orfs_from_problems(problems, :min_orf_length => 20)
+      orfer.orf_sequences_from_trails(paths.trails, 20).should == [
+        ['(1s:6),2s,(3s:10)', 'ATGGAAAAAAAAAAAAAAAAAAAATAA'],
+        ['1s,2s,3s', 'T'*30],
+        ['1s,2s,3s', 'T'*27],
+        ['1s,2s,3s', 'T'*27]
+        ]
+
+      paths  =  orfer.find_orfs_from_problems(problems, :min_orf_length => 0)
+      orfer.orf_sequences_from_trails(paths.trails, 0).should == [
+        ['(1s:6),2s,(3s:10)', 'ATGGAAAAAAAAAAAAAAAAAAAATAA'],
+        [',(1s:3)', 'TAA'],
+        ['1s,2s,3s', 'T'*30],
+        ['1s,2s,3s', 'T'*27],
+        ['1s,2s,3s', 'T'*27]
+        ]
+
+    end
+  end
+
+  describe 'sequence2AA' do
+    it 'should return corresponding amino acids for an orf sequence' do
+      orfer = Bio::AssemblyGraphAlgorithms::AllOrfsFinder.new
+      orfer.sequence2AA('GCTGCCGCAGCG').should == 'AAAA'
+      orfer.sequence2AA('CGTCGCCGACGGAGAAGG').should == 'RRRRRR'
+      orfer.sequence2AA('AATAAC').should == 'NN'
+      orfer.sequence2AA('GATGAC').should == 'DD'
+      orfer.sequence2AA('TGTTGC').should == 'CC'
+      orfer.sequence2AA('CAACAG').should == 'QQ'
+      orfer.sequence2AA('GAAGAG').should == 'EE'
+      orfer.sequence2AA('GGTGGCGGAGGG').should == 'GGGG'
+      orfer.sequence2AA('CATCAC').should == 'HH'
+      orfer.sequence2AA('ATTATCATA').should == 'III'
+      orfer.sequence2AA('TTATTGCTTCTCCTACTG').should == 'LLLLLL'
+      orfer.sequence2AA('AAAAAG').should == 'KK'
+      orfer.sequence2AA('ATG').should == 'M'
+      orfer.sequence2AA('TTTTTC').should == 'FF'
+      orfer.sequence2AA('CCTCCCCCACCG').should == 'PPPP'
+      orfer.sequence2AA('TCTTCCTCATCGAGTAGC').should == 'SSSSSS'
+      orfer.sequence2AA('ACTACCACAACG').should == 'TTTT'
+      orfer.sequence2AA('TGG').should == 'W'
+      orfer.sequence2AA('TATTAC').should == 'YY'
+      orfer.sequence2AA('GTTGTCGTAGTG').should == 'VVVV'
+      lambda { orfer.sequence2AA('TAA') }.should raise_error
+      lambda { orfer.sequence2AA('TGA') }.should raise_error
+      lambda { orfer.sequence2AA('TAG') }.should raise_error
+      lambda { orfer.sequence2AA('ABCXYZ') }.should raise_error
     end
   end
 end

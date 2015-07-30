@@ -9,6 +9,32 @@ module Bio
       CODON_LENGTH = 3
       START_CODONS = ['ATG']
       STOP_CODONS = ['TAG', 'TAA', 'TGA']
+      CODONS = {
+        'A' => ['GCT', 'GCC', 'GCA', 'GCG'],
+        'R' => ['CGT', 'CGC', 'CGA','CGG', 'AGA', 'AGG'],
+        'N' => ['AAT', 'AAC'],
+        'D' => ['GAT', 'GAC'],
+        'C' => ['TGT', 'TGC'],
+        'Q' => ['CAA', 'CAG'],
+        'E' => ['GAA', 'GAG'],
+        'G' => ['GGT', 'GGC', 'GGA', 'GGG'],
+        'H' => ['CAT', 'CAC'],
+        'I' => ['ATT', 'ATC', 'ATA'],
+        'L' => ['TTA', 'TTG', 'CTT', 'CTC', 'CTA', 'CTG'],
+        'K' => ['AAA', 'AAG'],
+        'M' => ['ATG'],
+        'F' => ['TTT', 'TTC'],
+        'P' => ['CCT', 'CCC', 'CCA', 'CCG'],
+        'S' => ['TCT', 'TCC', 'TCA', 'TCG', 'AGT', 'AGC'],
+        'T' => ['ACT', 'ACC', 'ACA', 'ACG'],
+        'W' => ['TGG'],
+        'Y' => ['TAT', 'TAC'],
+        'V' => ['GTT', 'GTC', 'GTA', 'GTG']
+        }
+      TRANSLATOR = CODONS.reduce({}) do |memo, pair|
+        pair[1].each{|key| memo[key] = pair[0]}
+        memo
+      end
 
       # Search for open reading frames in a graph, in all the paths begining at a set of
       # nodes through a graph (or a subset defined by range)
@@ -78,7 +104,7 @@ module Bio
         max_num_paths = options[:max_gapfill_paths]
         max_num_paths ||= 2196
         max_cycles = options[:max_cycles] || 1
-        min_orf_length = options[:minimum_orf_length] || 0
+        min_orf_length = options[:min_orf_length] || 0
 
         counter = SingleCoherentPathsBetweenNodesFinder::CycleCounter.new(max_cycles)
         decide_stack = lambda do |to_push|
@@ -474,10 +500,11 @@ module Bio
         return to_return
       end
 
-      def orf_sequences_from_trails(trails)
-        to_return = {}
+      def orf_sequences_from_trails(trails, min_orf_length=nil)
+        to_return = []
         trails.each do |trail|
           fwd_sequence, twin_sequence = trail.otrail.sequences_within_path
+          trail_length = fwd_sequence.length
           # forward / twin directions
           [
           [fwd_sequence, trail.fwd_orfs_result],
@@ -500,10 +527,12 @@ module Bio
                 end
                 name = "(#{onodes[0].to_shorthand}:#{pair[0].position_in_node}),#{onodes[1...-1].collect{|onode| onode.to_shorthand}.join(',')},(#{onodes[-1].to_shorthand}:#{pair[1].position_in_node})"
 
-                to_return[name] ||= sequence[start_position...end_position]
+                to_return.push [name, sequence[start_position...end_position]]
               end
               result.initial_stop_markers.each do |marker|
                 end_position = marker.position_in_trail
+                start_position = end_position % 3 #trim sequence to multiple of 3
+                next if min_orf_length and end_position - start_position < min_orf_length
 
                 # orf_name
                 last_node = nil
@@ -514,25 +543,50 @@ module Bio
                 end
                 name = "#{onodes[0...-1].collect{|onode| onode.to_shorthand}.join(',')},(#{onodes[-1].to_shorthand}:#{marker.position_in_node})"
 
-                to_return[name] ||= sequence[0...end_position]
+                to_return.push [name, sequence[start_position...end_position]]
               end
               result.final_start_markers.each do |marker|
                 start_position = marker.position_in_trail - 3
+                end_position = (trail_length - start_position) % 3
+                next if min_orf_length and trail_length - end_position - start_position < min_orf_length
 
                 # orf_name
                 onodes = trail.otrail.trail.drop_while{|onode| onode.node != marker.node}
                 name = "(#{onodes[0].to_shorthand}:#{marker.position_in_node}),#{onodes[1..-1].collect{|onode| onode.to_shorthand}.join(',')}"
+                to_return.push [name, sequence[start_position..-1-end_position]]
               end
             end
             if result.nil? or (result.start_stop_pairs.empty? and result.final_start_markers.empty? and result.initial_stop_markers.empty?)
-              name = "#{trail.otrail.to_shorthand}"
+              (0..2).each do |frame|
+                start_position = frame
+                end_position = (trail_length - start_position) % 3
+                next if min_orf_length and trail_length - end_position - start_position < min_orf_length
 
-              to_return[name] ||= sequence
+                # orf_name
+                name = "#{trail.otrail.to_shorthand}"
+                to_return.push [name, sequence[start_position..-1-end_position]]
+              end
             end
           end
         end
 
         return to_return
+      end
+
+      def sequence2AA(sequence)
+        remaining = sequence
+        aa = ""
+        while remaining.length > 0
+          codon = remaining[0...3]
+          log.debug "Found next codon #{codon}" if log.debug?
+          if not TRANSLATOR.has_key?(codon)
+            raise "Cannot translate invalid codon #{codon} in sequence #{sequence}."
+          end
+          log.debug "Codon translated to #{TRANSLATOR[codon]}" if log.debug?
+          aa += TRANSLATOR[codon]
+          remaining = remaining[3..-1]
+        end
+        return aa
       end
 
       # positions of last base of codons
