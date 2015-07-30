@@ -310,17 +310,7 @@ module Bio
         # In that case an exception is thrown.
         def sequence
           return '' if @trail.empty?
-          twin_nodes_sequence = ''
-          fwd_nodes_sequence = ''
-          @trail.each do |onode|
-            if onode.starts_at_start?
-              twin_nodes_sequence = onode.node.ends_of_kmers_of_twin_node + twin_nodes_sequence
-              fwd_nodes_sequence += onode.node.ends_of_kmers_of_node
-            else
-              twin_nodes_sequence = onode.node.ends_of_kmers_of_node + twin_nodes_sequence
-              fwd_nodes_sequence += onode.node.ends_of_kmers_of_twin_node
-            end
-          end
+          fwd_nodes_sequence, twin_nodes_sequence = sequences_within_path
           missing_length_from_each_side = @trail[0].node.parent_graph.hash_length-1
           if twin_nodes_sequence.length < missing_length_from_each_side
             raise InsufficientLengthException, "Not enough information to know the sequence of a node trail"
@@ -332,6 +322,22 @@ module Bio
             # calculating this way should be the same, but is somehow buggy in velvet?
             #return revcom(twin_nodes_sequence)+fwd_nodes_sequence[-seq_length_required...fwd_nodes_sequence.length]
           end
+        end
+
+        def sequences_within_path
+          return '', '' if @trail.empty?
+          twin_nodes_sequence = ''
+          fwd_nodes_sequence = ''
+          @trail.each do |onode|
+            if onode.starts_at_start?
+              twin_nodes_sequence = onode.node.ends_of_kmers_of_twin_node + twin_nodes_sequence
+              fwd_nodes_sequence += onode.node.ends_of_kmers_of_node
+            else
+              twin_nodes_sequence = onode.node.ends_of_kmers_of_node + twin_nodes_sequence
+              fwd_nodes_sequence += onode.node.ends_of_kmers_of_twin_node
+            end
+          end
+          return fwd_nodes_sequence, twin_nodes_sequence
         end
 
         def copy

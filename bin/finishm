@@ -34,6 +34,8 @@ global = OptionParser.new do |opts|
   Utility modes:
 
     sequence\tGiven a defined sequence of nodes, what is the corresponding sequence?
+    count_paths\tCount the number of paths through assembly graph
+    find_orfs\tFind possible open reading frames in assembly graph
     \n\n"
 end
 global.order!
@@ -73,7 +75,7 @@ subcommands = {
     operator.add_options(opts, options)
   end},
   'visualise' => lambda {OptionParser.new do |opts|
-    operator = Bio::FinishM::Visualiser.new
+    operator = Bio::FinishM::Visualise.new
     operator.add_options(opts, options)
   end},
   'sequence' => lambda {OptionParser.new do |opts|
@@ -84,6 +86,14 @@ subcommands = {
     operator = Bio::FinishM::RoundUp.new
     operator.add_options(opts, options)
   end},
+  'count_paths' => lambda {OptionParser.new do |opts|
+    operator = Bio::FinishM::PathCounter.new
+    operator.add_options(opts, options)
+  end},
+  'find_orfs' => lambda {OptionParser.new do |opts|
+    operator = Bio::FinishM::ORFsFinder.new
+    operator.add_options(opts, options)
+  end}
 }
 
 subcommand = nil
