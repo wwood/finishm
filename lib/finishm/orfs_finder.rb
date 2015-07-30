@@ -49,9 +49,6 @@ class Bio::FinishM::ORFsFinder
       visualise.validate_assembly_options(options)
   end
 
-  def add_orfs_options(optparse_object, options)
-  end
-
   def run(options, argv)
     read_input = Bio::FinishM::ReadInput.new
     read_input.parse_options options
