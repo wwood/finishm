@@ -8,10 +8,13 @@ class Bio::FinishM::ORFsFinder
   def add_options(optparse_object, options)
     options.merge! Bio::FinishM::Visualise::DEFAULT_OPTIONS
     options.merge! DEFAULT_OPTIONS
-    optparse_object.banner = "\nUsage: finishm find_orfs --assembly-???
+    optparse_object.banner = "\nUsage: finishm find_orfs [--orfa OUTPUT_FAA --orfn OUTPUT_FNA]
 
     Find possible open reading frames in assembly graph
     \n\n"
+
+    optparse_object.separator "Output sequence files"
+    add_orfs_options(optparse_object, options)
 
     optparse_object.separator "Input genome information"
     optparse_object.separator "\nIf an assembly is to be done, there must be some definition of reads:\n\n" #TODO improve this help
@@ -29,6 +32,15 @@ class Bio::FinishM::ORFsFinder
     return visualise.validate_argv_length(argv) ||
       visualise.validate_probe_options(options) ||
       visualise.validate_assembly_options(options)
+  end
+
+  def add_orfs_options(optparse_object, options)
+    optparse_object.on("--orfa OUTPUT_FAA", "Output ORF amino acid sequences [default: off]") do |arg|
+      options[:output_faa] = arg
+    end
+    optparse_object.on("--orfn OUTPUT_FNA", "Output ORF nucleotide sequences [default: orfs.fna unless --orfa is specified]") do |arg|
+      options[:output_fna] = arg
+    end
   end
 
   def run(options, argv)
@@ -59,7 +71,18 @@ class Bio::FinishM::ORFsFinder
     end
 
     initial_onodes = Bio::FinishM::PathCounter.new.get_leash_start_nodes(finishm_graph, options[:range])
-    find_orfs_in_graph(finishm_graph, initial_onodes, options)
+    orfs = find_orfs_in_graph(finishm_graph, initial_onodes, options)
+    log.info "Found #{orfs.length} open reading frames longer than #{options[:min_orf_length]}."
+    if not options[:output_fna] and not options[:output_faa]
+        options[:output_fna] = 'orfs.fna'
+    end
+
+    if options[:output_fna]
+        write_orfs_to_file(orfs, options[:output_fna])
+    end
+    if options[:output_faa]
+        write_orfs_to_file(orfs, options[:output_faa], translate=true)
+    end
   end
 
   def find_orfs_in_graph(finishm_graph, initial_onodes, options={})
@@ -73,11 +96,24 @@ class Bio::FinishM::ORFsFinder
     orf_trails = orfer.find_orfs_in_graph(finishm_graph.graph, initial_paths,
         options[:min_orf_length], options[:range])
 
-    found_orfs = orfer.orf_sequences_from_trails(orf_trails)
+    orfer.orf_sequences_from_trails(orf_trails, options[:min_orf_length])
+  end
 
-    found_orfs.each_pair do |name, sequence|
-      puts ">#{name}"
-      puts sequence
+  def write_orfs_to_file(found_orfs, orfs_file, translate=false)
+    if translate
+        translator = Bio::AssemblyGraphAlgorithms::AllOrfsFinder.new
+    end
+    File.open(orfs_file,'w') do |f|
+      counter = 0
+      found_orfs.each do |name_and_sequence|
+        counter += 1
+        f.puts ">finishm_orf_#{counter} #{name_and_sequence[0]}"
+        if translate
+          f.puts translator.sequence2AA(name_and_sequence[1][0...-3])
+        else
+          f.puts name_and_sequence[1]
+        end
+      end
     end
   end
 
