@@ -2,23 +2,38 @@ class Bio::FinishM::ORFsFinder
   include Bio::FinishM::Logging
 
   DEFAULT_OPTIONS = {
-    :min_orf_length => 100
+    :min_orf_length => 96
     }
 
   def add_options(optparse_object, options)
     options.merge! Bio::FinishM::Visualise::DEFAULT_OPTIONS
     options.merge! DEFAULT_OPTIONS
-    optparse_object.banner = "\nUsage: finishm find_orfs [--orfa OUTPUT_FAA --orfn OUTPUT_FNA]
+    optparse_object.banner = "\nUsage: finishm find_orfs [--orf-amino-acids OUTPUT_FAA --orf-nucleotides OUTPUT_FNA]
 
     Find possible open reading frames in assembly graph
     \n\n"
 
-    optparse_object.separator "Output sequence files"
-    add_orfs_options(optparse_object, options)
+    optparse_object.separator "\nOutput sequence files\n\n"
+    optparse_object.on("--orf-amino-acids OUTPUT_FAA", "Output ORF amino acid sequences [default: orf.faa unless --orf-nucleotides is specified]") do |arg|
+      options[:output_faa] = arg
+    end
+    optparse_object.on("--orf-nucleotides OUTPUT_FNA", "Output ORF nucleotide sequences [default: orf.fna unless --orf-amino-acids is specified]") do |arg|
+      options[:output_fna] = arg
+    end
 
-    optparse_object.separator "Input genome information"
+    optparse_object.separator "\nInput genome information"
     optparse_object.separator "\nIf an assembly is to be done, there must be some definition of reads:\n\n" #TODO improve this help
     Bio::FinishM::ReadInput.new.add_options(optparse_object, options)
+
+    optparse_object.separator "\nOptional arguments:\n\n"
+    optparse_object.on("--min-orf-length", "Minimum ORF length [default: 96]") do |arg|
+      length = arg.to_i
+      if length.to_s != arg or length.nil? or length < 1
+        raise "Unable to parse minimum orf length parameter #{arg}, cannot continue"
+      end
+      options[:min_orf_length] = length
+    end
+
 
     optparse_object.separator "\nOptional graph-exploration arguments:\n\n"
     Bio::FinishM::Visualise.new.add_probe_options(optparse_object, options)
@@ -35,12 +50,6 @@ class Bio::FinishM::ORFsFinder
   end
 
   def add_orfs_options(optparse_object, options)
-    optparse_object.on("--orfa OUTPUT_FAA", "Output ORF amino acid sequences [default: off]") do |arg|
-      options[:output_faa] = arg
-    end
-    optparse_object.on("--orfn OUTPUT_FNA", "Output ORF nucleotide sequences [default: orfs.fna unless --orfa is specified]") do |arg|
-      options[:output_fna] = arg
-    end
   end
 
   def run(options, argv)
