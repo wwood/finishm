@@ -38,7 +38,8 @@ class Bio::FinishM::Visualise
     return validate_argv_length(argv) ||
         validate_visualisation_options(options) ||
         validate_probe_options(options) ||
-        validate_assembly_options(options)
+        validate_assembly_options(options) ||
+        validate_scaffold_options(options)
   end
 
   def add_visualisation_options(optparse_object, options)
@@ -79,8 +80,8 @@ class Bio::FinishM::Visualise
 
   def validate_scaffold_options(options)
     # If scaffolds are defined, then probe genomes must also be defined
-    if options[:scaffolds] and !options[:assembly_files]
-      return "If --scaffolds is defined, so then must --genomes"
+    if options[:scaffold_sides] and !options[:assembly_files]
+      return "If --scaffolds is given, then --genomes must also be given"
     end
   end
 
