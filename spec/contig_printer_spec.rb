@@ -42,7 +42,7 @@ describe "ContigPrinter" do
                    '14S:GTT',
                   ].sort
     end
-    
+
     it 'should handle not variants' do
       seqs = [
               'ATGAATATGTGCATAGGATT',
@@ -235,7 +235,7 @@ describe "ContigPrinter" do
         GraphTesting.make_onodes(graph, %w(9s 12s 7e 13s 5e 11e 2s 10s 4e)),#highest coverage
         GraphTesting.make_onodes(graph, %w(9s 12s 7e 13s 5e 1e 2e 10s 4e)),
         ]
-      expected = 
+      expected =
         'ATGAACGAACGCTGGCGGCATGCCTAACACATGCAAGTCGAACGAGACCTTCGGGTCTAGTGGCGCACGGGTGCGTAACGCGTGGGAATCTGCCCTTGGGTACGG'+
         'AATAACAGTTAGAAATGACTGCTAATACCGTATAATGACTTCGGTCCAAAGATTTATCGCCCAGGGATGAGCCCGCGTAGGATTAGCTTGTTGGTGAGGTAAANN'+
         'NTNNCNNANNNNNNNNNNNNTNNNNNGNNNNNNNNNNNGNTNAGNNNCNNNGNNNNNGNGANNTGGCCCAGACTCCTACGGGAGGCAGCAGTGGGGAATATTGGACAATGGGC'+
@@ -283,9 +283,27 @@ describe "ContigPrinter" do
     it 'should handle when start_coord is not == 0 and both reads are outwards facing' do
       raise
     end
-    
+
     it 'should handle when the example path is not the same length as the reference path' do
       fail
+    end
+  end
+
+  describe 'AnchoredConnection' do
+    it 'should collapse_paths_to_maximal_coverage_path!' do
+      graph = Bio::Velvet::Graph.parse_from_file(File.join TEST_DATA_DIR, 'contig_printer','1','seq.fa.velvet','LastGraph')
+      graph.nodes.length.should == 13
+      acon = Bio::AssemblyGraphAlgorithms::ContigPrinter::AnchoredConnection.new
+      acon.start_probe_noded_read = graph.nodes[9].short_reads.select{|nr| nr.read_id == 161}[0] #Found these by using bwa and inspecting the Sequence velvet file
+      acon.end_probe_noded_read = graph.nodes[4].short_reads.select{|nr| nr.read_id == 1045}[0]
+      acon.start_probe_contig_offset = 2
+      acon.end_probe_contig_offset = 3
+      acon.paths = [
+        GraphTesting.make_onodes(graph, %w(9s 12s 7e 13s 5e 11e 2s 10s 4e)),#highest coverage
+        GraphTesting.make_onodes(graph, %w(9s 12s 7e 13s 5e 1e 2e 10s 4e)),
+        ]
+      acon.collapse_paths_to_maximal_coverage_path!
+      acon.paths.collect{|path| path.to_shorthand}.should == [%w(9s 12s 7e 13s 5e 11e 2s 10s 4e).join(',')]
     end
   end
 end

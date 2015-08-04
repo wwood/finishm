@@ -34,6 +34,23 @@ module Bio
         # Enumerable of Enumerables of OrientedNode objects, each list of OrientedNode objects
         # corresponds to a path that forms the connection
         attr_accessor :paths
+
+        # Remove all except the path with maximal coverage from @paths
+        def collapse_paths_to_maximal_coverage_path!
+          return if @paths.nil? or @paths.empty?
+          get_coverage = lambda do |path|
+            numerator = 0
+            denominator = 0
+            path.each do |onode|
+              numerator += onode.node.coverage * onode.node.length_alone
+              denominator += onode.node.length_alone
+            end
+            numerator.to_f / denominator
+          end
+          @paths = [@paths.max do |path1, path2|
+            get_coverage.call(path1) <=> get_coverage.call(path2)
+          end]
+        end
       end
 
       # Given two contigs, return a consensus path and variants of the path.
@@ -293,7 +310,7 @@ module Bio
       def clustalo(sequences)
         i = 0
         stdin = sequences.collect{|s| i+=1; ">#{i}\n#{s}\n"}.join('')
-        log.info "Running clustalo with #{sequences.length} sequences, specifically: #{stdin}" #if log.debug?
+        log.info "Running clustalo with #{sequences.length} sequences, specifically: #{stdin}" if log.debug?
         stdout = Bio::Commandeer.run "clustalo -t DNA -i - --output-order=input-order", {:stdin => stdin, :log => log}
         to_return = []
         header = true

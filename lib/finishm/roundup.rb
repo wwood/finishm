@@ -10,6 +10,7 @@ class Bio::FinishM::RoundUp
     :gapfill_only => false,
     :max_explore_nodes => 10000,
     :max_gapfill_paths => 10,
+    :gapfill_with_max_coverage => false,
     }
 
   def add_options(optparse_object, options)
@@ -63,6 +64,9 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
     end
     optparse_object.on("--max-explore-nodes NUM", Integer, "Only explore this many nodes. If max is reached, do not make connections. [default: #{options[:max_explore_nodes] }]") do |arg|
       options[:max_explore_nodes] = arg
+    end
+    optparse_object.on("--gapfill-with-max-coverage", "When gapfilling, take the path with maximal coverage and do not print variants [default: #{options[:gapfill_with_max_coverage] }]") do
+      options[:gapfill_with_max_coverage] = true
     end
     optparse_object.on("--debug", "Build the graph, then drop to a pry console. [default: #{options[:debug] }]") do
       options[:debug] = true
@@ -193,6 +197,7 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
                     # Just arbitrarily put in 100 N characters, to denote a join, but no gapfill
                     scaffold_sequence = scaffold_sequence+('N'*100)+rhs_sequence
                   else
+                    acon.collapse_paths_to_maximal_coverage_path! if options[:gapfill_with_max_coverage]
                     scaffold_sequence, variants = printer.ready_two_contigs_and_connections(
                       master_graph.graph,
                       scaffold_sequence,
@@ -321,7 +326,7 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
     return gapfilled_sequence, num_gapfills, all_variants
   end
 
-  def piece_together_gapfill(printer, master_graph, first_sequence, aconn, second_sequence, gap_length, max_gapfill_paths)
+  def piece_together_gapfill(printer, master_graph, first_sequence, aconn, second_sequence, gap_length, max_gapfill_paths, options)
     scaffold_sequence = nil
     gapfilled = -1
     if aconn.paths.length == 0 or aconn.paths.length > max_gapfill_paths
@@ -329,6 +334,7 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
       scaffold_sequence = first_sequence + 'N'*gap_length + second_sequence
       gapfilled = false
     else
+      acon.collapse_paths_to_maximal_coverage_path! if options[:gapfill_with_max_coverage]
       scaffold_sequence, variants = printer.ready_two_contigs_and_connections(
         master_graph.graph, first_sequence, aconn, second_sequence, master_graph.velvet_sequences
         )
