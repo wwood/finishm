@@ -18,12 +18,16 @@ global = OptionParser.new do |opts|
   opts.banner = "
     Usage: #{SCRIPT_NAME} <command> [<arguments>]
 
-  FinishM is a collection of tasks related to assembly and metagenome assembly. Available commands:
+  FinishM is a collection of tasks related to assembly and metagenome assembly. Common commands:
+
+    roundup\tImprove a genome by connecting scaffolds and gapfilling
+    visualise\tVisualise the DeBruijn graph
+
+  Other available commands:
 
     wander\tTry to connect contigs (experimental)
     gapfill\tFill assembly gaps (N characters) (experimental)
     explore\tWhat happens in the graph beyond the end of my contig(s)? (experimental)
-    visualise\tVisualise the DeBruijn graph (experimental)
 
   Commands for PCR finishing:
 
