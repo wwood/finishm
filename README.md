@@ -50,7 +50,7 @@ cd ../..
 
 ## Citation
 
-A manuscript describing the tools described here is currently in preparation. However, FinishM reuses code from velvet and BioRuby, so these tools may be worth citing.
+A manuscript describing the tools described here is currently in preparation. However, FinishM reuses code from velvet, clustalo and BioRuby, so these tools may be worth citing.
 
 ## Copyright
 
