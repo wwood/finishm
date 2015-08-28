@@ -54,6 +54,6 @@ A manuscript describing the tools described here is currently in preparation. Ho
 
 ## Copyright
 
-Copyright (c) 2012-2014 Ben J. Woodcroft. See LICENSE.txt for
+Copyright (c) 2012-2015 Ben J. Woodcroft. See LICENSE.txt for
 further details.
 
