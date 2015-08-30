@@ -101,7 +101,8 @@ class Bio::FinishM::ScaffoldBreaker
 
       unless seq.seq.match(/^[ATGCN]+$/i)
         example = seq.seq.match(/([^ATGCN])/i)[1]
-        log.warn "Found unexpected characters in the sequence #{seq.definition} e.g. #{example}, continuing optimistically, but not quite sure what will happen.. good luck"
+        log.warn "Found unexpected characters in the sequence #{seq.definition} e.g. #{example}. Replacing them with Ns"
+        seq.seq.gsub! /[^ATGCN]/i, 'N'
       end
 
       if seq.seq.match(/^N+$/i)

@@ -141,4 +141,18 @@ describe "ScaffoldBreaker" do
       brokes[0].sequence.should == seq
     end
   end
+
+  it 'should replace non-ATGC characters with N' do
+    breaker = Bio::FinishM::ScaffoldBreaker.new
+    Tempfile.open('a') do |tmp|
+      tmp.puts '>ab'
+      seq = 'AAAAANNNGGGYYYTTNNAA'
+      tmp.puts seq
+      #         1234567890123456789
+      tmp.close
+
+      brokes = breaker.break_scaffolds(tmp.path)
+      brokes[0].sequence.should == 'AAAAANNNGGGNNNTTNNAA'
+    end
+  end
 end
