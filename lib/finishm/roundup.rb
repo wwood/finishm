@@ -197,7 +197,7 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
                     # Just arbitrarily put in 100 N characters, to denote a join, but no gapfill
                     scaffold_sequence = scaffold_sequence+('N'*100)+rhs_sequence
                   else
-                    acon.collapse_paths_to_maximal_coverage_path! if options[:gapfill_with_max_coverage]
+                    aconn.collapse_paths_to_maximal_coverage_path! if options[:gapfill_with_max_coverage]
                     scaffold_sequence, variants = printer.ready_two_contigs_and_connections(
                       master_graph.graph,
                       scaffold_sequence,
