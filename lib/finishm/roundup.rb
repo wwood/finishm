@@ -326,7 +326,7 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
     return gapfilled_sequence, num_gapfills, all_variants
   end
 
-  def piece_together_gapfill(printer, master_graph, first_sequence, aconn, second_sequence, gap_length, max_gapfill_paths, options)
+  def piece_together_gapfill(printer, master_graph, first_sequence, aconn, second_sequence, gap_length, max_gapfill_paths, options={})
     scaffold_sequence = nil
     gapfilled = -1
     if aconn.paths.length == 0 or aconn.paths.length > max_gapfill_paths
