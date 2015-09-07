@@ -228,6 +228,7 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
                 genome.scaffolds[contig.sequence_index].name
               end
               output_file.puts ">#{superscaffold_name} #{descriptor} #{scaffold_names.join(':') }"
+              scaffold_sequence.gsub! '-', '' #remove dashes since these make things fail downstream
               output_file.puts scaffold_sequence
             end
 
