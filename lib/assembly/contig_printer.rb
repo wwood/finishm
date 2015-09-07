@@ -84,10 +84,6 @@ module Bio
         # beginning and ending probes
         begin
           example_path = anchored_connection.paths[0]
-          path_sequence, variants = sequences_to_variants_conservative(
-            anchored_connection.paths.collect{|path| path.sequence}
-            )
-          log.debug "Reference path has a sequence length #{path_sequence.length}" if log.debug?
 
           # Find start index
           begin_onode = example_path[0]
@@ -107,6 +103,20 @@ module Bio
           else
             offset_of_begin_probe_on_path = begin_noded_read.offset_from_start_of_node
           end
+
+          path_sequence, variants = sequences_to_variants_conservative(
+            anchored_connection.paths.collect do |path|
+              seq = nil
+              begin
+                seq = path.sequence
+              rescue Bio::Velvet::Graph::OrientedNodeTrail::InsufficientLengthException => e
+                log.warn "Failed to join two contigs together because of inability to get sequence out of a trail of nodes. In the past this has been caused by low coverage thus making finishM inappropriate, so returning an unconnected contig now. However, this may be legitimate in the case of an unlucky misassembly at both ends of the contigs being joined, so please report this error to the author."
+                return nil, nil
+              end
+              seq
+            end
+            )
+          log.debug "Reference path has a sequence length #{path_sequence.length}" if log.debug?
 
           # Correct variants' positions to be relative to the full contig,
           # not just the path sequence

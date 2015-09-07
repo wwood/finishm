@@ -191,26 +191,34 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
                     )
                   second_sequence = genome.scaffolds[contig.sequence_index].contigs[0].sequence
                   log.debug "Found #{aconn.paths.length} connections between #{last_name} and #{current_name}" if log.debug?
-                  if aconn.paths.length == 0
-                    # when this occurs, it is due to there being a circuit in the path, so no paths are printed.
-                    # (at least for now) TODO: this could be improved.
-                    # Just arbitrarily put in 100 N characters, to denote a join, but no gapfill
-                    scaffold_sequence = scaffold_sequence+('N'*100)+rhs_sequence
-                  else
+                  connected = false
+                  if aconn.paths.length > 0
                     aconn.collapse_paths_to_maximal_coverage_path! if options[:gapfill_with_max_coverage]
-                    scaffold_sequence, variants = printer.ready_two_contigs_and_connections(
+                    scaffold_sequence2, variants = printer.ready_two_contigs_and_connections(
                       master_graph.graph,
                       scaffold_sequence,
                       aconn,
                       rhs_sequence,
                       master_graph.velvet_sequences
                       )
-                    # Print variants
-                    # TODO: need to change coordinates of variants, particularly when >2 contigs are joined?
-                    variants.each do |variant|
-                      variant.reference_name = superscaffold_name
-                      variants_file.puts variant.vcf(scaffold_sequence)
+                    if !scaffold_sequence2.nil?
+                      scaffold_sequence = scaffold_sequence2
+                      connected = true
+                      # Print variants
+                      # TODO: need to change coordinates of variants, particularly when >2 contigs are joined?
+                      variants.each do |variant|
+                        variant.reference_name = superscaffold_name
+                        variants_file.puts variant.vcf(scaffold_sequence)
+                      end
                     end
+                  end
+                  if !connected
+                    # when this occurs, it is due to there being a circuit in the path, so no paths are printed.
+                    # (at least for now) TODO: this could be improved.
+                    # Just arbitrarily put in 100 N characters, to denote a join, but no gapfill
+
+                    # (or, it could be impossible to join because of low coverage resulting in inability to get sequence from the node trail)
+                    scaffold_sequence = scaffold_sequence+('N'*100)+rhs_sequence
                   end
                 end
                 last_contig = contig
@@ -293,7 +301,7 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
       options[:interesting_probes].include?(probe2.number)
       connections.push gapfiller.gapfill(master_graph, probe1.index, probe2.index, options)
     end
-    log.debug "Found #{connections.length} connections" if log.debug?
+    log.debug "Found #{connections.length} connections gapfilling in scaffold #{scaffold_index}" if log.debug?
 
     all_variants = []
     num_gapfills = 0
@@ -330,18 +338,22 @@ the finishm_roundup_results directory in FASTA format. The procedure is then rep
   def piece_together_gapfill(printer, master_graph, first_sequence, aconn, second_sequence, gap_length, max_gapfill_paths, options={})
     scaffold_sequence = nil
     gapfilled = -1
-    if aconn.paths.length == 0 or aconn.paths.length > max_gapfill_paths
-      # No paths found. Just fill with Ns like it was before
-      scaffold_sequence = first_sequence + 'N'*gap_length + second_sequence
-      gapfilled = false
-    else
-      acon.collapse_paths_to_maximal_coverage_path! if options[:gapfill_with_max_coverage]
+    if aconn.paths.length != 0 and aconn.paths.length <= max_gapfill_paths
+      aconn.collapse_paths_to_maximal_coverage_path! if options[:gapfill_with_max_coverage]
       scaffold_sequence, variants = printer.ready_two_contigs_and_connections(
         master_graph.graph, first_sequence, aconn, second_sequence, master_graph.velvet_sequences
         )
-      gapfilled = true
+      if !scaffold_sequence.nil? #sometimes it is just impossible even if there is paths
+        scaffold_sequence.gsub!('-','') #remove gaps i.e. where the consensus is a gap
+        gapfilled = true
+      end
     end
-    scaffold_sequence.gsub!('-','') #remove gaps i.e. where the consensus is a gap
+    if gapfilled != true
+      # No paths found, or gapfilling failed at the final step Just fill with Ns like it was before
+      scaffold_sequence = first_sequence + 'N'*gap_length + second_sequence
+      gapfilled = false
+    end
+
     return scaffold_sequence, variants, gapfilled
   end
 
