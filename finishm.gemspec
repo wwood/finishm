@@ -582,7 +582,7 @@ Gem::Specification.new do |s|
       s.add_development_dependency(%q<yard>, ["~> 0.7"])
       s.add_development_dependency(%q<rdoc>, ["~> 3.12"])
       s.add_development_dependency(%q<bundler>, [">= 1.6.2", "~> 1.6"])
-      s.add_development_dependency(%q<jeweler>, [">= 2.0.1", "~> 2.0"])
+      s.add_development_dependency(%q<jeweler>, [">= 2.1.1", "~> 2.0"])
       s.add_development_dependency(%q<bio-commandeer>, ["~> 0.1"])
     else
       s.add_dependency(%q<bio-ipcress>, ["~> 0.0"])
@@ -601,7 +601,7 @@ Gem::Specification.new do |s|
       s.add_dependency(%q<yard>, ["~> 0.7"])
       s.add_dependency(%q<rdoc>, ["~> 3.12"])
       s.add_dependency(%q<bundler>, [">= 1.6.2", "~> 1.6"])
-      s.add_dependency(%q<jeweler>, [">= 2.0.1", "~> 2.0"])
+      s.add_dependency(%q<jeweler>, [">= 2.1.1", "~> 2.0"])
       s.add_dependency(%q<bio-commandeer>, ["~> 0.1"])
     end
   else
@@ -621,7 +621,7 @@ Gem::Specification.new do |s|
     s.add_dependency(%q<yard>, ["~> 0.7"])
     s.add_dependency(%q<rdoc>, ["~> 3.12"])
     s.add_dependency(%q<bundler>, [">= 1.6.2", "~> 1.6"])
-    s.add_dependency(%q<jeweler>, [">= 2.0.1", "~> 2.0"])
+    s.add_dependency(%q<jeweler>, [">= 2.1.1", "~> 2.0"])
     s.add_dependency(%q<bio-commandeer>, ["~> 0.1"])
   end
 end
