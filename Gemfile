@@ -6,7 +6,7 @@ gem 'bio-ipcress', '~>0.0'
 gem 'bio-logger', '~>1.0'
 gem 'bio', '~>1.4', '>=1.4.3'
 gem 'progressbar', '~>0.21'
-gem 'bio-samtools', '~>0.6'
+#gem 'bio-samtools', '~>2.4' # removed because even the newest version does not compile due to lacking zlib.h
 gem 'ruby-graphviz', '~>1.0', '>=1.0.9'
 gem 'ds', '~>0.0', '>=0.0.4'
 gem 'hopcsv', '~> 0.4', '>=0.4.3'
