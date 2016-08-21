@@ -28,13 +28,13 @@ global = OptionParser.new do |opts|
     wander\tTry to connect contigs (experimental)
     gapfill\tFill assembly gaps (N characters) (experimental)
     explore\tWhat happens in the graph beyond the end of my contig(s)? (experimental)
+"+ # primer stuff is not really ready and requires bio-primer3 to be released.
+  # Commands for PCR finishing:
 
-  Commands for PCR finishing:
-
-    primers\tdesign primers for multi-primer multi-lane PCR experimental setup (experimental)
-    primers_check\ttest a set of primers for incompatibility (experimental)
-    finish\tprocess results from multi-primer multi-lane PCR experimental setup (experimental)
-
+  #   primers\tdesign primers for multi-primer multi-lane PCR experimental setup (experimental)
+  #   primers_check\ttest a set of primers for incompatibility (experimental)
+  #   finish\tprocess results from multi-primer multi-lane PCR experimental setup (experimental)
+"
   Utility modes:
 
     sequence\tGiven a defined sequence of nodes, what is the corresponding sequence?
@@ -46,18 +46,18 @@ global.order!
 
 operator = nil
 subcommands = {
-  'primers' => lambda {OptionParser.new do |opts|
-    operator = Bio::FinishM::Primers.new
-    operator.add_options(opts, options)
-  end},
-  'primers_check' => lambda {OptionParser.new do |opts|
-    operator = Bio::FinishM::Primers::Checker.new
-    operator.add_options(opts, options)
-  end},
-  'finish' => lambda {OptionParser.new do |opts|
-    operator = Bio::FinishM::Finisher.new
-    operator.add_options(opts, options)
-  end},
+  # 'primers' => lambda {OptionParser.new do |opts|
+  #   operator = Bio::FinishM::Primers.new
+  #   operator.add_options(opts, options)
+  # end},
+  # 'primers_check' => lambda {OptionParser.new do |opts|
+  #   operator = Bio::FinishM::Primers::Checker.new
+  #   operator.add_options(opts, options)
+  # end},
+  # 'finish' => lambda {OptionParser.new do |opts|
+  #   operator = Bio::FinishM::Finisher.new
+  #   operator.add_options(opts, options)
+  # end},
   'gapfill' => lambda {OptionParser.new do |opts|
     operator = Bio::FinishM::GapFiller.new
     operator.add_options(opts, options)

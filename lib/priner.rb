@@ -51,9 +51,9 @@ require 'assembly/bubbly_assembler'
 require 'assembly/bad_format_writer'
 require 'assembly/height_finder'
 
-require 'finishm/primers'
-require 'finishm/primers_check'
-require 'finishm/finisher'
+#require 'finishm/primers' # Do not require as bio-primer3 has not been released.
+#require 'finishm/primers_check'
+#require 'finishm/finisher'
 require 'finishm/gapfiller'
 require 'finishm/wander'
 require 'finishm/fluff'
