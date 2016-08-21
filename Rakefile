@@ -17,6 +17,7 @@ Jeweler::Tasks.new do |gem|
   gem.name = "finishm"
   gem.homepage = "http://github.com/wwood/finishm"
   gem.license = "GPL-3.0+"
+  gem.required_ruby_version = '~> 2.3'
   gem.summary = %Q{Genome improvement and finishing with or without further sequencing effort}
   gem.description = %Q{De-novo assemblies generally only provide draft genomes. FinishM is aimed at improving these draft assemblies.}
   gem.email = "donttrustben near gmail.com"

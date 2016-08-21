@@ -25,7 +25,7 @@ path_external = File.join(File.dirname(__FILE__), "../lib/external")
 task :compile do
   cd(File.join(File.dirname(__FILE__),'src')) do
     #sh "patch -p1 < ../bioruby.patch"
-    case Config::CONFIG['host_os']
+    case RbConfig::CONFIG['host_os']
       when /linux/
 
         # Create library with default install params
